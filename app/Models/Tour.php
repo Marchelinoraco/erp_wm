@@ -39,6 +39,16 @@ class Tour extends Model
         return $this->hasMany(TourItineraryDay::class)->orderBy('day_number');
     }
 
+    public function itineraryHours()
+    {
+        return $this->hasMany(TourItineraryHour::class)->orderBy('day_number')->orderBy('start_time');
+    }
+
+    public function histories()
+    {
+        return $this->hasMany(TourHistory::class)->latest();
+    }
+
     public function getItineraryPdfUrlAttribute(): ?string
     {
         return $this->itinerary_pdf

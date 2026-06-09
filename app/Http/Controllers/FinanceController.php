@@ -30,6 +30,30 @@ class FinanceController extends Controller
             ->latest('date')
             ->get();
 
+        // Tour confirmed — pintu masuk ke pencatatan keuangan per tour
+        $confirmedTours = Tour::where('status', 'confirmed')
+            ->with('customer:id,name')
+            ->withSum('items as est_sell', 'line_sell')
+            ->withSum('items as est_cost', 'line_cost')
+            ->withSum('invoices as invoiced_total', 'total')
+            ->withSum('bills as billed_total', 'amount')
+            ->withCount(['invoices', 'bills'])
+            ->latest()
+            ->get()
+            ->map(fn ($t) => [
+                'id'             => $t->id,
+                'code'           => $t->code,
+                'title'          => $t->title,
+                'customer'       => $t->customer?->name,
+                'est_sell'       => (float) $t->est_sell,
+                'est_cost'       => (float) $t->est_cost,
+                'est_profit'     => (float) $t->est_sell - (float) $t->est_cost,
+                'invoiced_total' => (float) $t->invoiced_total,
+                'billed_total'   => (float) $t->billed_total,
+                'invoices_count' => $t->invoices_count,
+                'bills_count'    => $t->bills_count,
+            ]);
+
         return Inertia::render('Finance/Index', [
             'ar_total'             => (float) $arTotal,
             'ar_received'          => (float) $arReceived,
@@ -37,6 +61,7 @@ class FinanceController extends Controller
             'ap_paid'              => (float) $apPaid,
             'outstanding_invoices' => $outstandingInvoices,
             'unpaid_bills'         => $unpaidBills,
+            'confirmed_tours'      => $confirmedTours,
         ]);
     }
 

@@ -251,6 +251,175 @@ function saveItinerary() {
     })
 }
 
+// ── Riwayat / Activity Log ────────────────────────────────────────────────────
+const HISTORY_TYPES = {
+    revision:  'Revisi Customer',
+    note:      'Catatan Internal',
+    call:      'Telepon',
+    meeting:   'Meeting',
+    email:     'Email',
+    confirmed: 'Confirmed',
+    cancelled: 'Dibatalkan',
+}
+const HISTORY_COLORS = {
+    revision:  'bg-orange-100 text-orange-700',
+    note:      'bg-gray-100 text-gray-600',
+    call:      'bg-blue-100 text-blue-700',
+    meeting:   'bg-purple-100 text-purple-700',
+    email:     'bg-sky-100 text-sky-700',
+    confirmed: 'bg-green-100 text-green-700',
+    cancelled: 'bg-red-100 text-red-700',
+}
+const HISTORY_ICONS = {
+    revision:  '↺',
+    note:      '📝',
+    call:      '📞',
+    meeting:   '👥',
+    email:     '✉',
+    confirmed: '✓',
+    cancelled: '✕',
+}
+
+const showHistoryForm = ref(false)
+const historyForm = useForm({ type: 'revision', description: '' })
+
+function submitHistory() {
+    historyForm.post(route('tours.histories.store', props.tour.id), {
+        preserveScroll: true,
+        only: ['tour'],
+        onSuccess: () => {
+            historyForm.reset('description')
+            showHistoryForm.value = false
+        },
+    })
+}
+
+function deleteHistory(historyId) {
+    if (confirm('Hapus catatan ini?')) {
+        router.delete(route('tours.histories.destroy', [props.tour.id, historyId]), {
+            preserveScroll: true,
+            only: ['tour'],
+        })
+    }
+}
+
+function fmtDateTime(d) {
+    if (!d) return ''
+    return new Date(d).toLocaleString('id-ID', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+    })
+}
+
+// ── Hourly Itinerary ─────────────────────────────────────────────────────────
+const itineraryHours = ref(props.tour.itinerary_hours?.map(h => ({ ...h })) ?? [])
+const expandedHourDays = reactive(new Set())
+const hourForm = useForm({
+    day_number: 1,
+    start_time: '',
+    end_time: '',
+    activity: '',
+    notes: ''
+})
+const editingHourId = ref(null)
+const expandedHourDaysTick = ref(0)
+
+watch(
+    () => props.tour.itinerary_hours,
+    (hours) => { itineraryHours.value = hours?.map(h => ({ ...h })) ?? [] },
+)
+
+const groupedHours = computed(() => {
+    const grouped = {}
+    itineraryHours.value.forEach(h => {
+        if (!grouped[h.day_number]) grouped[h.day_number] = []
+        grouped[h.day_number].push(h)
+    })
+    return grouped
+})
+
+function toggleHourDay(day) {
+    if (expandedHourDays.has(day)) {
+        expandedHourDays.delete(day)
+    } else {
+        expandedHourDays.add(day)
+    }
+    expandedHourDaysTick.value++
+}
+
+function isHourDayExpanded(day) {
+    void expandedHourDaysTick.value
+    return expandedHourDays.has(day)
+}
+
+function startAddHour(day) {
+    editingHourId.value = null
+    hourForm.day_number = day
+    hourForm.start_time = ''
+    hourForm.end_time = ''
+    hourForm.activity = ''
+    hourForm.notes = ''
+}
+
+function startEditHour(hour) {
+    editingHourId.value = hour.id
+    hourForm.day_number = hour.day_number
+    hourForm.start_time = hour.start_time
+    hourForm.end_time = hour.end_time
+    hourForm.activity = hour.activity
+    hourForm.notes = hour.notes
+}
+
+function saveHour() {
+    if (!hourForm.start_time || !hourForm.activity) return
+
+    if (editingHourId.value) {
+        router.patch(route('tours.itinerary.hours.update', [props.tour.id, editingHourId.value]), {
+            day_number: hourForm.day_number,
+            start_time: hourForm.start_time,
+            end_time: hourForm.end_time,
+            activity: hourForm.activity,
+            notes: hourForm.notes,
+        }, {
+            preserveScroll: true,
+            only: ['tour'],
+            onSuccess: () => {
+                editingHourId.value = null
+                hourForm.reset()
+            }
+        })
+    } else {
+        router.post(route('tours.itinerary.hours.store', props.tour.id), {
+            day_number: hourForm.day_number,
+            start_time: hourForm.start_time,
+            end_time: hourForm.end_time,
+            activity: hourForm.activity,
+            notes: hourForm.notes,
+        }, {
+            preserveScroll: true,
+            only: ['tour'],
+            onSuccess: () => {
+                editingHourId.value = null
+                hourForm.reset()
+            }
+        })
+    }
+}
+
+function deleteHour(hourId) {
+    if (confirm('Hapus aktivitas ini?')) {
+        router.delete(route('tours.itinerary.hours.delete', [props.tour.id, hourId]), {
+            preserveScroll: true,
+            only: ['tour'],
+        })
+    }
+}
+
+function cancelHourForm() {
+    editingHourId.value = null
+    hourForm.reset()
+}
+
 // ── Itinerary PDF ─────────────────────────────────────────────────────────────
 const pdfForm     = useForm({ pdf: null })
 const pdfFileRef  = ref(null)
@@ -696,6 +865,104 @@ function sendEmail() {
                                 </Button>
                             </div>
 
+                            <!-- ── Hourly Itinerary ────────────────────────────────── -->
+                            <div v-if="itineraryDays.length" class="px-5 py-4 border-t space-y-3">
+                                <p class="text-xs font-semibold text-muted-foreground">ITINERARY JAM-KE-JAM (Opsional)</p>
+
+                                <!-- Hourly activities per day -->
+                                <div class="space-y-2">
+                                    <div v-for="day in itineraryDays" :key="day.day_number" class="border rounded-md overflow-hidden">
+                                        <button
+                                            type="button"
+                                            @click="toggleHourDay(day.day_number)"
+                                            class="w-full flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-muted/50 bg-muted/20"
+                                        >
+                                            <span class="flex items-center gap-2 flex-1 text-left">
+                                                <span class="text-xs font-semibold">Hari {{ day.day_number }}:</span>
+                                                <span class="text-sm">{{ day.title || '(Belum ada judul)' }}</span>
+                                            </span>
+                                            <span class="text-xs text-muted-foreground">
+                                                {{ (groupedHours[day.day_number]?.length || 0) }} aktivitas
+                                            </span>
+                                            <span class="text-muted-foreground text-lg shrink-0">
+                                                {{ isHourDayExpanded(day.day_number) ? '−' : '+' }}
+                                            </span>
+                                        </button>
+
+                                        <div v-if="isHourDayExpanded(day.day_number)" class="bg-white space-y-2 p-3 border-t">
+                                            <!-- Form untuk add/edit hour -->
+                                            <div v-if="!editingHourId || hourForm.day_number === day.day_number" class="space-y-2 p-3 rounded-md border bg-muted/10">
+                                                <div class="grid grid-cols-3 gap-2">
+                                                    <div class="space-y-1">
+                                                        <Label class="text-xs">Mulai</Label>
+                                                        <Input type="time" v-model="hourForm.start_time" class="h-8 text-sm" />
+                                                    </div>
+                                                    <div class="space-y-1">
+                                                        <Label class="text-xs">Selesai</Label>
+                                                        <Input type="time" v-model="hourForm.end_time" class="h-8 text-sm" />
+                                                    </div>
+                                                    <div class="space-y-1">
+                                                        <Label class="text-xs">Aktivitas</Label>
+                                                        <Input v-model="hourForm.activity" placeholder="Mis. Breakfast" class="h-8 text-sm" />
+                                                    </div>
+                                                </div>
+                                                <div class="space-y-1">
+                                                    <Label class="text-xs">Catatan</Label>
+                                                    <Input v-model="hourForm.notes" placeholder="Lokasi, detail, dll" class="h-8 text-sm" />
+                                                </div>
+                                                <div class="flex gap-2">
+                                                    <Button type="button" size="sm" @click="saveHour" class="h-7 text-xs flex-1">
+                                                        {{ editingHourId ? '✓ Update' : '+ Tambah' }}
+                                                    </Button>
+                                                    <Button v-if="editingHourId" type="button" size="sm" variant="outline" @click="cancelHourForm" class="h-7 text-xs">
+                                                        Batal
+                                                    </Button>
+                                                </div>
+                                            </div>
+
+                                            <!-- List activities untuk hari ini -->
+                                            <div v-if="groupedHours[day.day_number]?.length" class="space-y-1.5">
+                                                <div v-for="hour in groupedHours[day.day_number]" :key="hour.id" class="flex items-start justify-between gap-2 p-2 rounded text-xs bg-white border">
+                                                    <div class="flex-1 min-w-0">
+                                                        <div class="font-medium">
+                                                            {{ hour.start_time }}<span v-if="hour.end_time">–{{ hour.end_time }}</span>
+                                                        </div>
+                                                        <div class="text-muted-foreground">{{ hour.activity }}</div>
+                                                        <div v-if="hour.notes" class="text-muted-foreground text-xs">{{ hour.notes }}</div>
+                                                    </div>
+                                                    <div class="flex gap-1 shrink-0">
+                                                        <button
+                                                            type="button"
+                                                            @click="startEditHour(hour)"
+                                                            class="text-blue-600 hover:text-blue-700"
+                                                        >
+                                                            ✎
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            @click="deleteHour(hour.id)"
+                                                            class="text-destructive hover:text-destructive/80"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Add button jika belum ada form -->
+                                            <button
+                                                v-if="!editingHourId || hourForm.day_number !== day.day_number"
+                                                type="button"
+                                                @click="startAddHour(day.day_number)"
+                                                class="text-xs text-primary hover:text-primary/80 font-medium pt-1"
+                                            >
+                                                + Tambah Aktivitas
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- PDF Upload -->
                             <div class="px-5 py-4 border-t space-y-3">
                                 <p class="text-xs font-semibold text-muted-foreground">PDF ITINERARY LENGKAP</p>
@@ -739,6 +1006,95 @@ function sendEmail() {
                                 </div>
                                 <p v-if="pdfForm.errors.pdf" class="text-xs text-destructive">{{ pdfForm.errors.pdf }}</p>
                                 <p class="text-xs text-muted-foreground">Maks. 20 MB. PDF ini dapat diunduh oleh admin & sales.</p>
+                            </div>
+                        </div>
+
+                        <!-- ── Riwayat / Activity Log ────────────────────────── -->
+                        <div class="rounded-lg border bg-white shadow-sm overflow-hidden">
+                            <div class="flex items-center justify-between px-5 py-4 border-b">
+                                <h3 class="font-semibold">Riwayat Revisi</h3>
+                                <button
+                                    type="button"
+                                    @click="showHistoryForm = !showHistoryForm"
+                                    class="text-xs text-primary font-medium hover:underline"
+                                >
+                                    {{ showHistoryForm ? 'Tutup' : '+ Tambah Catatan' }}
+                                </button>
+                            </div>
+
+                            <!-- Form tambah riwayat -->
+                            <div v-if="showHistoryForm" class="px-5 py-4 border-b bg-muted/20 space-y-3">
+                                <div class="space-y-1.5">
+                                    <label class="text-xs font-medium">Tipe Catatan</label>
+                                    <div class="flex flex-wrap gap-2">
+                                        <button
+                                            v-for="(label, key) in HISTORY_TYPES"
+                                            :key="key"
+                                            type="button"
+                                            @click="historyForm.type = key"
+                                            :class="[
+                                                'px-3 py-1 rounded-full text-xs border transition-colors',
+                                                historyForm.type === key
+                                                    ? 'bg-primary text-primary-foreground border-primary'
+                                                    : 'bg-white text-muted-foreground hover:border-muted-foreground/60'
+                                            ]"
+                                        >
+                                            {{ label }}
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label class="text-xs font-medium">Keterangan</label>
+                                    <Textarea
+                                        v-model="historyForm.description"
+                                        rows="3"
+                                        placeholder="Mis. Customer minta perubahan hotel dari Aston ke Novotel, dan tambah 1 hari di Tomohon..."
+                                    />
+                                    <p v-if="historyForm.errors.description" class="text-xs text-destructive">{{ historyForm.errors.description }}</p>
+                                </div>
+                                <Button type="button" size="sm" @click="submitHistory" :disabled="historyForm.processing" class="w-full">
+                                    Simpan Catatan
+                                </Button>
+                            </div>
+
+                            <!-- Timeline -->
+                            <div v-if="!tour.histories?.length" class="px-5 py-8 text-center text-sm text-muted-foreground">
+                                Belum ada riwayat. Tambahkan catatan pertama.
+                            </div>
+                            <div v-else class="divide-y">
+                                <div
+                                    v-for="h in tour.histories"
+                                    :key="h.id"
+                                    class="px-5 py-4 flex gap-3"
+                                >
+                                    <!-- Icon dot -->
+                                    <div class="mt-0.5 shrink-0">
+                                        <span :class="['inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold', HISTORY_COLORS[h.type] ?? 'bg-gray-100 text-gray-600']">
+                                            {{ HISTORY_ICONS[h.type] ?? '•' }}
+                                        </span>
+                                    </div>
+
+                                    <div class="flex-1 min-w-0 space-y-1">
+                                        <div class="flex items-center justify-between gap-2">
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-xs font-semibold">{{ HISTORY_TYPES[h.type] ?? h.type }}</span>
+                                                <span :class="['text-xs px-1.5 py-0.5 rounded font-medium', STATUS_CONFIG[h.status_snapshot]?.class ?? 'bg-gray-100 text-gray-700']">
+                                                    {{ STATUS_CONFIG[h.status_snapshot]?.label ?? h.status_snapshot }}
+                                                </span>
+                                            </div>
+                                            <div class="flex items-center gap-2 shrink-0">
+                                                <span class="text-xs text-muted-foreground">{{ fmtDateTime(h.created_at) }}</span>
+                                                <button
+                                                    type="button"
+                                                    @click="deleteHistory(h.id)"
+                                                    class="text-muted-foreground hover:text-destructive text-xs"
+                                                >✕</button>
+                                            </div>
+                                        </div>
+                                        <p class="text-sm text-foreground leading-relaxed">{{ h.description }}</p>
+                                        <p v-if="h.created_by" class="text-xs text-muted-foreground">— {{ h.created_by }}</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 

@@ -81,6 +81,9 @@ function confirmDelete(id) {
                                 <TableCell>{{ c.phone ?? '—' }}</TableCell>
                                 <TableCell>{{ c.tours_count }}</TableCell>
                                 <TableCell class="text-right space-x-2">
+                                    <Link :href="route('customers.show', c.id)">
+                                        <Button variant="outline" size="sm">Riwayat</Button>
+                                    </Link>
                                     <Link :href="route('customers.edit', c.id)">
                                         <Button variant="outline" size="sm">Edit</Button>
                                     </Link>

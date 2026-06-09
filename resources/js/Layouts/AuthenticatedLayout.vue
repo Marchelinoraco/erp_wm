@@ -9,21 +9,23 @@ const user = computed(() => page.props.auth.user)
 const sidebarOpen = ref(false)
 
 const ROLE_LABEL = {
-    admin:       'Admin',
-    sales:       'Sales',
-    accountant:  'Akuntansi',
-    guide:       'Guide',
-    driver:      'Driver',
-    tour_leader: 'Tour Leader',
+    admin:        'Admin',
+    sales:        'Sales',
+    accountant:   'Akuntansi',
+    guide:        'Guide',
+    driver:       'Driver',
+    tour_leader:  'Tour Leader',
+    travel_agent: 'Travel Agent',
 }
 
 const ROLE_COLOR = {
-    admin:       'bg-red-100 text-red-700',
-    sales:       'bg-blue-100 text-blue-700',
-    accountant:  'bg-green-100 text-green-700',
-    guide:       'bg-purple-100 text-purple-700',
-    driver:      'bg-yellow-100 text-yellow-700',
-    tour_leader: 'bg-orange-100 text-orange-700',
+    admin:        'bg-red-100 text-red-700',
+    sales:        'bg-blue-100 text-blue-700',
+    accountant:   'bg-green-100 text-green-700',
+    guide:        'bg-purple-100 text-purple-700',
+    driver:       'bg-yellow-100 text-yellow-700',
+    tour_leader:  'bg-orange-100 text-orange-700',
+    travel_agent: 'bg-teal-100 text-teal-700',
 }
 
 const ICON = {
@@ -36,6 +38,7 @@ const ICON = {
     finance:   `<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />`,
     reminder:  `<path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />`,
     users:     `<path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />`,
+    channel:   `<path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />`,
 }
 
 const navItems = computed(() => {
@@ -47,13 +50,19 @@ const navItems = computed(() => {
         return items
     }
 
+    if (role === 'travel_agent') {
+        items.push({ label: 'Produk Saya', route: 'agent.products.index', match: 'agent.products.*', icon: ICON.products })
+        return items
+    }
+
     items.push({ label: 'Dashboard', route: 'dashboard', match: 'dashboard', icon: ICON.dashboard })
 
     if (role === 'admin' || role === 'sales') {
-        items.push({ label: 'Tours',     route: 'tours.index',     match: 'tours.*',     icon: ICON.tours })
-        items.push({ label: 'Reminder',  route: 'reminders.index', match: 'reminders.*', icon: ICON.reminder })
-        items.push({ label: 'Customers', route: 'customers.index', match: 'customers.*', icon: ICON.customers })
-        items.push({ label: 'Produk',    route: 'products.index',  match: 'products.*',  icon: ICON.products })
+        items.push({ label: 'Tours',           route: 'tours.index',            match: 'tours.*',           icon: ICON.tours })
+        items.push({ label: 'Reminder',        route: 'reminders.index',        match: 'reminders.*',       icon: ICON.reminder })
+        items.push({ label: 'Customers',       route: 'customers.index',        match: 'customers.*',       icon: ICON.customers })
+        items.push({ label: 'Produk',          route: 'products.index',         match: 'products.*',        icon: ICON.products })
+        items.push({ label: 'Channel Manager', route: 'channel-manager.index',  match: 'channel-manager.*', icon: ICON.channel })
     }
 
     if (role === 'admin') {

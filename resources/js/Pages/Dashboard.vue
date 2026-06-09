@@ -4,10 +4,14 @@ import { Head, Link } from '@inertiajs/vue3'
 
 const props = defineProps({
     pipeline:          Array,
-    sellMonth:         Number,
-    profitMonth:       Number,
     totalTours:        Number,
     totalConfirmed:    Number,
+    confirmedSell:     Number,
+    actualCost:        Number,
+    realProfit:        Number,
+    arOutstanding:     Number,
+    apOutstanding:     Number,
+    cashInMonth:       Number,
     recentTours:       Array,
     upcomingConfirmed: Array,
 })
@@ -57,18 +61,18 @@ function fmtDate(d) {
                         <p class="text-xs text-muted-foreground mt-1">total terkonfirmasi</p>
                     </div>
                     <div class="bg-white rounded-lg border p-5 shadow-sm">
-                        <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nilai Bulan Ini</p>
-                        <p class="text-2xl font-bold mt-1">{{ fmt(sellMonth) }}</p>
-                        <p class="text-xs text-muted-foreground mt-1">
-                            confirmed {{ new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) }}
+                        <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Profit Riil</p>
+                        <p class="text-2xl font-bold mt-1" :class="realProfit >= 0 ? 'text-green-700' : 'text-red-600'">
+                            {{ fmt(realProfit) }}
                         </p>
+                        <p class="text-xs text-muted-foreground mt-1">confirmed: jual − biaya aktual</p>
                     </div>
                     <div class="bg-white rounded-lg border p-5 shadow-sm">
-                        <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Profit Bulan Ini</p>
-                        <p class="text-2xl font-bold mt-1" :class="profitMonth >= 0 ? 'text-green-700' : 'text-red-600'">
-                            {{ fmt(profitMonth) }}
+                        <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Diterima Bulan Ini</p>
+                        <p class="text-2xl font-bold mt-1 text-blue-700">{{ fmt(cashInMonth) }}</p>
+                        <p class="text-xs text-muted-foreground mt-1">
+                            uang masuk {{ new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) }}
                         </p>
-                        <p class="text-xs text-muted-foreground mt-1">confirmed bulan ini</p>
                     </div>
                 </div>
 
@@ -133,6 +137,47 @@ function fmtDate(d) {
                                     </Link>
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- Ringkasan Keuangan (M6 — Riil) -->
+                        <div class="bg-white rounded-lg border shadow-sm p-5">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="font-semibold">Ringkasan Keuangan</h3>
+                                <Link :href="route('finance.index')" class="text-xs text-primary hover:underline">
+                                    Buka Keuangan →
+                                </Link>
+                            </div>
+                            <div class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                                <div class="flex justify-between border-b pb-2">
+                                    <span class="text-muted-foreground">Nilai Confirmed <span class="text-[10px]">(perkiraan)</span></span>
+                                    <span class="font-mono">{{ fmt(confirmedSell) }}</span>
+                                </div>
+                                <div class="flex justify-between border-b pb-2">
+                                    <span class="text-muted-foreground">Biaya Aktual <span class="text-[10px]">(bills)</span></span>
+                                    <span class="font-mono">{{ fmt(actualCost) }}</span>
+                                </div>
+                                <div class="flex justify-between border-b pb-2">
+                                    <span class="text-muted-foreground font-medium">Profit Riil</span>
+                                    <span class="font-mono font-semibold" :class="realProfit >= 0 ? 'text-green-700' : 'text-red-600'">
+                                        {{ fmt(realProfit) }}
+                                    </span>
+                                </div>
+                                <div class="flex justify-between border-b pb-2">
+                                    <span class="text-muted-foreground">Diterima Bln Ini</span>
+                                    <span class="font-mono text-blue-700">{{ fmt(cashInMonth) }}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-muted-foreground">Piutang (AR)</span>
+                                    <span class="font-mono" :class="arOutstanding > 0 ? 'text-orange-600' : ''">{{ fmt(arOutstanding) }}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-muted-foreground">Hutang (AP)</span>
+                                    <span class="font-mono" :class="apOutstanding > 0 ? 'text-red-600' : ''">{{ fmt(apOutstanding) }}</span>
+                                </div>
+                            </div>
+                            <p class="text-[11px] text-muted-foreground mt-3 pt-3 border-t">
+                                Profit riil = nilai jual confirmed − biaya aktual (bills). Catat bill di menu Keuangan agar akurat.
+                            </p>
                         </div>
 
                         <!-- Recent tours -->

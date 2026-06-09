@@ -68,4 +68,45 @@ class TourItineraryController extends Controller
             $tour->code . '-itinerary.pdf'
         );
     }
+
+    // ── Hourly Itinerary Management ──
+    public function storeHour(Request $request, Tour $tour)
+    {
+        $data = $request->validate([
+            'day_number' => 'required|integer|min:1',
+            'start_time' => 'required|date_format:H:i',
+            'end_time'   => 'nullable|date_format:H:i',
+            'activity'   => 'required|string|max:255',
+            'notes'      => 'nullable|string',
+        ]);
+
+        $tour->itineraryHours()->create($data);
+
+        return redirect()->back()->with('success', 'Aktivitas itinerary berhasil ditambahkan.');
+    }
+
+    public function updateHour(Request $request, Tour $tour, $hourId)
+    {
+        $hour = $tour->itineraryHours()->findOrFail($hourId);
+
+        $data = $request->validate([
+            'day_number' => 'required|integer|min:1',
+            'start_time' => 'required|date_format:H:i',
+            'end_time'   => 'nullable|date_format:H:i',
+            'activity'   => 'required|string|max:255',
+            'notes'      => 'nullable|string',
+        ]);
+
+        $hour->update($data);
+
+        return redirect()->back()->with('success', 'Aktivitas itinerary berhasil diperbarui.');
+    }
+
+    public function deleteHour(Tour $tour, $hourId)
+    {
+        $hour = $tour->itineraryHours()->findOrFail($hourId);
+        $hour->delete();
+
+        return redirect()->back()->with('success', 'Aktivitas itinerary berhasil dihapus.');
+    }
 }

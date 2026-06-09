@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'role'])]
+#[Fillable(['name', 'email', 'password', 'role', 'supplier_id'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -34,16 +34,23 @@ class User extends Authenticatable
         return $this->hasMany(Reminder::class);
     }
 
-    public function isAdmin(): bool      { return $this->role === 'admin'; }
-    public function isSales(): bool      { return $this->role === 'sales'; }
-    public function isAccountant(): bool { return $this->role === 'accountant'; }
-    public function isField(): bool      { return in_array($this->role, ['guide', 'driver', 'tour_leader']); }
+    public function supplier()
+    {
+        return $this->belongsTo(Supplier::class);
+    }
+
+    public function isAdmin(): bool       { return $this->role === 'admin'; }
+    public function isSales(): bool       { return $this->role === 'sales'; }
+    public function isAccountant(): bool  { return $this->role === 'accountant'; }
+    public function isField(): bool       { return in_array($this->role, ['guide', 'driver', 'tour_leader']); }
+    public function isTravelAgent(): bool { return $this->role === 'travel_agent'; }
 
     public function homePath(): string
     {
         return match (true) {
             $this->isAdmin(), $this->isSales() => route('dashboard', absolute: false),
             $this->isAccountant()              => route('finance.index', absolute: false),
+            $this->isTravelAgent()             => route('agent.products.index', absolute: false),
             default                            => route('my-jobs', absolute: false),
         };
     }

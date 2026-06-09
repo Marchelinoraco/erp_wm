@@ -50,6 +50,32 @@ class CustomerController extends Controller
             ->with('success', 'Customer berhasil ditambahkan.');
     }
 
+    public function show(Customer $customer)
+    {
+        $tours = $customer->tours()
+            ->withSum('items as total_sell', 'line_sell')
+            ->withSum('items as total_cost', 'line_cost')
+            ->latest()
+            ->get(['id', 'code', 'title', 'status', 'pax', 'start_date', 'end_date', 'sales_person', 'created_at']);
+
+        $histories = \App\Models\TourHistory::whereIn('tour_id', $tours->pluck('id'))
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function ($h) use ($tours) {
+                $tour = $tours->firstWhere('id', $h->tour_id);
+                return array_merge($h->toArray(), [
+                    'tour_code'  => $tour?->code,
+                    'tour_title' => $tour?->title,
+                ]);
+            });
+
+        return Inertia::render('Customers/Show', [
+            'customer'  => $customer,
+            'tours'     => $tours,
+            'histories' => $histories,
+        ]);
+    }
+
     public function edit(Customer $customer)
     {
         return Inertia::render('Customers/Form', [

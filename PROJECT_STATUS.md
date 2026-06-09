@@ -86,6 +86,7 @@
 | Tours/Create + Tours/Edit (Tour Builder + costing panel) | ✅ |
 | Quotation PDF (preview + download, branded) | ✅ |
 | Dashboard pipeline (stats cards, funnel, upcoming) | ✅ |
+| Dashboard Profit Riil + ringkasan keuangan (M6) | ✅ |
 | **MyJobs/Index + Show** (halaman field: jadwal sendiri) | ✅ M5 |
 | Dialog assignment → pilih dari dropdown `users` | ✅ M5 |
 | Navigasi `AuthenticatedLayout` per peran | ✅ M5 |
@@ -126,7 +127,7 @@ resources/
   js/Pages/
     Auth/               ✅ lengkap
     Customers/          ✅ Index.vue + Form.vue
-    Dashboard.vue       ✅ pipeline + stats cards
+    Dashboard.vue       ✅ pipeline + stats cards + Profit Riil (M6) & ringkasan keuangan
     Manifest.vue        ✅ publik signed (opsional, eksternal)
     MyJobs/             ✅ Index.vue + Show.vue (field user)
     Products/           ✅ Index.vue + Form.vue

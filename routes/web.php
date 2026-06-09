@@ -1,8 +1,11 @@
 <?php
 
+use App\Http\Controllers\AgentProductController;
 use App\Http\Controllers\BillController;
+use App\Http\Controllers\ChannelManagerController;
 use App\Http\Controllers\ReminderController;
 use App\Http\Controllers\TourEmailController;
+use App\Http\Controllers\TourHistoryController;
 use App\Http\Controllers\TourItineraryController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\BillPaymentController;
@@ -55,6 +58,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->except(['show'])
         ->middleware('role:admin');
 
+    // Channel Manager — internal (admin + sales): review harga travel agent
+    Route::middleware('role:admin,sales')->group(function () {
+        Route::get('/channel-manager',                       [ChannelManagerController::class, 'index'])->name('channel-manager.index');
+        Route::patch('/channel-manager/{product}/approve',   [ChannelManagerController::class, 'approve'])->name('channel-manager.approve');
+        Route::patch('/channel-manager/{product}/reject',    [ChannelManagerController::class, 'reject'])->name('channel-manager.reject');
+        Route::patch('/channel-manager/{product}/price',     [ChannelManagerController::class, 'updatePrice'])->name('channel-manager.price');
+    });
+
+    // Produk Saya — travel agent (eksternal): kelola produk supplier sendiri
+    Route::middleware('role:travel_agent')->group(function () {
+        Route::get('/agent/products',              [AgentProductController::class, 'index'])->name('agent.products.index');
+        Route::post('/agent/products',             [AgentProductController::class, 'store'])->name('agent.products.store');
+        Route::patch('/agent/products/{product}',  [AgentProductController::class, 'update'])->name('agent.products.update');
+        Route::delete('/agent/products/{product}', [AgentProductController::class, 'destroy'])->name('agent.products.destroy');
+    });
+
     // Master Data — Products: admin + sales
     Route::resource('products', ProductController::class)
         ->except(['show'])
@@ -62,7 +81,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Master Data — Customers: admin + sales
     Route::resource('customers', CustomerController::class)
-        ->except(['show'])
         ->middleware('role:admin,sales');
 
     // Tours — admin + sales
@@ -73,10 +91,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('role:admin,sales')->group(function () {
         Route::post('/tours/{tour}/email',      [TourEmailController::class, 'send'])->name('tours.email.send');
 
+        Route::post('/tours/{tour}/histories',              [TourHistoryController::class, 'store'])->name('tours.histories.store');
+        Route::delete('/tours/{tour}/histories/{history}',  [TourHistoryController::class, 'destroy'])->name('tours.histories.destroy');
+
         Route::post('/tours/{tour}/itinerary/days',        [TourItineraryController::class, 'updateDays'])->name('tours.itinerary.days');
         Route::post('/tours/{tour}/itinerary/pdf',         [TourItineraryController::class, 'uploadPdf'])->name('tours.itinerary.pdf.upload');
         Route::delete('/tours/{tour}/itinerary/pdf',       [TourItineraryController::class, 'deletePdf'])->name('tours.itinerary.pdf.delete');
         Route::get('/tours/{tour}/itinerary/pdf/download', [TourItineraryController::class, 'downloadPdf'])->name('tours.itinerary.pdf.download');
+
+        Route::post('/tours/{tour}/itinerary/hours',       [TourItineraryController::class, 'storeHour'])->name('tours.itinerary.hours.store');
+        Route::patch('/tours/{tour}/itinerary/hours/{hourId}', [TourItineraryController::class, 'updateHour'])->name('tours.itinerary.hours.update');
+        Route::delete('/tours/{tour}/itinerary/hours/{hourId}', [TourItineraryController::class, 'deleteHour'])->name('tours.itinerary.hours.delete');
 
         Route::post('/tours/{tour}/items',      [TourItemController::class, 'store'])->name('tour-items.store');
         Route::patch('/tour-items/{tourItem}',  [TourItemController::class, 'update'])->name('tour-items.update');

@@ -67,7 +67,7 @@ class TourController extends Controller
 
     public function edit(Tour $tour)
     {
-        $tour->load(['customer', 'items.product', 'assignments', 'itineraryDays']);
+        $tour->load(['customer', 'items.product', 'assignments', 'itineraryDays', 'itineraryHours', 'histories']);
         $tour->append(['total_cost', 'total_sell', 'profit', 'margin', 'itinerary_pdf_url']);
 
         return Inertia::render('Tours/Edit', [
@@ -99,7 +99,28 @@ class TourController extends Controller
             'notes'          => 'nullable|string',
         ]);
 
+        $statusChanged = isset($data['status']) && $data['status'] !== $tour->status;
+        $oldStatus     = $tour->status;
+
         $tour->update($data);
+
+        if ($statusChanged) {
+            $labels = [
+                'inquiry'         => 'Inquiry',
+                'quotation_draft' => 'Draft Quotation',
+                'quotation_sent'  => 'Sent',
+                'follow_up'       => 'Follow Up',
+                'negotiation'     => 'Negosiasi',
+                'confirmed'       => 'Confirmed',
+                'cancelled'       => 'Cancelled',
+            ];
+            $tour->histories()->create([
+                'type'            => $data['status'],
+                'status_snapshot' => $data['status'],
+                'description'     => 'Status diubah dari "' . ($labels[$oldStatus] ?? $oldStatus) . '" menjadi "' . ($labels[$data['status']] ?? $data['status']) . '".',
+                'created_by'      => auth()->user()->name,
+            ]);
+        }
 
         return redirect()->back()->with('success', 'Tour berhasil diperbarui.');
     }

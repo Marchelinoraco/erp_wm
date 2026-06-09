@@ -414,7 +414,7 @@ const CAT_LABEL = {
                     </div>
                     <div class="space-y-1.5">
                         <Label>Total (IDR)</Label>
-                        <Input type="number" v-model="invForm.total" min="0" step="1000" required />
+                        <Input type="number" v-model="invForm.total" min="0" step="any" required />
                     </div>
                     <div v-if="editingInvoice" class="space-y-1.5">
                         <Label>Status</Label>
@@ -468,7 +468,7 @@ const CAT_LABEL = {
                     </div>
                     <div class="space-y-1.5">
                         <Label>Jumlah (IDR)</Label>
-                        <Input type="number" v-model="invPayForm.amount" min="1" step="1000" required />
+                        <Input type="number" v-model="invPayForm.amount" min="1" step="any" required />
                     </div>
                     <div class="space-y-1.5">
                         <Label>Catatan</Label>
@@ -533,7 +533,7 @@ const CAT_LABEL = {
                     </div>
                     <div class="space-y-1.5">
                         <Label>Jumlah (IDR)</Label>
-                        <Input type="number" v-model="billForm.amount" min="0" step="1000" required />
+                        <Input type="number" v-model="billForm.amount" min="0" step="any" required />
                     </div>
                     <div v-if="editingBill" class="space-y-1.5">
                         <Label>Status</Label>
@@ -586,7 +586,7 @@ const CAT_LABEL = {
                     </div>
                     <div class="space-y-1.5">
                         <Label>Jumlah (IDR)</Label>
-                        <Input type="number" v-model="billPayForm.amount" min="1" step="1000" required />
+                        <Input type="number" v-model="billPayForm.amount" min="1" step="any" required />
                     </div>
                     <div class="space-y-1.5">
                         <Label>Catatan</Label>

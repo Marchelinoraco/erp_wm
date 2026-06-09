@@ -2,6 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Bill;
+use App\Models\BillPayment;
+use App\Models\Invoice;
+use App\Models\InvoicePayment;
 use App\Models\Tour;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -25,20 +29,29 @@ class DashboardController extends Controller
             'total'  => $countByStatus[$s] ?? 0,
         ]);
 
-        // Nilai & profit confirmed bulan ini
-        $confirmedThisMonth = Tour::where('tours.status', 'confirmed')
-            ->whereMonth('tours.updated_at', now()->month)
-            ->whereYear('tours.updated_at', now()->year)
-            ->join('tour_items', 'tour_items.tour_id', '=', 'tours.id')
-            ->selectRaw('
-                SUM(tour_items.line_sell) as total_sell,
-                SUM(tour_items.line_cost) as total_cost
-            ')
-            ->first();
+        // ── PERKIRAAN — nilai jual confirmed (snapshot tour_items) ──
+        $confirmedSell = (float) DB::table('tour_items')
+            ->join('tours', 'tours.id', '=', 'tour_items.tour_id')
+            ->where('tours.status', 'confirmed')
+            ->sum('tour_items.line_sell');
 
-        $sellMonth  = (float) ($confirmedThisMonth->total_sell ?? 0);
-        $costMonth  = (float) ($confirmedThisMonth->total_cost ?? 0);
-        $profitMonth = $sellMonth - $costMonth;
+        // ── RIIL (M6) — biaya aktual dari bills tour confirmed ──
+        $actualCost = (float) DB::table('bills')
+            ->join('tours', 'tours.id', '=', 'bills.tour_id')
+            ->where('tours.status', 'confirmed')
+            ->sum('bills.amount');
+
+        // Profit riil = nilai jual confirmed − biaya aktual (SUM bills)
+        $realProfit = $confirmedSell - $actualCost;
+
+        // ── Arus kas & outstanding ──
+        $arOutstanding = (float) Invoice::sum('total') - (float) InvoicePayment::sum('amount');
+        $apOutstanding = (float) Bill::sum('amount') - (float) BillPayment::sum('amount');
+
+        // Uang masuk bulan ini (pakai tanggal pembayaran — andal, bukan updated_at)
+        $cashInMonth = (float) InvoicePayment::whereMonth('date', now()->month)
+            ->whereYear('date', now()->year)
+            ->sum('amount');
 
         // 10 tour terbaru (semua status)
         $recentTours = Tour::with('customer')
@@ -58,10 +71,16 @@ class DashboardController extends Controller
 
         return Inertia::render('Dashboard', [
             'pipeline'          => $pipeline,
-            'sellMonth'         => $sellMonth,
-            'profitMonth'       => $profitMonth,
             'totalTours'        => Tour::count(),
             'totalConfirmed'    => $countByStatus['confirmed'] ?? 0,
+            // Perkiraan
+            'confirmedSell'     => $confirmedSell,
+            // Riil (M6)
+            'actualCost'        => $actualCost,
+            'realProfit'        => $realProfit,
+            'arOutstanding'     => $arOutstanding,
+            'apOutstanding'     => $apOutstanding,
+            'cashInMonth'       => $cashInMonth,
             'recentTours'       => $recentTours,
             'upcomingConfirmed' => $upcomingConfirmed,
         ]);
