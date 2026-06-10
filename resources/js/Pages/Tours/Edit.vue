@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Head, Link, useForm, router } from '@inertiajs/vue3'
-import { ref, reactive, watch, computed } from 'vue'
+import { ref, reactive, watch, computed, nextTick, onMounted } from 'vue'
 import { Button } from '@/Components/ui/button'
 import { Input } from '@/Components/ui/input'
 import { Label } from '@/Components/ui/label'
@@ -545,6 +545,24 @@ function saveQuotation() {
         onFinish: () => { quotationSaving.value = false },
     })
 }
+
+// ── Auto-resize textarea directive ───────────────────────────────────────────
+const vAutoResize = {
+    mounted(el) {
+        const resize = () => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px' }
+        el.style.overflow = 'hidden'
+        resize()
+        el.addEventListener('input', resize)
+    },
+}
+
+onMounted(() => nextTick(() => {
+    document.querySelectorAll('.itinerary-desc').forEach(el => {
+        el.style.overflow = 'hidden'
+        el.style.height = 'auto'
+        el.style.height = el.scrollHeight + 'px'
+    })
+}))
 </script>
 
 <template>
@@ -929,11 +947,11 @@ function saveQuotation() {
                                             ✕
                                         </Button>
                                     </div>
-                                    <Textarea
+                                    <textarea
                                         v-model="day.description"
-                                        :rows="3"
+                                        v-auto-resize
                                         placeholder="Aktivitas, jadwal, tempat yang dikunjungi..."
-                                        class="ml-11 text-sm"
+                                        class="itinerary-desc ml-11 w-[calc(100%-2.75rem)] min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                                     />
                                 </div>
                             </div>
