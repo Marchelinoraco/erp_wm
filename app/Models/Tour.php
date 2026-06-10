@@ -111,6 +111,11 @@ class Tour extends Model
         return $this->hasMany(Invoice::class);
     }
 
+    public function bookings()
+    {
+        return $this->hasMany(TourBooking::class);
+    }
+
     public function bills()
     {
         return $this->hasMany(Bill::class);

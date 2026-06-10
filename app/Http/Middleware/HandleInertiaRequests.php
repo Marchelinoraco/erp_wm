@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\TourBooking;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -29,11 +30,17 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $user = $request->user();
+
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $user,
             ],
+            // Badge "X supplier belum di-booking" di sidebar/Reminder/Dashboard.
+            'pendingBookings' => fn () => $user && in_array($user->role, ['admin', 'sales', 'operation'])
+                ? TourBooking::where('status', 'pending')->count()
+                : 0,
         ];
     }
 }

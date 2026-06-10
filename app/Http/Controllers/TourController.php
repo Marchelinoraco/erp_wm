@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use App\Models\Product;
+use App\Models\Supplier;
 use App\Models\Tour;
 use App\Http\Controllers\TourEmailController;
 use App\Models\TourPackage;
@@ -162,6 +163,12 @@ class TourController extends Controller
             if ($data['status'] === 'confirmed' && $tour->invoices()->count() === 0) {
                 $this->createDraftInvoice($tour);
             }
+
+            // Auto-buat tugas booking per supplier saat confirmed (anti-duplikat).
+            // Operation eksekusi di menu Booking → jadi tagihan AP di Keuangan.
+            if ($data['status'] === 'confirmed' && $tour->bookings()->count() === 0) {
+                $this->generateBookings($tour);
+            }
         }
 
         return redirect()->back()->with('success', 'Tour berhasil diperbarui.');
@@ -195,5 +202,58 @@ class TourController extends Controller
             'description'     => 'Invoice draft otomatis dibuat (IDR ' . number_format($tour->total_sell, 0, ',', '.') . '). Silakan finalisasi di menu Keuangan.',
             'created_by'      => auth()->user()->name,
         ]);
+    }
+
+    /**
+     * Buat tugas booking per supplier untuk tour yang baru dikonfirmasi.
+     * Item tour dikelompokkan per supplier → 1 booking per supplier (status pending).
+     * Operation lalu eksekusi di menu Booking.
+     */
+    private function generateBookings(Tour $tour): void
+    {
+        $tour->loadMissing('items.product');
+
+        // Kelompokkan item per supplier (lewat product.supplier_id). 0 = tanpa supplier.
+        $groups = $tour->items->groupBy(fn ($item) => $item->product?->supplier_id ?? 0);
+
+        $allowed = ['hotel', 'transport', 'guide', 'restaurant', 'attraction', 'other'];
+
+        foreach ($groups as $supplierId => $items) {
+            $supplier = $supplierId ? Supplier::find($supplierId) : null;
+
+            // Kategori = tipe produk paling dominan dalam grup.
+            $category = $items->groupBy('product_type')
+                ->map->count()
+                ->sortDesc()
+                ->keys()
+                ->first();
+            $category = in_array($category, $allowed, true) ? $category : 'other';
+
+            // Rincian item → notes (biar operation tahu apa yg di-booking).
+            $detail = $items->map(function ($i) {
+                $qty   = $i->qty > 1 ? $i->qty . '× ' : '';
+                $night = $i->nights > 1 ? ' (' . $i->nights . ' malam)' : '';
+                return '• ' . $qty . ($i->description ?: $i->product?->name ?: 'Item') . $night;
+            })->implode("\n");
+
+            $tour->bookings()->create([
+                'supplier_id' => $supplier?->id,
+                'description' => $supplier?->name ?: 'Tanpa supplier (cek manual)',
+                'category'    => $category,
+                'est_cost'    => (float) $items->sum('line_cost'),
+                'status'      => 'pending',
+                'notes'       => $detail ?: null,
+            ]);
+        }
+
+        $count = $tour->bookings()->count();
+        if ($count > 0) {
+            $tour->histories()->create([
+                'type'            => 'note',
+                'status_snapshot' => $tour->status,
+                'description'     => $count . ' tugas booking supplier dibuat otomatis. Operation eksekusi di menu Booking.',
+                'created_by'      => auth()->user()?->name ?? 'Sistem',
+            ]);
+        }
     }
 }

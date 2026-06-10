@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AgentProductController;
 use App\Http\Controllers\BillController;
+use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ChannelManagerController;
 use App\Http\Controllers\ReminderController;
 use App\Http\Controllers\TourEmailController;
@@ -122,6 +123,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/reminders/{reminder}',       [ReminderController::class, 'update'])->name('reminders.update');
         Route::patch('/reminders/{reminder}/done',  [ReminderController::class, 'done'])->name('reminders.done');
         Route::delete('/reminders/{reminder}',      [ReminderController::class, 'destroy'])->name('reminders.destroy');
+    });
+
+    // Booking operasional — admin + sales + operation
+    Route::middleware('role:admin,sales,operation')->group(function () {
+        Route::get('/bookings',                  [BookingController::class, 'index'])->name('bookings.index');
+        Route::post('/tours/{tour}/bookings',    [BookingController::class, 'store'])->name('bookings.store');
+        Route::patch('/bookings/{booking}',      [BookingController::class, 'update'])->name('bookings.update');
+        Route::delete('/bookings/{booking}',     [BookingController::class, 'destroy'])->name('bookings.destroy');
     });
 
     // My Jobs — field (guide, driver, tour_leader)

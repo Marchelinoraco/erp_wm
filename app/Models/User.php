@@ -42,6 +42,7 @@ class User extends Authenticatable
     public function isAdmin(): bool       { return $this->role === 'admin'; }
     public function isSales(): bool       { return $this->role === 'sales'; }
     public function isAccountant(): bool  { return $this->role === 'accountant'; }
+    public function isOperation(): bool   { return $this->role === 'operation'; }
     public function isField(): bool       { return in_array($this->role, ['guide', 'driver', 'tour_leader']); }
     public function isTravelAgent(): bool { return $this->role === 'travel_agent'; }
 
@@ -50,6 +51,7 @@ class User extends Authenticatable
         return match (true) {
             $this->isAdmin(), $this->isSales() => route('dashboard', absolute: false),
             $this->isAccountant()              => route('finance.index', absolute: false),
+            $this->isOperation()               => route('bookings.index', absolute: false),
             $this->isTravelAgent()             => route('agent.products.index', absolute: false),
             default                            => route('my-jobs', absolute: false),
         };

@@ -118,6 +118,19 @@ const PIPELINE_LABEL = {
         <div class="py-6">
             <div class="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 space-y-6">
 
+                <!-- Booking pending banner -->
+                <Link
+                    v-if="$page.props.pendingBookings > 0"
+                    :href="route('bookings.index')"
+                    class="flex items-center justify-between gap-3 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm shadow-sm transition-colors hover:bg-orange-100"
+                >
+                    <span class="flex items-center gap-2 text-orange-800">
+                        <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+                        <span><b>{{ $page.props.pendingBookings }} supplier</b> belum di-booking untuk tour confirmed.</span>
+                    </span>
+                    <span class="shrink-0 font-medium text-orange-700">Buka Booking →</span>
+                </Link>
+
                 <!-- Stats -->
                 <div class="grid grid-cols-4 gap-3">
                     <div class="rounded-lg border bg-white p-4 text-center shadow-sm">
