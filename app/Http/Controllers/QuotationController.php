@@ -33,7 +33,7 @@ class QuotationController extends Controller
     private function build(Tour $tour): Mpdf
     {
         $tour->load(['customer', 'items.product', 'itineraryDays', 'itineraryHours']);
-        $tour->append(['total_cost', 'total_sell', 'profit', 'margin']);
+        $tour->append(['total_cost', 'total_sell', 'profit', 'margin', 'type_label']);
 
         $tmp = storage_path('app/mpdf');
         if (! is_dir($tmp)) {
@@ -56,14 +56,19 @@ class QuotationController extends Controller
 
         $mpdf->SetTitle('Quotation ' . $tour->code);
 
+        $isTour = ($tour->type ?? 'tour') === 'tour';
+
         $html = view('quotation', [
             'tour'    => $tour,
             'company' => config('quotation.company'),
             'logo'    => $this->logoDataUri(),
             'included'    => $tour->included     ?: config('quotation.included'),
             'excluded'    => $tour->excluded     ?: config('quotation.excluded'),
-            'childPolicy' => $tour->child_policy ?: config('quotation.child_policy'),
+            // Kebijakan anak hanya relevan untuk tour
+            'childPolicy' => $isTour ? ($tour->child_policy ?: config('quotation.child_policy')) : '',
             'terms'       => $tour->terms        ?: config('quotation.terms'),
+            // Detail khusus tipe non-tour (rental, guide, dokumen, tiket)
+            'detailLabels' => Tour::DETAIL_LABELS[$tour->type] ?? [],
         ])->render();
 
         $mpdf->WriteHTML($html);

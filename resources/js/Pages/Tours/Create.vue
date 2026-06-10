@@ -9,14 +9,22 @@ import { Textarea } from '@/Components/ui/textarea'
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/Components/ui/select'
+import { INQUIRY_TYPES, TYPE_FIELDS, typeLabel, emptyDetails } from '@/lib/inquiryTypes'
 
 const props = defineProps({
     customers: Array,
     packages:  Array,
+    type:      { type: String, default: 'tour' },
+    types:     { type: Object, default: () => ({}) },
 })
 
+const isTour   = computed(() => props.type === 'tour')
+const fields    = computed(() => TYPE_FIELDS[props.type] ?? [])
+const heading   = computed(() => INQUIRY_TYPES[props.type]?.build ?? 'Buat Tour Baru')
+
 const form = useForm({
-    inquiry_source: 'website',
+    type:           props.type,
+    inquiry_source: props.type === 'tour' ? 'website' : 'external',
     package_id:     null,
     customer_id:    'none',
     title:          '',
@@ -26,6 +34,7 @@ const form = useForm({
     status:         'inquiry',
     sales_person:   '',
     notes:          '',
+    details:        emptyDetails(props.type),
 })
 
 // --- package combobox ---
@@ -90,15 +99,15 @@ function submit() {
 </script>
 
 <template>
-    <Head title="Buat Tour" />
+    <Head :title="heading" />
     <AuthenticatedLayout>
         <template #header>
             <div class="flex items-center gap-3">
-                <Link :href="route('tours.index')" class="text-muted-foreground hover:text-foreground">
-                    ← Tours
+                <Link :href="route('tours.index', { type })" class="text-muted-foreground hover:text-foreground">
+                    ← {{ typeLabel(type) }}
                 </Link>
                 <span class="text-muted-foreground">/</span>
-                <h2 class="text-xl font-semibold">Buat Tour Baru</h2>
+                <h2 class="text-xl font-semibold">{{ heading }}</h2>
             </div>
         </template>
 
@@ -112,8 +121,8 @@ function submit() {
 
                     <form @submit.prevent="submit" class="space-y-5">
 
-                        <!-- SOURCE PICKER -->
-                        <div class="space-y-1.5">
+                        <!-- SOURCE PICKER (tour saja — katalog website khusus tour) -->
+                        <div v-if="isTour" class="space-y-1.5">
                             <Label>Sumber Inquiry</Label>
                             <div class="grid grid-cols-2 gap-2">
                                 <button
@@ -156,7 +165,7 @@ function submit() {
                         </div>
 
                         <!-- PACKAGE COMBOBOX (website only) -->
-                        <div v-if="form.inquiry_source === 'website'" class="space-y-1.5">
+                        <div v-if="isTour && form.inquiry_source === 'website'" class="space-y-1.5">
                             <Label>Paket Tour</Label>
                             <div class="relative" ref="packageComboRef">
                                 <Input
@@ -248,9 +257,9 @@ function submit() {
                         <!-- TITLE -->
                         <div class="space-y-1.5">
                             <Label for="title">
-                                Judul Tour
+                                Judul {{ typeLabel(type) }}
                                 <span
-                                    v-if="form.inquiry_source === 'website' && selectedPackage"
+                                    v-if="isTour && form.inquiry_source === 'website' && selectedPackage"
                                     class="text-xs font-normal text-muted-foreground ml-1"
                                 >(dari paket, bisa diedit)</span>
                             </Label>
@@ -307,6 +316,29 @@ function submit() {
                             </div>
                         </div>
 
+                        <!-- DETAIL KHUSUS PER TIPE -->
+                        <div v-if="fields.length" class="rounded-lg border bg-muted/20 p-4 space-y-4">
+                            <p class="text-sm font-semibold">Detail {{ typeLabel(type) }}</p>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div
+                                    v-for="f in fields"
+                                    :key="f.key"
+                                    class="space-y-1.5"
+                                    :class="(f.type === 'textarea' || f.type === 'checkbox') ? 'col-span-2' : ''"
+                                >
+                                    <label v-if="f.type === 'checkbox'" class="flex items-center gap-2 text-sm">
+                                        <input type="checkbox" v-model="form.details[f.key]" class="h-4 w-4 rounded border-input" />
+                                        {{ f.label }}
+                                    </label>
+                                    <template v-else>
+                                        <Label>{{ f.label }}</Label>
+                                        <Textarea v-if="f.type === 'textarea'" v-model="form.details[f.key]" rows="2" :placeholder="f.placeholder" />
+                                        <Input v-else :type="f.type" v-model="form.details[f.key]" :placeholder="f.placeholder" />
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="space-y-1.5">
                             <Label for="sales_person">Sales Person</Label>
                             <Input id="sales_person" v-model="form.sales_person" placeholder="Nama sales..." />
@@ -322,7 +354,7 @@ function submit() {
                                 <Button type="button" variant="outline">Batal</Button>
                             </Link>
                             <Button type="submit" :disabled="form.processing">
-                                Buat Tour & Buka Builder →
+                                Buat {{ typeLabel(type) }} & Buka Builder →
                             </Button>
                         </div>
                     </form>

@@ -14,7 +14,55 @@ class Tour extends Model
         'end_date'       => 'date',
         'price_validity' => 'date',
         'pricing'        => 'array',
+        'details'        => 'array',
     ];
+
+    /** Jenis inquiry/order yang didukung → label tampilan. */
+    public const TYPES = [
+        'tour'      => 'Tour',
+        'rental'    => 'Rental Mobil/Boat',
+        'guide'     => 'Jasa Guide',
+        'document'  => 'Visa/Paspor',
+        'ticketing' => 'Ticketing',
+    ];
+
+    /** Label field `details` per tipe — dipakai untuk render di PDF quotation.
+     *  Selaras dengan resources/js/lib/inquiryTypes.js (TYPE_FIELDS). */
+    public const DETAIL_LABELS = [
+        'rental' => [
+            'vehicle'     => 'Kendaraan / Boat',
+            'with_driver' => 'Termasuk Sopir/Nahkoda',
+            'pickup'      => 'Titik Jemput',
+            'dropoff'     => 'Titik Antar',
+            'duration'    => 'Durasi Sewa',
+        ],
+        'guide' => [
+            'language' => 'Bahasa',
+            'area'     => 'Area / Lokasi',
+            'days'     => 'Jumlah Hari',
+            'note'     => 'Catatan Tambahan',
+        ],
+        'document' => [
+            'doc_type'    => 'Jenis Dokumen',
+            'destination' => 'Negara Tujuan',
+            'eta'         => 'Estimasi Selesai',
+            'requirement' => 'Syarat / Berkas',
+        ],
+        'ticketing' => [
+            'route_from'  => 'Dari',
+            'route_to'    => 'Ke',
+            'airline'     => 'Maskapai',
+            'trip_type'   => 'Sekali Jalan / PP',
+            'depart_date' => 'Tgl Berangkat',
+            'return_date' => 'Tgl Pulang',
+            'pnr'         => 'Kode Booking / PNR',
+        ],
+    ];
+
+    public function getTypeLabelAttribute(): string
+    {
+        return self::TYPES[$this->type] ?? 'Tour';
+    }
 
     public function customer()
     {

@@ -252,7 +252,7 @@
         <td style="width:30%; padding-right:6px; vertical-align:top;">
             <table style="{{ $cardBase }} border-top:3px solid #0f3460; background:#f8fafc;">
                 <tr><td style="padding:8px 10px;">
-                    <div style="font-size:6pt;font-weight:bold;color:#64748b;letter-spacing:1px;margin-bottom:3px;">PAKET TOUR</div>
+                    <div style="font-size:6pt;font-weight:bold;color:#64748b;letter-spacing:1px;margin-bottom:3px;">{{ strtoupper($tour->type_label ?? 'Paket') }}</div>
                     <div style="font-size:9.5pt;font-weight:bold;color:#0f3460;">{{ $tour->title ?? $tour->code }}</div>
                     <div style="font-size:7.5pt;color:#64748b;margin-top:2px;">{{ $tour->pax }} Pax</div>
                 </td></tr>
@@ -308,8 +308,28 @@
     @endforeach
 @endif
 
+{{-- ── DETAIL LAYANAN (rental / guide / dokumen / tiket) ── --}}
+@php
+    $details = $tour->details ?? [];
+    $detailRows = collect($detailLabels ?? [])
+        ->map(fn ($label, $key) => ['label' => $label, 'value' => $details[$key] ?? null])
+        ->filter(fn ($r) => $r['value'] !== null && $r['value'] !== '' && $r['value'] !== false)
+        ->values();
+@endphp
+@if($detailRows->count())
+<div class="section-title"><span class="tick">|</span> DETAIL {{ strtoupper($tour->type_label) }}</div>
+<table width="100%" style="border-collapse:collapse;margin-bottom:14px;">
+    @foreach($detailRows as $r)
+    <tr>
+        <td style="width:32%;padding:5px 10px;font-size:8pt;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;vertical-align:top;">{{ $r['label'] }}</td>
+        <td style="padding:5px 10px;font-size:8pt;color:#1f2937;border:1px solid #e2e8f0;vertical-align:top;">{{ $r['value'] === true ? 'Ya' : $r['value'] }}</td>
+    </tr>
+    @endforeach
+</table>
+@endif
+
 {{-- ── HARGA ── --}}
-<div class="section-title"><span class="tick">|</span> HARGA PAKET</div>
+<div class="section-title"><span class="tick">|</span> {{ ($tour->type ?? 'tour') === 'tour' ? 'HARGA PAKET' : 'HARGA' }}</div>
 
 @if($hasMatrix)
     <table class="matrix">

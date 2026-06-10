@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Head, Link, router } from '@inertiajs/vue3'
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { Button } from '@/Components/ui/button'
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -9,16 +9,25 @@ import {
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableEmpty,
 } from '@/Components/ui/table'
+import { INQUIRY_TYPES, TYPE_BADGE, typeLabel } from '@/lib/inquiryTypes'
 
 const props = defineProps({
     tours:   Object,
     filters: Object,
+    type:    { type: String, default: null },
+    types:   { type: Object, default: () => ({}) },
 })
 
 const status = ref(props.filters?.status ?? 'all')
 
+const heading    = computed(() => props.type ? typeLabel(props.type) : 'Semua Inquiry')
+const buildLabel = computed(() => props.type ? (INQUIRY_TYPES[props.type]?.build ?? 'Buat') : 'Buat Tour')
+
 watch(status, (val) => {
-    router.get(route('tours.index'), { status: val === 'all' ? undefined : val }, {
+    router.get(route('tours.index'), {
+        type:   props.type ?? undefined,
+        status: val === 'all' ? undefined : val,
+    }, {
         preserveState: true, replace: true,
     })
 })
@@ -42,20 +51,20 @@ function profit(tour) {
 }
 
 function confirmDelete(tour) {
-    if (confirm(`Hapus tour ${tour.code}? Semua item akan ikut terhapus.`)) {
+    if (confirm(`Hapus ${tour.code}? Semua item akan ikut terhapus.`)) {
         router.delete(route('tours.destroy', tour.id))
     }
 }
 </script>
 
 <template>
-    <Head title="Tours" />
+    <Head :title="heading" />
     <AuthenticatedLayout>
         <template #header>
             <div class="flex items-center justify-between">
-                <h2 class="text-xl font-semibold">Tours</h2>
-                <Link :href="route('tours.create')">
-                    <Button>+ Buat Tour</Button>
+                <h2 class="text-xl font-semibold">{{ heading }}</h2>
+                <Link :href="route('tours.create', { type: type ?? 'tour' })">
+                    <Button>+ {{ buildLabel }}</Button>
                 </Link>
             </div>
         </template>
@@ -94,10 +103,17 @@ function confirmDelete(tour) {
                         </TableHeader>
                         <TableBody>
                             <TableEmpty v-if="tours.data.length === 0" :colspan="8">
-                                Belum ada tour.
+                                Belum ada {{ type ? typeLabel(type).toLowerCase() : 'inquiry' }}.
                             </TableEmpty>
                             <TableRow v-for="t in tours.data" :key="t.id">
-                                <TableCell class="font-mono text-sm font-medium">{{ t.code }}</TableCell>
+                                <TableCell class="font-mono text-sm font-medium">
+                                    {{ t.code }}
+                                    <div class="mt-1">
+                                        <span :class="[TYPE_BADGE[t.type] ?? 'bg-gray-100 text-gray-600', 'inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold']">
+                                            {{ types[t.type] ?? typeLabel(t.type) }}
+                                        </span>
+                                    </div>
+                                </TableCell>
                                 <TableCell>{{ t.customer?.name ?? '—' }}</TableCell>
                                 <TableCell>
                                     <div class="font-medium">{{ t.title ?? '—' }}</div>

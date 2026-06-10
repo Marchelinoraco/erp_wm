@@ -16,11 +16,20 @@ class TourController extends Controller
 {
     public function index(Request $request)
     {
+        $type = $request->input('type');
+        if (! array_key_exists($type, Tour::TYPES)) {
+            $type = null;
+        }
+
         $query = Tour::with('customer')
             ->withSum('items as total_sell', 'line_sell')
             ->withSum('items as total_cost', 'line_cost')
             ->withCount('invoices')
             ->latest();
+
+        if ($type) {
+            $query->where('type', $type);
+        }
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -31,23 +40,33 @@ class TourController extends Controller
         return Inertia::render('Tours/Index', [
             'tours'   => $tours,
             'filters' => $request->only('status'),
+            'type'    => $type,
+            'types'   => Tour::TYPES,
         ]);
     }
 
-    public function create()
+    public function create(Request $request)
     {
+        $type = $request->input('type');
+        if (! array_key_exists($type, Tour::TYPES)) {
+            $type = 'tour';
+        }
+
         return Inertia::render('Tours/Create', [
             'customers' => Customer::orderBy('name')->get(['id', 'name', 'country']),
             'packages'  => TourPackage::where('is_active', true)
                 ->orderBy('type')
                 ->orderBy('title')
                 ->get(['id', 'type', 'title', 'duration_days', 'duration_nights']),
+            'type'  => $type,
+            'types' => Tour::TYPES,
         ]);
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
+            'type'           => 'required|string|in:' . implode(',', array_keys(Tour::TYPES)),
             'inquiry_source' => 'nullable|in:website,external',
             'package_id'     => 'nullable|exists:tour_packages,id',
             'customer_id'    => 'nullable|exists:customers,id',
@@ -58,12 +77,13 @@ class TourController extends Controller
             'status'         => 'required|string|in:inquiry,quotation_draft,quotation_sent,follow_up,negotiation,confirmed,cancelled',
             'sales_person'   => 'nullable|string|max:255',
             'notes'          => 'nullable|string',
+            'details'        => 'nullable|array',
         ]);
 
         $tour = Tour::create($data);
 
         return redirect()->route('tours.edit', $tour)
-            ->with('success', 'Tour ' . $tour->code . ' berhasil dibuat.');
+            ->with('success', $tour->type_label . ' ' . $tour->code . ' berhasil dibuat.');
     }
 
     public function edit(Tour $tour)
@@ -95,6 +115,7 @@ class TourController extends Controller
     public function update(Request $request, Tour $tour)
     {
         $data = $request->validate([
+            'type'           => 'nullable|string|in:' . implode(',', array_keys(Tour::TYPES)),
             'customer_id'    => 'nullable|exists:customers,id',
             'title'          => 'nullable|string|max:255',
             'pax'            => 'required|integer|min:1',
@@ -104,6 +125,7 @@ class TourController extends Controller
             'sales_person'   => 'nullable|string|max:255',
             'default_markup' => 'nullable|numeric|min:0|max:100',
             'notes'          => 'nullable|string',
+            'details'        => 'nullable|array',
             // Quotation (customer-facing)
             'pricing'        => 'nullable|array',
             'included'       => 'nullable|string',

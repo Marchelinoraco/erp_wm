@@ -12,6 +12,7 @@ import {
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/Components/ui/dialog'
+import { TYPE_FIELDS, TYPE_BADGE, typeLabel, emptyDetails } from '@/lib/inquiryTypes'
 
 // ── Props ──────────────────────────────────────────────────────────────────────
 const props = defineProps({
@@ -24,8 +25,14 @@ const props = defineProps({
     quotationDefaults: Object,
 })
 
+// ── Jenis inquiry ─────────────────────────────────────────────────────────────
+const tourType     = props.tour.type ?? 'tour'
+const isTour       = computed(() => tourType === 'tour')
+const detailFields = TYPE_FIELDS[tourType] ?? []
+
 // ── Header form ───────────────────────────────────────────────────────────────
 const headerForm = useForm({
+    type:           tourType,
     customer_id:    props.tour.customer_id ? String(props.tour.customer_id) : 'none',
     title:          props.tour.title          ?? '',
     pax:            props.tour.pax            ?? 1,
@@ -35,6 +42,7 @@ const headerForm = useForm({
     sales_person:   props.tour.sales_person   ?? '',
     default_markup: props.tour.default_markup ?? 0,
     notes:          props.tour.notes          ?? '',
+    details:        { ...emptyDetails(tourType), ...(props.tour.details ?? {}) },
 })
 
 function saveHeader() {
@@ -524,6 +532,7 @@ const quotationSaving = ref(false)
 function saveQuotation() {
     quotationSaving.value = true
     router.patch(route('tours.update', props.tour.id), {
+        type:           headerForm.type,
         customer_id:    headerForm.customer_id === 'none' ? '' : headerForm.customer_id,
         title:          headerForm.title,
         pax:            headerForm.pax,
@@ -533,6 +542,7 @@ function saveQuotation() {
         sales_person:   headerForm.sales_person,
         default_markup: headerForm.default_markup,
         notes:          headerForm.notes,
+        details:        headerForm.details,
         pricing:        quotation.pricing,
         included:       quotation.included,
         excluded:       quotation.excluded,
@@ -566,14 +576,14 @@ onMounted(() => nextTick(() => {
 </script>
 
 <template>
-    <Head :title="`${tour.code} — Tour Builder`" />
+    <Head :title="`${tour.code} — ${typeLabel(tourType)} Builder`" />
     <AuthenticatedLayout>
         <template #header>
             <div class="flex items-center justify-between">
                 <div class="flex items-center justify-between w-full">
                     <div class="flex items-center gap-3">
-                        <Link :href="route('tours.index')" class="text-muted-foreground hover:text-foreground">
-                            ← Tours
+                        <Link :href="route('tours.index', { type: tourType })" class="text-muted-foreground hover:text-foreground">
+                            ← {{ typeLabel(tourType) }}
                         </Link>
                         <span class="text-muted-foreground">/</span>
                         <span class="font-mono font-semibold">{{ tour.code }}</span>
@@ -618,7 +628,12 @@ onMounted(() => nextTick(() => {
 
                         <!-- Header Card -->
                         <div class="rounded-lg border bg-white p-5 shadow-sm">
-                            <h3 class="font-semibold mb-4">Informasi Tour</h3>
+                            <div class="flex items-center gap-2 mb-4">
+                                <h3 class="font-semibold">Informasi {{ typeLabel(tourType) }}</h3>
+                                <span :class="[TYPE_BADGE[tourType] ?? 'bg-gray-100 text-gray-600', 'inline-flex px-2 py-0.5 rounded text-[11px] font-semibold']">
+                                    {{ typeLabel(tourType) }}
+                                </span>
+                            </div>
                             <form @submit.prevent="saveHeader" class="space-y-4">
                                 <div class="grid grid-cols-2 gap-4">
                                     <div class="space-y-1.5">
@@ -680,6 +695,36 @@ onMounted(() => nextTick(() => {
                                 <div class="flex justify-end">
                                     <Button type="submit" :disabled="headerForm.processing" size="sm">
                                         Simpan Header
+                                    </Button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Detail khusus per tipe (non-tour) -->
+                        <div v-if="!isTour && detailFields.length" class="rounded-lg border bg-white p-5 shadow-sm">
+                            <h3 class="font-semibold mb-4">Detail {{ typeLabel(tourType) }}</h3>
+                            <form @submit.prevent="saveHeader" class="space-y-4">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div
+                                        v-for="f in detailFields"
+                                        :key="f.key"
+                                        class="space-y-1.5"
+                                        :class="(f.type === 'textarea' || f.type === 'checkbox') ? 'col-span-2' : ''"
+                                    >
+                                        <label v-if="f.type === 'checkbox'" class="flex items-center gap-2 text-sm">
+                                            <input type="checkbox" v-model="headerForm.details[f.key]" class="h-4 w-4 rounded border-input" />
+                                            {{ f.label }}
+                                        </label>
+                                        <template v-else>
+                                            <Label>{{ f.label }}</Label>
+                                            <Textarea v-if="f.type === 'textarea'" v-model="headerForm.details[f.key]" rows="2" :placeholder="f.placeholder" />
+                                            <Input v-else :type="f.type" v-model="headerForm.details[f.key]" :placeholder="f.placeholder" />
+                                        </template>
+                                    </div>
+                                </div>
+                                <div class="flex justify-end">
+                                    <Button type="submit" :disabled="headerForm.processing" size="sm">
+                                        Simpan Detail
                                     </Button>
                                 </div>
                             </form>
@@ -907,8 +952,8 @@ onMounted(() => nextTick(() => {
                             </div>
                         </div>
 
-                        <!-- ── Itinerary Card ─────────────────────────────────── -->
-                        <div class="rounded-lg border bg-white shadow-sm overflow-hidden">
+                        <!-- ── Itinerary Card (tour saja) ─────────────────────── -->
+                        <div v-if="isTour" class="rounded-lg border bg-white shadow-sm overflow-hidden">
                             <div class="flex items-center justify-between px-5 py-4 border-b">
                                 <h3 class="font-semibold">Itinerary</h3>
                                 <Button type="button" size="sm" variant="outline" @click="addDay">
@@ -1111,7 +1156,7 @@ onMounted(() => nextTick(() => {
                             <div class="flex items-center justify-between px-5 py-4 border-b">
                                 <div>
                                     <h3 class="font-semibold">Quotation / Penawaran</h3>
-                                    <p class="text-xs text-muted-foreground">Matriks harga & syarat yang tampil di PDF untuk customer</p>
+                                    <p class="text-xs text-muted-foreground">Harga, syarat & teks yang tampil di PDF untuk customer</p>
                                 </div>
                                 <Button size="sm" :disabled="quotationSaving" @click="saveQuotation">
                                     {{ quotationSaving ? 'Menyimpan…' : 'Simpan Quotation' }}
@@ -1119,6 +1164,8 @@ onMounted(() => nextTick(() => {
                             </div>
                             <div class="p-5 space-y-6">
 
+                                <!-- Matriks harga: tour saja -->
+                                <template v-if="isTour">
                                 <!-- Tier pax (kolom matriks) -->
                                 <div class="space-y-2">
                                     <div class="flex items-center justify-between">
@@ -1196,6 +1243,7 @@ onMounted(() => nextTick(() => {
                                         <Button type="button" variant="ghost" size="sm" @click="removeOptional(oi)">✕</Button>
                                     </div>
                                 </div>
+                                </template>
 
                                 <!-- Validity -->
                                 <div class="space-y-1.5 max-w-xs">
@@ -1214,7 +1262,7 @@ onMounted(() => nextTick(() => {
                                         <Textarea v-model="quotation.excluded" rows="7" />
                                     </div>
                                 </div>
-                                <div class="space-y-1.5">
+                                <div v-if="isTour" class="space-y-1.5">
                                     <Label>Kebijakan Anak <span class="text-xs text-muted-foreground font-normal">(1 item per baris)</span></Label>
                                     <Textarea v-model="quotation.child_policy" rows="4" />
                                 </div>
