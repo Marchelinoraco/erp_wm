@@ -1,11 +1,12 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Head, Link, useForm, router } from '@inertiajs/vue3'
-import { ref, reactive, watch, computed, nextTick, onMounted } from 'vue'
+import { ref, reactive, watch, computed } from 'vue'
 import { Button } from '@/Components/ui/button'
 import { Input } from '@/Components/ui/input'
 import { Label } from '@/Components/ui/label'
 import { Textarea } from '@/Components/ui/textarea'
+import ItineraryEditor from '@/Components/ItineraryEditor.vue'
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/Components/ui/select'
@@ -546,23 +547,6 @@ function saveQuotation() {
     })
 }
 
-// ── Auto-resize textarea directive ───────────────────────────────────────────
-const vAutoResize = {
-    mounted(el) {
-        const resize = () => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px' }
-        el.style.overflow = 'hidden'
-        resize()
-        el.addEventListener('input', resize)
-    },
-}
-
-onMounted(() => nextTick(() => {
-    document.querySelectorAll('.itinerary-desc').forEach(el => {
-        el.style.overflow = 'hidden'
-        el.style.height = 'auto'
-        el.style.height = el.scrollHeight + 'px'
-    })
-}))
 </script>
 
 <template>
@@ -947,11 +931,10 @@ onMounted(() => nextTick(() => {
                                             ✕
                                         </Button>
                                     </div>
-                                    <textarea
+                                    <ItineraryEditor
                                         v-model="day.description"
-                                        v-auto-resize
-                                        placeholder="Aktivitas, jadwal, tempat yang dikunjungi..."
-                                        class="itinerary-desc ml-11 w-[calc(100%-2.75rem)] min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                        :tour-id="tour.id"
+                                        class="ml-11"
                                     />
                                 </div>
                             </div>

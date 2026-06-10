@@ -30,6 +30,19 @@ class TourItineraryController extends Controller
         return redirect()->back()->with('success', 'Itinerary berhasil disimpan.');
     }
 
+    public function uploadImage(Request $request, Tour $tour)
+    {
+        $request->validate([
+            'image' => 'required|image|max:5120',
+        ]);
+
+        $path = $request->file('image')->store('itinerary-images/' . $tour->id, 'public');
+
+        return response()->json([
+            'url' => Storage::disk('public')->url($path),
+        ]);
+    }
+
     public function uploadPdf(Request $request, Tour $tour)
     {
         $request->validate([
