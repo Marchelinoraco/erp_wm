@@ -70,12 +70,6 @@
     .hour-table td.ht { font-weight: bold; color: #0f3460; white-space: nowrap; width: 90px; padding-right: 10px; }
     .hour-table tr:first-child td { padding-top: 0; }
     .hour-sep { border-top: 1px dashed #e2e8f0; margin: 5px 0 0; }
-    .day-body img { max-width: 100%; height: auto; margin: 6px 0; border-radius: 4px; }
-    .day-body p { margin: 0 0 5px; }
-    .day-body ul, .day-body ol { margin: 4px 0 6px 18px; padding: 0; }
-    .day-body li { margin-bottom: 2px; }
-    .day-body strong { font-weight: bold; }
-    .day-body em { font-style: italic; }
 
     /* ── Pricing matrix ── */
     table.matrix { width: 100%; border-collapse: collapse; margin-bottom: 7px; }
@@ -297,7 +291,7 @@
         <div class="day">
             <div class="day-head">HARI {{ $day->day_number }}@if($day->title): {{ strtoupper($day->title) }}@endif</div>
             <div class="day-body">
-                @if($day->processedDescription ?? $day->description){!! $day->processedDescription ?? nl2br(e($day->description)) !!}@endif
+                @if($day->description){{ $day->description }}@endif
                 @if($hours->count())
                 <div class="hour-sep"></div>
                 <table class="hour-table">

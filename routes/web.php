@@ -95,7 +95,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/tours/{tour}/histories/{history}',  [TourHistoryController::class, 'destroy'])->name('tours.histories.destroy');
 
         Route::post('/tours/{tour}/itinerary/days',        [TourItineraryController::class, 'updateDays'])->name('tours.itinerary.days');
-        Route::post('/tours/{tour}/itinerary/image',       [TourItineraryController::class, 'uploadImage'])->name('tours.itinerary.image.upload');
         Route::post('/tours/{tour}/itinerary/pdf',         [TourItineraryController::class, 'uploadPdf'])->name('tours.itinerary.pdf.upload');
         Route::delete('/tours/{tour}/itinerary/pdf',       [TourItineraryController::class, 'deletePdf'])->name('tours.itinerary.pdf.delete');
         Route::get('/tours/{tour}/itinerary/pdf/download', [TourItineraryController::class, 'downloadPdf'])->name('tours.itinerary.pdf.download');

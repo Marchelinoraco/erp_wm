@@ -56,11 +56,6 @@ class QuotationController extends Controller
 
         $mpdf->SetTitle('Quotation ' . $tour->code);
 
-        // Pre-process deskripsi itinerary: konversi URL gambar → base64 agar mPDF render
-        $tour->itineraryDays->each(function ($day) {
-            $day->processedDescription = $this->processHtmlForPdf($day->description ?? '');
-        });
-
         $html = view('quotation', [
             'tour'    => $tour,
             'company' => config('quotation.company'),
@@ -74,36 +69,6 @@ class QuotationController extends Controller
         $mpdf->WriteHTML($html);
 
         return $mpdf;
-    }
-
-    /** Konversi URL gambar storage → base64 data URI agar mPDF render tanpa HTTP fetch. */
-    private function processHtmlForPdf(string $html): string
-    {
-        if (blank($html)) return $html;
-
-        return preg_replace_callback(
-            '/<img([^>]+?)src="([^"]*)"([^>]*?)>/i',
-            function ($m) {
-                $src = $m[2];
-                $localPath = null;
-
-                $appUrl = rtrim(config('app.url'), '/');
-                if (str_starts_with($src, $appUrl . '/storage/')) {
-                    $localPath = storage_path('app/public/' . substr($src, strlen($appUrl . '/storage/')));
-                } elseif (str_starts_with($src, '/storage/')) {
-                    $localPath = storage_path('app/public/' . substr($src, 9));
-                }
-
-                if ($localPath && is_file($localPath)) {
-                    $mime = mime_content_type($localPath);
-                    $b64  = base64_encode(file_get_contents($localPath));
-                    return "<img{$m[1]}src=\"data:{$mime};base64,{$b64}\"{$m[3]}>";
-                }
-
-                return $m[0];
-            },
-            $html
-        );
     }
 
     /** Logo di-embed sebagai data URI agar pasti tampil. */
