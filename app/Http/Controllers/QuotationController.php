@@ -56,18 +56,18 @@ class QuotationController extends Controller
 
         $mpdf->SetTitle('Quotation ' . $tour->code);
 
-        $isTour = ($tour->type ?? 'tour') === 'tour';
+        $isTour   = ($tour->type ?? 'tour') === 'tour';
+        $viewName = $isTour ? 'quotation' : 'quotation_service';
 
-        $html = view('quotation', [
+        $html = view($viewName, [
             'tour'    => $tour,
             'company' => config('quotation.company'),
             'logo'    => $this->logoDataUri(),
-            'included'    => $tour->included     ?: config('quotation.included'),
-            'excluded'    => $tour->excluded     ?: config('quotation.excluded'),
-            // Kebijakan anak hanya relevan untuk tour
+            // Untuk non-tour: tidak fallback ke config default (agar tidak tampil jika dikosongkan)
+            'included'    => $isTour ? ($tour->included ?: config('quotation.included')) : ($tour->included ?: ''),
+            'excluded'    => $isTour ? ($tour->excluded ?: config('quotation.excluded')) : ($tour->excluded ?: ''),
             'childPolicy' => $isTour ? ($tour->child_policy ?: config('quotation.child_policy')) : '',
-            'terms'       => $tour->terms        ?: config('quotation.terms'),
-            // Detail khusus tipe non-tour (rental, guide, dokumen, tiket)
+            'terms'       => $tour->terms ?: config('quotation.terms'),
             'detailLabels' => Tour::DETAIL_LABELS[$tour->type] ?? [],
         ])->render();
 
