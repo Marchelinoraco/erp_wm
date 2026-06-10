@@ -87,6 +87,8 @@
 | Quotation PDF (preview + download, branded) | ✅ |
 | Dashboard pipeline (stats cards, funnel, upcoming) | ✅ |
 | Dashboard Profit Riil + ringkasan keuangan (M6) | ✅ |
+| Quotation PDF profesional (itinerary harian + matriks harga + included/excluded + child policy + T&C) | ✅ |
+| Auto-invoice draft saat tour confirmed | ✅ |
 | **MyJobs/Index + Show** (halaman field: jadwal sendiri) | ✅ M5 |
 | Dialog assignment → pilih dari dropdown `users` | ✅ M5 |
 | Navigasi `AuthenticatedLayout` per peran | ✅ M5 |

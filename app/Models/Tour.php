@@ -10,8 +10,10 @@ class Tour extends Model
     protected $guarded = [];
 
     protected $casts = [
-        'start_date' => 'date',
-        'end_date'   => 'date',
+        'start_date'     => 'date',
+        'end_date'       => 'date',
+        'price_validity' => 'date',
+        'pricing'        => 'array',
     ];
 
     public function customer()

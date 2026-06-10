@@ -89,7 +89,7 @@ function confirmDelete(tour) {
                                 <TableHead>Status</TableHead>
                                 <TableHead class="text-right">Nilai Jual</TableHead>
                                 <TableHead class="text-right">Profit</TableHead>
-                                <TableHead class="w-28"></TableHead>
+                                <TableHead class="w-44"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -116,6 +116,16 @@ function confirmDelete(tour) {
                                     >
                                         {{ STATUS_CONFIG[t.status]?.label ?? t.status }}
                                     </span>
+                                    <div v-if="t.status === 'confirmed'" class="mt-1">
+                                        <span v-if="t.invoices_count > 0"
+                                            class="inline-flex items-center gap-1 text-xs text-green-700">
+                                            ✓ Invoice dibuat
+                                        </span>
+                                        <span v-else
+                                            class="inline-flex items-center gap-1 text-xs text-orange-600">
+                                            ⚠ Belum ada invoice
+                                        </span>
+                                    </div>
                                 </TableCell>
                                 <TableCell class="text-right font-mono text-sm">
                                     {{ fmt(t.total_sell) }}
@@ -125,7 +135,10 @@ function confirmDelete(tour) {
                                 >
                                     {{ fmt(profit(t)) }}
                                 </TableCell>
-                                <TableCell class="text-right space-x-1">
+                                <TableCell class="text-right space-x-1 whitespace-nowrap">
+                                    <a :href="route('quotation.preview', t.id)" target="_blank" title="Lihat Quotation PDF">
+                                        <Button variant="ghost" size="sm">PDF</Button>
+                                    </a>
                                     <Link :href="route('tours.edit', t.id)">
                                         <Button variant="outline" size="sm">Edit</Button>
                                     </Link>

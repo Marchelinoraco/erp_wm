@@ -18,25 +18,10 @@
     .header {
         background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
         color: white;
-        padding: 24px 32px;
-        position: relative;
-        overflow: hidden;
+        padding: 22px 32px;
     }
-    .header::after {
-        content: '';
-        position: absolute;
-        right: -30px;
-        top: -30px;
-        width: 160px;
-        height: 160px;
-        background: rgba(255,255,255,0.05);
-        border-radius: 50%;
-    }
-    .header-top {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-    }
+    .header-table { width: 100%; }
+    .header-table td { vertical-align: top; }
     .company-name {
         font-size: 22pt;
         font-weight: 700;
@@ -50,9 +35,7 @@
         letter-spacing: 2px;
         text-transform: uppercase;
     }
-    .doc-label {
-        text-align: right;
-    }
+    .doc-label { text-align: right; }
     .doc-label .title {
         font-size: 14pt;
         font-weight: 700;
@@ -61,419 +44,365 @@
     }
     .doc-label .code {
         font-size: 9pt;
-        color: rgba(255,255,255,0.8);
+        color: rgba(255,255,255,0.85);
         margin-top: 3px;
         font-family: 'Courier New', monospace;
     }
     .header-bottom {
         margin-top: 12px;
-        padding-top: 12px;
+        padding-top: 10px;
         border-top: 1px solid rgba(255,255,255,0.2);
         font-size: 7.5pt;
-        color: rgba(255,255,255,0.65);
+        color: rgba(255,255,255,0.7);
     }
 
-    /* ── Content ── */
-    .content { padding: 24px 32px; }
+    .content { padding: 22px 32px; }
 
-    /* ── Info boxes ── */
-    .info-row {
-        display: flex;
-        gap: 16px;
-        margin-bottom: 20px;
-    }
+    /* ── Info boxes (table layout for dompdf reliability) ── */
+    .info-table { width: 100%; border-collapse: separate; border-spacing: 8px 0; margin-bottom: 18px; }
     .info-box {
-        flex: 1;
         border: 1px solid #e2e8f0;
         border-radius: 6px;
-        padding: 12px 14px;
+        padding: 10px 12px;
         background: #f8fafc;
+        vertical-align: top;
     }
-    .info-box.highlight {
-        border-color: #0f3460;
-        background: #f0f4ff;
-    }
+    .info-box.highlight { border-color: #0f3460; background: #f0f4ff; }
     .info-box-label {
-        font-size: 6.5pt;
-        font-weight: 700;
-        color: #64748b;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        margin-bottom: 5px;
+        font-size: 6.5pt; font-weight: 700; color: #64748b;
+        text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;
     }
-    .info-box-value {
-        font-size: 9.5pt;
-        font-weight: 600;
-        color: #1a1a2e;
-        line-height: 1.4;
-    }
-    .info-box-sub {
-        font-size: 8pt;
-        color: #64748b;
-        margin-top: 2px;
-    }
+    .info-box-value { font-size: 9.5pt; font-weight: 600; color: #1a1a2e; line-height: 1.35; }
+    .info-box-sub { font-size: 8pt; color: #64748b; margin-top: 2px; }
 
     /* ── Section title ── */
     .section-title {
-        font-size: 8pt;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 1.5px;
-        color: #0f3460;
-        border-bottom: 2px solid #0f3460;
-        padding-bottom: 5px;
-        margin-bottom: 12px;
+        font-size: 8.5pt; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 1.5px; color: #0f3460;
+        border-bottom: 2px solid #0f3460; padding-bottom: 5px;
+        margin-bottom: 12px; margin-top: 4px;
     }
 
-    /* ── Items table ── */
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 16px;
+    /* ── Itinerary (day-by-day) ── */
+    .day { margin-bottom: 12px; page-break-inside: avoid; }
+    .day-head {
+        background: #0f3460; color: #fff;
+        padding: 6px 12px; border-radius: 5px;
+        font-size: 8.5pt; font-weight: 700; letter-spacing: 0.3px;
     }
-    thead tr {
-        background: #0f3460;
-        color: white;
+    .day-body {
+        padding: 8px 12px 2px;
+        font-size: 8.5pt; color: #374151; line-height: 1.55; text-align: justify;
     }
-    thead th {
-        padding: 8px 10px;
-        text-align: left;
-        font-size: 7.5pt;
-        font-weight: 600;
-        letter-spacing: 0.5px;
+    .day-hours { margin: 6px 0 2px; padding-left: 4px; }
+    .day-hour {
+        font-size: 8pt; color: #475569; margin-bottom: 2px;
     }
-    thead th.right { text-align: right; }
-    thead th.center { text-align: center; }
-
-    tbody tr {
-        border-bottom: 1px solid #f1f5f9;
-    }
-    tbody tr:nth-child(even) {
-        background: #f8fafc;
-    }
-    tbody td {
-        padding: 7px 10px;
-        font-size: 8.5pt;
-        vertical-align: top;
-    }
-    tbody td.right { text-align: right; }
-    tbody td.center { text-align: center; }
-    tbody td.muted { color: #64748b; font-size: 7.5pt; }
-
-    .type-badge {
-        display: inline-block;
-        padding: 1px 6px;
-        border-radius: 10px;
-        font-size: 6.5pt;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    .badge-hotel      { background: #dbeafe; color: #1e40af; }
-    .badge-transport  { background: #dcfce7; color: #166534; }
-    .badge-guide      { background: #fef3c7; color: #92400e; }
-    .badge-restaurant { background: #fce7f3; color: #9d174d; }
-    .badge-attraction { background: #f3e8ff; color: #6b21a8; }
-    .badge-other      { background: #f1f5f9; color: #475569; }
-
-    /* ── Totals ── */
-    .totals-wrap {
-        display: flex;
-        justify-content: flex-end;
-        margin-top: -8px;
-        margin-bottom: 20px;
-    }
-    .totals-box {
-        width: 240px;
-        border: 1px solid #e2e8f0;
-        border-radius: 6px;
-        overflow: hidden;
-    }
-    .totals-row {
-        display: flex;
-        justify-content: space-between;
-        padding: 7px 14px;
-        border-bottom: 1px solid #f1f5f9;
-        font-size: 8.5pt;
-    }
-    .totals-row.grand {
-        background: #0f3460;
-        color: white;
-        font-weight: 700;
-        font-size: 10pt;
-        border-bottom: none;
-    }
-    .totals-row .label { color: #64748b; }
-    .totals-row.grand .label { color: rgba(255,255,255,0.8); }
-    .totals-row .amount { font-family: 'Courier New', monospace; font-weight: 600; }
-
-    /* ── Notes ── */
-    .notes-box {
-        border-left: 3px solid #e8c47a;
-        background: #fffbeb;
-        padding: 10px 14px;
-        border-radius: 0 6px 6px 0;
-        margin-bottom: 20px;
-        font-size: 8pt;
-        color: #78350f;
-        line-height: 1.6;
+    .day-hour .time {
+        display: inline-block; min-width: 78px;
+        font-weight: 700; color: #0f3460; font-family: 'Courier New', monospace;
     }
 
-    /* ── Inclusions ── */
-    .inclusion-grid {
-        display: flex;
-        gap: 12px;
-        margin-bottom: 20px;
+    /* ── Pricing matrix ── */
+    table.matrix { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+    table.matrix thead tr { background: #0f3460; color: #fff; }
+    table.matrix thead th {
+        padding: 7px 8px; font-size: 7.5pt; font-weight: 600;
+        border: 1px solid #1e406e; text-align: center;
     }
-    .inclusion-col { flex: 1; }
-    .inclusion-title {
-        font-size: 7.5pt;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        color: #0f3460;
-        margin-bottom: 6px;
+    table.matrix thead th.left { text-align: left; }
+    table.matrix thead th .tier-note { font-weight: 400; font-size: 6.5pt; color: rgba(255,255,255,0.75); display: block; }
+    table.matrix tbody td {
+        padding: 6px 8px; font-size: 8pt; border: 1px solid #e2e8f0; text-align: right;
+        font-family: 'Courier New', monospace;
     }
-    .inclusion-item {
-        display: flex;
-        align-items: flex-start;
-        gap: 5px;
-        font-size: 8pt;
-        margin-bottom: 3px;
-        color: #374151;
+    table.matrix tbody td.name { text-align: left; font-family: 'DejaVu Sans', Arial, sans-serif; }
+    table.matrix tbody td.name strong { color: #1a1a2e; }
+    table.matrix tbody td.name span { color: #64748b; font-size: 7pt; display: block; }
+    table.matrix tbody tr:nth-child(even) { background: #f8fafc; }
+    .price-caption { font-size: 7.5pt; color: #64748b; margin: 0 0 16px; }
+
+    .simple-price-wrap { margin-bottom: 18px; }
+    .simple-price-box {
+        border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; width: 280px; float: right;
     }
-    .inclusion-dot { color: #e8c47a; font-size: 10pt; line-height: 1; }
+    .sp-row { padding: 8px 14px; border-bottom: 1px solid #f1f5f9; font-size: 9pt; }
+    .sp-row .lbl { color: #64748b; }
+    .sp-row .amt { float: right; font-family: 'Courier New', monospace; font-weight: 600; }
+    .sp-row.grand { background: #0f3460; color: #fff; font-weight: 700; font-size: 10.5pt; border-bottom: none; }
+    .sp-row.grand .lbl { color: rgba(255,255,255,0.85); }
+
+    /* ── Two column inc/exc ── */
+    .twocol { width: 100%; border-collapse: separate; border-spacing: 10px 0; margin-bottom: 16px; }
+    .twocol td { vertical-align: top; width: 50%; }
+    .col-title {
+        font-size: 7.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
+        margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0;
+    }
+    .col-title.inc { color: #166534; }
+    .col-title.exc { color: #b91c1c; }
+    .li { font-size: 8pt; color: #374151; margin-bottom: 3px; line-height: 1.4; }
+    .li .mk-inc { color: #16a34a; font-weight: 700; }
+    .li .mk-exc { color: #dc2626; font-weight: 700; }
+
+    .policy-box {
+        background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;
+        padding: 10px 14px; margin-bottom: 16px;
+    }
+    .policy-box .li { margin-bottom: 4px; }
+    .terms-box {
+        border-left: 3px solid #e8c47a; background: #fffbeb;
+        padding: 10px 14px; border-radius: 0 6px 6px 0; margin-bottom: 16px;
+        font-size: 7.8pt; color: #78350f; line-height: 1.55;
+    }
+    .validity-badge {
+        display: inline-block; background: #dcfce7; color: #166534;
+        padding: 3px 10px; border-radius: 20px; font-size: 7.5pt; font-weight: 600;
+    }
 
     /* ── Footer ── */
     .footer {
-        margin-top: 24px;
-        padding-top: 14px;
-        border-top: 1px solid #e2e8f0;
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-end;
+        margin-top: 18px; padding-top: 12px; border-top: 2px solid #0f3460;
     }
-    .footer-left {
-        font-size: 7.5pt;
-        color: #94a3b8;
-        line-height: 1.7;
-    }
-    .footer-right {
-        text-align: center;
-    }
-    .footer-right .sign-line {
-        width: 120px;
-        border-bottom: 1px solid #64748b;
-        margin: 40px auto 4px;
-    }
-    .footer-right .sign-label {
-        font-size: 7pt;
-        color: #64748b;
-    }
-    .validity-badge {
-        display: inline-block;
-        background: #dcfce7;
-        color: #166534;
-        padding: 4px 10px;
-        border-radius: 20px;
-        font-size: 7.5pt;
-        font-weight: 600;
-        margin-top: 8px;
-    }
+    .footer-table { width: 100%; }
+    .footer-table td { vertical-align: bottom; }
+    .footer-company { font-size: 8pt; font-weight: 700; color: #0f3460; }
+    .footer-meta { font-size: 7pt; color: #64748b; line-height: 1.6; }
+    .sign-line { width: 150px; border-bottom: 1px solid #64748b; margin: 36px 0 4px auto; }
+    .sign-label { font-size: 7pt; color: #64748b; text-align: right; }
+    .clear { clear: both; }
 </style>
 </head>
 <body>
 
+@php
+    $fmt = fn ($v) => number_format((float) $v, 0, ',', '.');
+
+    $pricing  = $tour->pricing ?? [];
+    $tiers    = $pricing['tiers'] ?? [];
+    $base     = $pricing['base'] ?? null;
+    $hotels   = $pricing['hotels'] ?? [];
+    $optionals = $pricing['optionals'] ?? [];
+
+    $baseEnabled  = $base && ($base['enabled'] ?? true) && collect($base['prices'] ?? [])->filter()->isNotEmpty();
+    $hasMatrix    = count($tiers) > 0 && ($baseEnabled || count($hotels) > 0);
+    $hasSingleSup = collect($hotels)->contains(fn ($h) => ! empty($h['single_sup']));
+
+    $toLines = fn ($t) => collect(explode("\n", (string) $t))->map(fn ($l) => trim($l))->filter()->values();
+@endphp
+
 {{-- ── HEADER ── --}}
 <div class="header">
-    <div class="header-top">
-        <div>
-            <div class="company-name">Welcome Manado</div>
-            <div class="company-tagline">Tour &amp; Travel Services</div>
-        </div>
-        <div class="doc-label">
-            <div class="title">QUOTATION</div>
-            <div class="code">{{ $tour->code }}</div>
-            <div class="code" style="margin-top:3px;">{{ now()->format('d F Y') }}</div>
-        </div>
-    </div>
+    <table class="header-table">
+        <tr>
+            <td>
+                <div class="company-name">{{ $company['brand'] }}</div>
+                <div class="company-tagline">Tour &amp; Travel Services</div>
+            </td>
+            <td class="doc-label">
+                <div class="title">QUOTATION</div>
+                <div class="code">{{ $tour->code }}</div>
+                <div class="code" style="margin-top:3px;">{{ now()->format('d F Y') }}</div>
+            </td>
+        </tr>
+    </table>
     <div class="header-bottom">
-        Manado, Sulawesi Utara &nbsp;|&nbsp; welcomemanado.com &nbsp;|&nbsp; Instagram: @welcomemanado
+        {{ $company['address'] }} &nbsp;|&nbsp; {{ $company['phone'] }} &nbsp;|&nbsp; {{ $company['website'] }}
     </div>
 </div>
 
 <div class="content">
 
     {{-- ── INFO ROW ── --}}
-    <div class="info-row">
-        {{-- Customer --}}
-        <div class="info-box">
-            <div class="info-box-label">Kepada / To</div>
-            <div class="info-box-value">{{ $tour->customer?->name ?? 'Valued Guest' }}</div>
-            @if($tour->customer?->country)
-            <div class="info-box-sub">{{ $tour->customer->country }}</div>
-            @endif
-            @if($tour->customer?->contact_person)
-            <div class="info-box-sub">Attn: {{ $tour->customer->contact_person }}</div>
-            @endif
-        </div>
-
-        {{-- Tour Info --}}
-        <div class="info-box">
-            <div class="info-box-label">Paket Tour</div>
-            <div class="info-box-value">{{ $tour->title ?? $tour->code }}</div>
-            <div class="info-box-sub">{{ $tour->pax }} Pax</div>
-        </div>
-
-        {{-- Dates --}}
-        <div class="info-box">
-            <div class="info-box-label">Tanggal</div>
-            @if($tour->start_date)
-            <div class="info-box-value">
-                {{ \Carbon\Carbon::parse($tour->start_date)->format('d M Y') }}
-            </div>
-            <div class="info-box-sub">
-                s/d {{ \Carbon\Carbon::parse($tour->end_date)->format('d M Y') }}
-            </div>
-            @else
-            <div class="info-box-value">TBD</div>
-            @endif
-        </div>
-
-        {{-- Sales --}}
-        <div class="info-box highlight">
-            <div class="info-box-label">Sales Contact</div>
-            <div class="info-box-value">{{ $tour->sales_person ?: 'Welcome Manado' }}</div>
-            <div class="info-box-sub">welcomemanado.com</div>
-        </div>
-    </div>
-
-    {{-- ── ITEMS TABLE ── --}}
-    <div class="section-title">Rincian Layanan</div>
-    <table>
-        <thead>
-            <tr>
-                <th style="width:30px;" class="center">Hari</th>
-                <th>Deskripsi Layanan</th>
-                <th style="width:60px;" class="center">Tipe</th>
-                <th style="width:35px;" class="center">Qty</th>
-                <th style="width:35px;" class="center">Mlm</th>
-                <th style="width:90px;" class="right">Harga Satuan</th>
-                <th style="width:90px;" class="right">Total</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($tour->items->sortBy('sort_order') as $item)
-            <tr>
-                <td class="center muted">
-                    {{ $item->day_number ? 'D-' . $item->day_number : '—' }}
-                </td>
-                <td>
-                    <strong>{{ $item->description }}</strong>
-                </td>
-                <td class="center">
-                    @php
-                        $badgeClass = match($item->product_type) {
-                            'hotel'       => 'badge-hotel',
-                            'transport'   => 'badge-transport',
-                            'guide'       => 'badge-guide',
-                            'restaurant'  => 'badge-restaurant',
-                            'attraction'  => 'badge-attraction',
-                            default       => 'badge-other',
-                        };
-                        $typeLabel = match($item->product_type) {
-                            'hotel'       => 'Hotel',
-                            'transport'   => 'Transport',
-                            'guide'       => 'Guide',
-                            'restaurant'  => 'Resto',
-                            'attraction'  => 'Wisata',
-                            default       => 'Lain',
-                        };
-                    @endphp
-                    <span class="type-badge {{ $badgeClass }}">{{ $typeLabel }}</span>
-                </td>
-                <td class="center">{{ $item->qty }}</td>
-                <td class="center">{{ $item->nights }}</td>
-                <td class="right">
-                    {{ $item->currency }} {{ number_format($item->unit_sell, 0, ',', '.') }}
-                </td>
-                <td class="right">
-                    <strong>{{ $item->currency }} {{ number_format($item->line_sell, 0, ',', '.') }}</strong>
-                </td>
-            </tr>
-            @empty
-            <tr>
-                <td colspan="7" style="text-align:center; padding:16px; color:#94a3b8;">
-                    Belum ada item
-                </td>
-            </tr>
-            @endforelse
-        </tbody>
+    <table class="info-table">
+        <tr>
+            <td class="info-box" style="width:30%;">
+                <div class="info-box-label">Kepada / To</div>
+                <div class="info-box-value">{{ $tour->customer?->name ?? 'Valued Guest' }}</div>
+                @if($tour->customer?->country)
+                <div class="info-box-sub">{{ $tour->customer->country }}</div>
+                @endif
+            </td>
+            <td class="info-box" style="width:30%;">
+                <div class="info-box-label">Paket Tour</div>
+                <div class="info-box-value">{{ $tour->title ?? $tour->code }}</div>
+                <div class="info-box-sub">{{ $tour->pax }} Pax</div>
+            </td>
+            <td class="info-box" style="width:20%;">
+                <div class="info-box-label">Tanggal</div>
+                @if($tour->start_date)
+                <div class="info-box-value">{{ \Carbon\Carbon::parse($tour->start_date)->format('d M Y') }}</div>
+                <div class="info-box-sub">s/d {{ \Carbon\Carbon::parse($tour->end_date)->format('d M Y') }}</div>
+                @else
+                <div class="info-box-value">TBD</div>
+                @endif
+            </td>
+            <td class="info-box highlight" style="width:20%;">
+                <div class="info-box-label">Sales Contact</div>
+                <div class="info-box-value">{{ $tour->sales_person ?: $company['brand'] }}</div>
+                <div class="info-box-sub">{{ $company['website'] }}</div>
+            </td>
+        </tr>
     </table>
 
-    {{-- ── TOTALS ── --}}
-    <div class="totals-wrap">
-        <div class="totals-box">
-            <div class="totals-row">
-                <span class="label">Subtotal</span>
-                <span class="amount">IDR {{ number_format($tour->total_sell, 0, ',', '.') }}</span>
+    {{-- ── PROGRAM TOUR (itinerary day-by-day) ── --}}
+    @if($tour->itineraryDays->count())
+        <div class="section-title">Program Tour</div>
+        @foreach($tour->itineraryDays as $day)
+            @php $hours = $tour->itineraryHours->where('day_number', $day->day_number); @endphp
+            <div class="day">
+                <div class="day-head">
+                    HARI {{ $day->day_number }}@if($day->title): {{ strtoupper($day->title) }}@endif
+                </div>
+                <div class="day-body">
+                    @if($day->description){{ $day->description }}@endif
+                    @if($hours->count())
+                    <div class="day-hours">
+                        @foreach($hours as $h)
+                        <div class="day-hour">
+                            <span class="time">{{ $h->start_time?->format('H:i') }}@if($h->end_time)–{{ $h->end_time?->format('H:i') }}@endif</span>
+                            {{ $h->activity }}@if($h->notes) <em style="color:#94a3b8;">({{ $h->notes }})</em>@endif
+                        </div>
+                        @endforeach
+                    </div>
+                    @endif
+                </div>
             </div>
-            <div class="totals-row">
-                <span class="label">Pajak / Tax</span>
-                <span class="amount">—</span>
-            </div>
-            <div class="totals-row grand">
-                <span class="label">TOTAL</span>
-                <span class="amount">IDR {{ number_format($tour->total_sell, 0, ',', '.') }}</span>
-            </div>
-        </div>
-    </div>
-
-    {{-- ── NOTES ── --}}
-    @if($tour->notes)
-    <div class="section-title">Catatan</div>
-    <div class="notes-box">{{ $tour->notes }}</div>
+        @endforeach
     @endif
 
-    {{-- ── WHAT'S INCLUDED ── --}}
-    <div class="section-title">Informasi Tambahan</div>
-    <div class="inclusion-grid">
-        <div class="inclusion-col">
-            <div class="inclusion-title">Termasuk (Included)</div>
-            <div class="inclusion-item"><span class="inclusion-dot">✦</span> Layanan sesuai program di atas</div>
-            <div class="inclusion-item"><span class="inclusion-dot">✦</span> Tour Leader / Guide lokal berbahasa Indonesia</div>
-            <div class="inclusion-item"><span class="inclusion-dot">✦</span> Transportasi sesuai program</div>
-            <div class="inclusion-item"><span class="inclusion-dot">✦</span> Akomodasi sesuai program</div>
+    {{-- ── HARGA ── --}}
+    <div class="section-title">Harga Paket</div>
+
+    @if($hasMatrix)
+        <table class="matrix">
+            <thead>
+                <tr>
+                    <th class="left">{{ count($hotels) ? 'Hotel / Paket' : 'Paket' }}</th>
+                    @foreach($tiers as $tier)
+                    <th>
+                        {{ $tier['label'] ?? '—' }}
+                        @if(!empty($tier['note']))<span class="tier-note">{{ $tier['note'] }}</span>@endif
+                    </th>
+                    @endforeach
+                    @if($hasSingleSup)<th>Sgl. Sup</th>@endif
+                </tr>
+            </thead>
+            <tbody>
+                @if($baseEnabled)
+                <tr>
+                    <td class="name"><strong>{{ $base['label'] ?? 'Tanpa Hotel' }}</strong></td>
+                    @foreach($tiers as $tier)
+                    <td>{{ isset($base['prices'][$tier['id']]) ? $fmt($base['prices'][$tier['id']]) : '—' }}</td>
+                    @endforeach
+                    @if($hasSingleSup)<td>—</td>@endif
+                </tr>
+                @endif
+                @foreach($hotels as $hotel)
+                <tr>
+                    <td class="name">
+                        <strong>{{ $hotel['name'] ?? '—' }}</strong>
+                        @if(!empty($hotel['room']))<span>{{ $hotel['room'] }}</span>@endif
+                    </td>
+                    @foreach($tiers as $tier)
+                    <td>{{ isset($hotel['prices'][$tier['id']]) ? $fmt($hotel['prices'][$tier['id']]) : '—' }}</td>
+                    @endforeach
+                    @if($hasSingleSup)<td>{{ !empty($hotel['single_sup']) ? $fmt($hotel['single_sup']) : '—' }}</td>@endif
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+        <p class="price-caption">Harga per pax dalam IDR. Sgl. Sup = tambahan untuk kamar single.
+            @if($tour->price_validity) Harga berlaku s/d {{ \Carbon\Carbon::parse($tour->price_validity)->format('d F Y') }}.@endif
+        </p>
+    @else
+        {{-- Fallback: harga tunggal dari total jual tour --}}
+        <div class="simple-price-wrap">
+            <div class="simple-price-box">
+                <div class="sp-row"><span class="lbl">Total Paket ({{ $tour->pax }} pax)</span><span class="amt">IDR {{ $fmt($tour->total_sell) }}</span></div>
+                @if($tour->pax > 0)
+                <div class="sp-row"><span class="lbl">Harga per Pax</span><span class="amt">IDR {{ $fmt($tour->total_sell / $tour->pax) }}</span></div>
+                @endif
+                <div class="sp-row grand"><span class="lbl">TOTAL</span><span class="amt">IDR {{ $fmt($tour->total_sell) }}</span></div>
+            </div>
+            <div class="clear"></div>
         </div>
-        <div class="inclusion-col">
-            <div class="inclusion-title">Tidak Termasuk (Excluded)</div>
-            <div class="inclusion-item"><span class="inclusion-dot">✦</span> Tiket pesawat</div>
-            <div class="inclusion-item"><span class="inclusion-dot">✦</span> Pengeluaran pribadi</div>
-            <div class="inclusion-item"><span class="inclusion-dot">✦</span> Tip guide / driver</div>
-            <div class="inclusion-item"><span class="inclusion-dot">✦</span> Visa (jika diperlukan)</div>
+        @if($tour->price_validity)
+        <p class="price-caption">Harga berlaku s/d {{ \Carbon\Carbon::parse($tour->price_validity)->format('d F Y') }}.</p>
+        @endif
+    @endif
+
+    {{-- ── Optional tour ── --}}
+    @if(count($optionals))
+    <div style="margin-bottom:16px;">
+        <div class="col-title" style="color:#0f3460;">Optional Tour</div>
+        @foreach($optionals as $opt)
+        <div class="li">
+            <span class="mk-inc">◦</span> {{ $opt['label'] ?? '' }} — IDR {{ $fmt($opt['price'] ?? 0) }}@if(!empty($opt['note'])) <em style="color:#94a3b8;">({{ $opt['note'] }})</em>@endif
         </div>
-        <div class="inclusion-col">
-            <div class="inclusion-title">Syarat &amp; Ketentuan</div>
-            <div class="inclusion-item"><span class="inclusion-dot">✦</span> DP 50% untuk konfirmasi booking</div>
-            <div class="inclusion-item"><span class="inclusion-dot">✦</span> Pelunasan H-7 keberangkatan</div>
-            <div class="inclusion-item"><span class="inclusion-dot">✦</span> Pembatalan dikenakan biaya sesuai kebijakan</div>
-            <div class="inclusion-item"><span class="inclusion-dot">✦</span> Harga dapat berubah sewaktu-waktu</div>
-        </div>
+        @endforeach
     </div>
+    @endif
+
+    {{-- ── INCLUDED / EXCLUDED ── --}}
+    <table class="twocol">
+        <tr>
+            <td>
+                <div class="col-title inc">Harga Sudah Termasuk</div>
+                @foreach($toLines($included) as $line)
+                <div class="li"><span class="mk-inc">✓</span> {{ $line }}</div>
+                @endforeach
+            </td>
+            <td>
+                <div class="col-title exc">Harga Belum Termasuk</div>
+                @foreach($toLines($excluded) as $line)
+                <div class="li"><span class="mk-exc">✗</span> {{ $line }}</div>
+                @endforeach
+            </td>
+        </tr>
+    </table>
+
+    {{-- ── CHILD POLICY ── --}}
+    @if($toLines($childPolicy)->count())
+    <div class="section-title">Kebijakan Anak</div>
+    <div class="policy-box">
+        @foreach($toLines($childPolicy) as $line)
+        <div class="li">• {{ $line }}</div>
+        @endforeach
+    </div>
+    @endif
+
+    {{-- ── TERMS ── --}}
+    @if(trim((string) $terms) !== '')
+    <div class="section-title">Syarat &amp; Ketentuan</div>
+    <div class="terms-box">{!! nl2br(e($terms)) !!}</div>
+    @endif
+
+    @if($tour->notes)
+    <div class="section-title">Catatan</div>
+    <div class="terms-box" style="border-left-color:#0f3460; background:#f0f4ff; color:#1e3a5f;">{!! nl2br(e($tour->notes)) !!}</div>
+    @endif
 
     {{-- ── FOOTER ── --}}
     <div class="footer">
-        <div class="footer-left">
-            <strong>Welcome Manado Tour &amp; Travel</strong><br>
-            Manado, Sulawesi Utara, Indonesia<br>
-            welcomemanado.com<br>
-            <span class="validity-badge">✓ Quotation valid 14 hari</span>
-        </div>
-        <div class="footer-right">
-            <div class="sign-line"></div>
-            <div class="sign-label">Welcome Manado</div>
-            <div class="sign-label" style="color:#0f3460; font-weight:600;">{{ $tour->sales_person ?: 'Tour Consultant' }}</div>
-        </div>
+        <table class="footer-table">
+            <tr>
+                <td style="width:60%;">
+                    <div class="footer-company">{{ $company['legal_name'] }}</div>
+                    <div class="footer-meta">
+                        {{ $company['address'] }}<br>
+                        Hp. {{ $company['phone'] }}<br>
+                        Email: {{ $company['email'] }}
+                    </div>
+                    <div style="margin-top:8px;"><span class="validity-badge">Quotation valid 14 hari</span></div>
+                </td>
+                <td style="width:40%;">
+                    <div class="sign-line"></div>
+                    <div class="sign-label">{{ $company['brand'] }}</div>
+                    <div class="sign-label" style="color:#0f3460; font-weight:700;">{{ $tour->sales_person ?: 'Tour Consultant' }}</div>
+                </td>
+            </tr>
+        </table>
     </div>
 
 </div>

@@ -19,6 +19,7 @@ class TourController extends Controller
         $query = Tour::with('customer')
             ->withSum('items as total_sell', 'line_sell')
             ->withSum('items as total_cost', 'line_cost')
+            ->withCount('invoices')
             ->latest();
 
         if ($request->filled('status')) {
@@ -67,7 +68,7 @@ class TourController extends Controller
 
     public function edit(Tour $tour)
     {
-        $tour->load(['customer', 'items.product', 'assignments', 'itineraryDays', 'itineraryHours', 'histories']);
+        $tour->load(['customer', 'items.product', 'assignments', 'itineraryDays', 'itineraryHours', 'histories', 'invoices']);
         $tour->append(['total_cost', 'total_sell', 'profit', 'margin', 'itinerary_pdf_url']);
 
         return Inertia::render('Tours/Edit', [
@@ -82,6 +83,12 @@ class TourController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'name', 'role']),
             'emailTemplates' => (new TourEmailController)->templates($tour),
+            'quotationDefaults' => [
+                'included'     => config('quotation.included'),
+                'excluded'     => config('quotation.excluded'),
+                'child_policy' => config('quotation.child_policy'),
+                'terms'        => config('quotation.terms'),
+            ],
         ]);
     }
 
@@ -97,6 +104,13 @@ class TourController extends Controller
             'sales_person'   => 'nullable|string|max:255',
             'default_markup' => 'nullable|numeric|min:0|max:100',
             'notes'          => 'nullable|string',
+            // Quotation (customer-facing)
+            'pricing'        => 'nullable|array',
+            'included'       => 'nullable|string',
+            'excluded'       => 'nullable|string',
+            'child_policy'   => 'nullable|string',
+            'terms'          => 'nullable|string',
+            'price_validity' => 'nullable|date',
         ]);
 
         $statusChanged = isset($data['status']) && $data['status'] !== $tour->status;
@@ -120,6 +134,12 @@ class TourController extends Controller
                 'description'     => 'Status diubah dari "' . ($labels[$oldStatus] ?? $oldStatus) . '" menjadi "' . ($labels[$data['status']] ?? $data['status']) . '".',
                 'created_by'      => auth()->user()->name,
             ]);
+
+            // Auto-buat invoice DRAFT saat tour dikonfirmasi (anti-duplikat).
+            // Nominal = total jual (snapshot item); akuntan finalisasi & kirim.
+            if ($data['status'] === 'confirmed' && $tour->invoices()->count() === 0) {
+                $this->createDraftInvoice($tour);
+            }
         }
 
         return redirect()->back()->with('success', 'Tour berhasil diperbarui.');
@@ -131,5 +151,27 @@ class TourController extends Controller
 
         return redirect()->route('tours.index')
             ->with('success', 'Tour berhasil dihapus.');
+    }
+
+    /**
+     * Buat invoice DRAFT otomatis untuk tour yang baru dikonfirmasi.
+     * Nominal diambil dari total jual (snapshot item); akuntan finalisasi.
+     */
+    private function createDraftInvoice(Tour $tour): void
+    {
+        $tour->invoices()->create([
+            'date'     => now()->toDateString(),
+            'due_date' => $tour->start_date?->toDateString() ?? now()->addDays(7)->toDateString(),
+            'total'    => $tour->total_sell,
+            'status'   => 'draft',
+            'notes'    => 'Dibuat otomatis saat tour dikonfirmasi.',
+        ]);
+
+        $tour->histories()->create([
+            'type'            => 'note',
+            'status_snapshot' => $tour->status,
+            'description'     => 'Invoice draft otomatis dibuat (IDR ' . number_format($tour->total_sell, 0, ',', '.') . '). Silakan finalisasi di menu Keuangan.',
+            'created_by'      => auth()->user()->name,
+        ]);
     }
 }
