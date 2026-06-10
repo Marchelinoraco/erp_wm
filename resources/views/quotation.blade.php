@@ -363,36 +363,54 @@
 {{-- ── Optional tour ── --}}
 @if(count($optionals))
 <div style="margin-bottom:14px;">
-    <div class="col-title" style="color:#0f3460; border-bottom-color:#cbd5e1;">OPTIONAL TOUR</div>
-    @foreach($optionals as $opt)
-    <div class="li"><span class="mk-opt">◦</span> {{ $opt['label'] ?? '' }} — IDR {{ $fmt($opt['price'] ?? 0) }}@if(!empty($opt['note'])) <i style="color:#94a3b8;">({{ $opt['note'] }})</i>@endif</div>
-    @endforeach
+    <div style="font-size:8pt;font-weight:bold;letter-spacing:1px;color:#0f3460;padding:6px 0 6px;border-bottom:1px solid #e2e8f0;margin-bottom:6px;">OPTIONAL TOUR</div>
+    <table width="100%" style="border-collapse:collapse;">
+        @foreach($optionals as $opt)
+        <tr>
+            <td style="width:14px;padding:3px 6px 3px 0;vertical-align:top;color:#0f3460;font-weight:bold;font-size:9pt;">&#9702;</td>
+            <td style="padding:3px 0;font-size:8pt;color:#374151;vertical-align:top;line-height:1.4;">
+                {{ $opt['label'] ?? '' }} &mdash; <b>IDR {{ $fmt($opt['price'] ?? 0) }}</b>
+                @if(!empty($opt['note'])) <i style="color:#94a3b8;">({{ $opt['note'] }})</i>@endif
+            </td>
+        </tr>
+        @endforeach
+    </table>
 </div>
 @endif
 
 {{-- ── INCLUDED / EXCLUDED ── --}}
-<table class="twocol">
+<table width="100%" style="border-collapse:collapse;margin-bottom:16px;">
     <tr>
-        <td class="cell">
-            <div class="col-pane inc">
-                <div class="col-title inc"><span class="hd-icon">✔</span> HARGA SUDAH TERMASUK</div>
-                <div class="col-body">
-                    @foreach($toLines($included) as $line)
-                    <div class="li"><span class="mk-inc">✓</span><span>{{ $line }}</span></div>
-                    @endforeach
-                </div>
-            </div>
+        <td style="width:49%;vertical-align:top;padding-right:6px;">
+            <table width="100%" style="border-collapse:collapse;border:1.5px solid #86efac;">
+                <tr>
+                    <td colspan="2" style="background:#16a34a;color:#ffffff;font-size:8pt;font-weight:bold;padding:7px 12px;letter-spacing:1px;">
+                        &#10004; HARGA SUDAH TERMASUK
+                    </td>
+                </tr>
+                @foreach($toLines($included) as $line)
+                <tr>
+                    <td style="background:#f0fdf4;padding:4px 5px 4px 10px;vertical-align:top;width:16px;color:#16a34a;font-weight:bold;font-size:9pt;text-align:center;">&#10003;</td>
+                    <td style="background:#f0fdf4;padding:4px 10px 4px 4px;font-size:8pt;color:#374151;vertical-align:top;line-height:1.4;">{{ $line }}</td>
+                </tr>
+                @endforeach
+            </table>
         </td>
-        <td class="gap"></td>
-        <td class="cell">
-            <div class="col-pane exc">
-                <div class="col-title exc"><span class="hd-icon">✘</span> HARGA BELUM TERMASUK</div>
-                <div class="col-body">
-                    @foreach($toLines($excluded) as $line)
-                    <div class="li"><span class="mk-exc">✗</span><span>{{ $line }}</span></div>
-                    @endforeach
-                </div>
-            </div>
+        <td style="width:2%;vertical-align:top;"></td>
+        <td style="width:49%;vertical-align:top;">
+            <table width="100%" style="border-collapse:collapse;border:1.5px solid #fca5a5;">
+                <tr>
+                    <td colspan="2" style="background:#dc2626;color:#ffffff;font-size:8pt;font-weight:bold;padding:7px 12px;letter-spacing:1px;">
+                        &#10008; HARGA BELUM TERMASUK
+                    </td>
+                </tr>
+                @foreach($toLines($excluded) as $line)
+                <tr>
+                    <td style="background:#fff5f5;padding:4px 5px 4px 10px;vertical-align:top;width:16px;color:#dc2626;font-weight:bold;font-size:9pt;text-align:center;">&#10007;</td>
+                    <td style="background:#fff5f5;padding:4px 10px 4px 4px;font-size:8pt;color:#374151;vertical-align:top;line-height:1.4;">{{ $line }}</td>
+                </tr>
+                @endforeach
+            </table>
         </td>
     </tr>
 </table>
@@ -401,9 +419,14 @@
 @if($toLines($childPolicy)->count())
 <div class="section-title"><span class="tick">|</span> KEBIJAKAN ANAK</div>
 <div class="policy-box">
-    @foreach($toLines($childPolicy) as $line)
-    <div class="li">• {{ $line }}</div>
-    @endforeach
+    <table width="100%" style="border-collapse:collapse;">
+        @foreach($toLines($childPolicy) as $line)
+        <tr>
+            <td style="width:14px;padding:3px 6px 3px 0;vertical-align:top;color:#0f3460;font-weight:bold;">&#8226;</td>
+            <td style="padding:3px 0;font-size:8pt;color:#374151;vertical-align:top;line-height:1.4;">{{ $line }}</td>
+        </tr>
+        @endforeach
+    </table>
 </div>
 @endif
 
