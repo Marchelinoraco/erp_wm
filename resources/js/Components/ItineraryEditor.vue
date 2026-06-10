@@ -10,6 +10,7 @@
                 :class="['toolbar-btn', editor?.isActive('italic') && 'is-active']" title="Italic">
                 <em>I</em>
             </button>
+            <div class="w-px h-5 bg-border mx-1"></div>
             <button type="button" @click="editor.chain().focus().toggleBulletList().run()"
                 :class="['toolbar-btn', editor?.isActive('bulletList') && 'is-active']" title="Bullet List">
                 &#8226;&#8212;
@@ -18,13 +19,6 @@
                 :class="['toolbar-btn', editor?.isActive('orderedList') && 'is-active']" title="Numbered List">
                 1&#8212;
             </button>
-            <div class="w-px h-5 bg-border mx-1"></div>
-            <button type="button" @click="triggerImageUpload" title="Upload Gambar"
-                class="toolbar-btn" :disabled="uploading">
-                <span v-if="uploading" class="text-xs">...</span>
-                <span v-else>&#128247;</span>
-            </button>
-            <input ref="fileInput" type="file" accept="image/*" class="hidden" @change="handleImageUpload" />
         </div>
 
         <!-- Editor area -->
@@ -36,27 +30,22 @@
 </template>
 
 <script setup>
-import { ref, watch, onBeforeUnmount } from 'vue'
+import { watch, onBeforeUnmount } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
-import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 
 const props = defineProps({
-    modelValue: { type: String, default: '' },
-    tourId:     { type: [Number, String], required: true },
+    modelValue:  { type: String, default: '' },
+    tourId:      { type: [Number, String], required: true },
     placeholder: { type: String, default: 'Aktivitas, jadwal, tempat yang dikunjungi...' },
 })
 const emit = defineEmits(['update:modelValue'])
-
-const fileInput = ref(null)
-const uploading = ref(false)
 
 const editor = useEditor({
     content: props.modelValue || '',
     extensions: [
         StarterKit,
-        Image.configure({ inline: false, allowBase64: false }),
         Placeholder.configure({ placeholder: props.placeholder }),
     ],
     editorProps: {
@@ -74,36 +63,6 @@ watch(() => props.modelValue, (val) => {
 })
 
 onBeforeUnmount(() => editor.value?.destroy())
-
-function triggerImageUpload() {
-    fileInput.value?.click()
-}
-
-async function handleImageUpload(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    uploading.value = true
-    const formData = new FormData()
-    formData.append('image', file)
-
-    try {
-        const res = await fetch(route('tours.itinerary.image.upload', props.tourId), {
-            method: 'POST',
-            headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '' },
-            body: formData,
-        })
-        const data = await res.json()
-        if (data.url) {
-            editor.value?.chain().focus().setImage({ src: data.url }).run()
-        }
-    } catch (err) {
-        console.error('Upload gagal:', err)
-    } finally {
-        uploading.value = false
-        e.target.value = ''
-    }
-}
 </script>
 
 <style scoped>
