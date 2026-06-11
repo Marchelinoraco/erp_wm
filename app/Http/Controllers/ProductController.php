@@ -91,4 +91,43 @@ class ProductController extends Controller
         return redirect()->route('products.index')
             ->with('success', 'Produk berhasil dihapus.');
     }
+
+    /** Download template CSV kosong untuk import produk massal. */
+    public function downloadTemplate()
+    {
+        $path = public_path('templates/template_produk.csv');
+        return response()->download($path, 'template_produk.csv', [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    /** Export daftar supplier aktif sebagai CSV referensi (selalu up-to-date). */
+    public function exportSuppliers()
+    {
+        $suppliers = Supplier::orderBy('type')->orderBy('name')
+            ->get(['name', 'type', 'contact_person', 'phone', 'email']);
+
+        $rows   = [];
+        $rows[] = ['PETUNJUK: Gunakan kolom "name" persis seperti ini di template_produk.csv (kolom supplier_name)'];
+        $rows[] = [];
+        $rows[] = ['name', 'type', 'contact_person', 'phone', 'email'];
+        foreach ($suppliers as $s) {
+            $rows[] = [
+                $s->name,
+                $s->type ?? '',
+                $s->contact_person ?? '',
+                $s->phone ?? '',
+                $s->email ?? '',
+            ];
+        }
+
+        $csv = collect($rows)->map(function ($row) {
+            return implode(',', array_map(fn ($v) => '"' . str_replace('"', '""', $v) . '"', $row));
+        })->implode("\n");
+
+        return response($csv, 200, [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="referensi_supplier.csv"',
+        ]);
+    }
 }

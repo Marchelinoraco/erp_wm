@@ -75,6 +75,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/agent/products/{product}', [AgentProductController::class, 'destroy'])->name('agent.products.destroy');
     });
 
+    // Template download — harus sebelum resource agar tidak ditangkap {product}
+    Route::middleware('role:admin,sales')->group(function () {
+        Route::get('/products/template/download',  [ProductController::class, 'downloadTemplate'])->name('products.template.download');
+        Route::get('/products/template/suppliers', [ProductController::class, 'exportSuppliers'])->name('products.template.suppliers');
+    });
+
     // Master Data — Products: admin + sales
     Route::resource('products', ProductController::class)
         ->except(['show'])
