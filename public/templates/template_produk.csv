@@ -1,6 +1,6 @@
 PETUNJUK,Isi kolom A-H per baris. Hapus baris PETUNJUK ini sebelum import.,,,,,,,
 PETUNJUK,Kolom supplier_name: ketik nama supplier PERSIS seperti di file referensi_supplier.csv (opsional boleh kosong),,,,,,,
-PETUNJUK,type wajib isi salah satu: hotel | transport | guide | restaurant | attraction | other,,,,,,,
+PETUNJUK,type wajib isi salah satu: hotel | transport | guide | restaurant | attraction | agent | other,,,,,,,
 PETUNJUK,unit wajib isi salah satu: per_pax | per_unit | per_night,,,,,,,
 PETUNJUK,currency default IDR (isi USD jika harga dalam dolar),,,,,,,
 PETUNJUK,is_active isi: 1 (aktif) atau 0 (nonaktif). Default 1.,,,,,,,

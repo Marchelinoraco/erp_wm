@@ -66,7 +66,7 @@ class BookingController extends Controller
             'tours'      => $tours,
             'suppliers'  => Supplier::orderBy('name')->get(['id', 'name', 'type']),
             'stats'      => $stats,
-            'categories' => ['hotel', 'transport', 'guide', 'restaurant', 'attraction', 'other'],
+            'categories' => ['hotel', 'transport', 'guide', 'restaurant', 'attraction', 'agent', 'other'],
             'statuses'   => TourBooking::STATUSES,
         ]);
     }
@@ -77,7 +77,7 @@ class BookingController extends Controller
         $data = $request->validate([
             'supplier_id' => 'nullable|exists:suppliers,id',
             'description' => 'required|string|max:255',
-            'category'    => 'required|in:hotel,transport,guide,restaurant,attraction,other',
+            'category'    => 'required|in:hotel,transport,guide,restaurant,attraction,agent,other',
             'est_cost'    => 'nullable|numeric|min:0',
             'notes'       => 'nullable|string',
         ]);

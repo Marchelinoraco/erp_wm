@@ -40,7 +40,7 @@ class SupplierController extends Controller
     {
         $data = $request->validate([
             'name'            => 'required|string|max:255',
-            'type'            => 'nullable|string|in:hotel,transport,guide,restaurant,attraction,other',
+            'type'            => 'nullable|string|in:hotel,transport,guide,restaurant,attraction,agent,other',
             'is_travel_agent' => 'boolean',
             'contact_person'  => 'nullable|string|max:255',
             'phone'           => 'nullable|string|max:50',
@@ -91,7 +91,7 @@ class SupplierController extends Controller
 
         $data = $request->validate([
             'name'            => 'required|string|max:255',
-            'type'            => 'nullable|string|in:hotel,transport,guide,restaurant,attraction,other',
+            'type'            => 'nullable|string|in:hotel,transport,guide,restaurant,attraction,agent,other',
             'is_travel_agent' => 'boolean',
             'contact_person'  => 'nullable|string|max:255',
             'phone'           => 'nullable|string|max:50',

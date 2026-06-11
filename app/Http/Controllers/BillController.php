@@ -13,7 +13,7 @@ class BillController extends Controller
         $data = $request->validate([
             'supplier_id' => 'nullable|exists:suppliers,id',
             'description' => 'required|string|max:255',
-            'category'    => 'required|in:hotel,transport,guide,restaurant,attraction,other',
+            'category'    => 'required|in:hotel,transport,guide,restaurant,attraction,agent,other',
             'date'        => 'required|date',
             'due_date'    => 'nullable|date',
             'amount'      => 'required|numeric|min:0',
@@ -30,7 +30,7 @@ class BillController extends Controller
         $data = $request->validate([
             'supplier_id' => 'nullable|exists:suppliers,id',
             'description' => 'required|string|max:255',
-            'category'    => 'required|in:hotel,transport,guide,restaurant,attraction,other',
+            'category'    => 'required|in:hotel,transport,guide,restaurant,attraction,agent,other',
             'date'        => 'required|date',
             'due_date'    => 'nullable|date',
             'amount'      => 'required|numeric|min:0',

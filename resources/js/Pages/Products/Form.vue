@@ -74,6 +74,7 @@ function submit() {
                                         <SelectItem value="guide">Guide</SelectItem>
                                         <SelectItem value="restaurant">Restaurant</SelectItem>
                                         <SelectItem value="attraction">Attraction</SelectItem>
+                                        <SelectItem value="agent">Agent</SelectItem>
                                         <SelectItem value="other">Lainnya</SelectItem>
                                     </SelectContent>
                                 </Select>

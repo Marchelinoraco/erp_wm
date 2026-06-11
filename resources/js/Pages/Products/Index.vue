@@ -36,7 +36,7 @@ function applyFilter() {
 
 const TYPE_LABELS = {
     hotel: 'Hotel', transport: 'Transport', guide: 'Guide',
-    restaurant: 'Restaurant', attraction: 'Attraction', other: 'Lainnya',
+    restaurant: 'Restaurant', attraction: 'Attraction', agent: 'Agent', other: 'Lainnya',
 }
 
 function fmt(val) {
@@ -97,6 +97,7 @@ function confirmDelete(id) {
                             <SelectItem value="guide">Guide</SelectItem>
                             <SelectItem value="restaurant">Restaurant</SelectItem>
                             <SelectItem value="attraction">Attraction</SelectItem>
+                            <SelectItem value="agent">Agent</SelectItem>
                             <SelectItem value="other">Lainnya</SelectItem>
                         </SelectContent>
                     </Select>

@@ -23,12 +23,12 @@ const props = defineProps({
 
 const CATEGORY_LABEL = {
     hotel: 'Hotel', transport: 'Transport', guide: 'Guide',
-    restaurant: 'Restoran', attraction: 'Atraksi', other: 'Lainnya',
+    restaurant: 'Restoran', attraction: 'Atraksi', agent: 'Agent', other: 'Lainnya',
 }
 const CATEGORY_BADGE = {
     hotel: 'bg-blue-100 text-blue-700', transport: 'bg-amber-100 text-amber-700',
     guide: 'bg-emerald-100 text-emerald-700', restaurant: 'bg-rose-100 text-rose-700',
-    attraction: 'bg-violet-100 text-violet-700', other: 'bg-gray-100 text-gray-700',
+    attraction: 'bg-violet-100 text-violet-700', agent: 'bg-cyan-100 text-cyan-700', other: 'bg-gray-100 text-gray-700',
 }
 const STATUS_BADGE = {
     pending: 'bg-orange-100 text-orange-700',

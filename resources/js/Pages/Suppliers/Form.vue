@@ -71,7 +71,8 @@ function submit() {
                                     <SelectItem value="guide">Guide</SelectItem>
                                     <SelectItem value="restaurant">Restaurant</SelectItem>
                                     <SelectItem value="attraction">Attraction</SelectItem>
-                                    <SelectItem value="other">Lainnya</SelectItem>
+                                    <SelectItem value="agent">Agent</SelectItem>
+                                        <SelectItem value="other">Lainnya</SelectItem>
                                 </SelectContent>
                             </Select>
                             <p v-if="form.errors.type" class="text-sm text-destructive">{{ form.errors.type }}</p>
