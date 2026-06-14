@@ -11,6 +11,10 @@ import {
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableEmpty,
 } from '@/Components/ui/table'
+import { DropdownMenuItem, DropdownMenuSeparator } from '@/Components/ui/dropdown-menu'
+import RowActions from '@/Components/RowActions.vue'
+import { confirm } from '@/lib/confirm'
+import { fmtRp } from '@/lib/fmt'
 
 const props = defineProps({
     products: Object,
@@ -39,12 +43,12 @@ const TYPE_LABELS = {
     restaurant: 'Restaurant', attraction: 'Attraction', agent: 'Agent', other: 'Lainnya',
 }
 
-function fmt(val) {
-    return Number(val).toLocaleString('id-ID')
-}
-
-function confirmDelete(id) {
-    if (confirm('Hapus produk ini?')) {
+async function confirmDelete(id) {
+    if (await confirm({
+        title: 'Hapus produk?',
+        description: 'Produk ini akan dihapus permanen.',
+        confirmLabel: 'Hapus',
+    })) {
         router.delete(route('products.destroy', id))
     }
 }
@@ -128,20 +132,23 @@ function confirmDelete(id) {
                                 </TableCell>
                                 <TableCell>{{ p.supplier?.name ?? '—' }}</TableCell>
                                 <TableCell class="text-muted-foreground text-sm">{{ p.unit }}</TableCell>
-                                <TableCell class="text-right font-mono text-sm">{{ fmt(p.cost) }}</TableCell>
-                                <TableCell class="text-right font-mono text-sm">{{ fmt(p.sell) }}</TableCell>
+                                <TableCell class="text-right font-mono text-sm">{{ fmtRp(p.cost) }}</TableCell>
+                                <TableCell class="text-right font-mono text-sm">{{ fmtRp(p.sell) }}</TableCell>
                                 <TableCell>
                                     <Badge :variant="p.is_active ? 'default' : 'outline'">
                                         {{ p.is_active ? 'Aktif' : 'Non-aktif' }}
                                     </Badge>
                                 </TableCell>
-                                <TableCell class="text-right space-x-2">
-                                    <Link :href="route('products.edit', p.id)">
-                                        <Button variant="outline" size="sm">Edit</Button>
-                                    </Link>
-                                    <Button variant="destructive" size="sm" @click="confirmDelete(p.id)">
-                                        Hapus
-                                    </Button>
+                                <TableCell class="text-right">
+                                    <RowActions>
+                                        <DropdownMenuItem as-child>
+                                            <Link :href="route('products.edit', p.id)">Edit</Link>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem variant="destructive" @click="confirmDelete(p.id)">
+                                            Hapus
+                                        </DropdownMenuItem>
+                                    </RowActions>
                                 </TableCell>
                             </TableRow>
                         </TableBody>

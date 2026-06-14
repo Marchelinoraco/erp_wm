@@ -20,4 +20,9 @@ class Product extends Model
     {
         return $this->belongsTo(Supplier::class);
     }
+
+    public function prices()
+    {
+        return $this->hasMany(ProductPrice::class)->orderBy('start_date');
+    }
 }

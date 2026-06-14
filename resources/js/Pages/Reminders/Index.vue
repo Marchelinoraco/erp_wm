@@ -2,6 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Head, Link, useForm, router } from '@inertiajs/vue3'
 import { ref } from 'vue'
+import { confirm } from '@/lib/confirm'
 import { Button } from '@/Components/ui/button'
 import { Input } from '@/Components/ui/input'
 import { Label } from '@/Components/ui/label'
@@ -62,8 +63,8 @@ function submitEdit() {
 function markDone(r) {
     router.patch(route('reminders.done', r.id))
 }
-function deleteReminder(r) {
-    if (confirm('Hapus reminder ini?')) {
+async function deleteReminder(r) {
+    if (await confirm({ title: 'Hapus reminder?', description: 'Reminder ini akan dihapus permanen.', confirmLabel: 'Hapus' })) {
         router.delete(route('reminders.destroy', r.id))
     }
 }
@@ -153,8 +154,11 @@ const PIPELINE_LABEL = {
 
                 <!-- Reminder list -->
                 <div class="space-y-2">
-                    <div v-if="reminders.length === 0" class="rounded-lg border bg-white p-10 text-center text-muted-foreground shadow-sm">
-                        Belum ada reminder. Klik <strong>+ Tambah Reminder</strong> untuk mulai.
+                    <div v-if="reminders.length === 0" class="rounded-lg border bg-white px-4 py-16 text-center shadow-sm">
+                        <svg class="mx-auto mb-3 h-9 w-9 text-muted-foreground opacity-25" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                        </svg>
+                        <p class="text-sm text-muted-foreground">Belum ada reminder. Klik <strong>+ Tambah Reminder</strong> untuk mulai.</p>
                     </div>
 
                     <div

@@ -9,7 +9,11 @@ import {
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableEmpty,
 } from '@/Components/ui/table'
+import { DropdownMenuItem, DropdownMenuSeparator } from '@/Components/ui/dropdown-menu'
+import RowActions from '@/Components/RowActions.vue'
+import { confirm } from '@/lib/confirm'
 import { INQUIRY_TYPES, TYPE_BADGE, typeLabel } from '@/lib/inquiryTypes'
+import { fmtRp } from '@/lib/fmt'
 
 const props = defineProps({
     tours:   Object,
@@ -42,16 +46,16 @@ const STATUS_CONFIG = {
     cancelled:         { label: 'Cancelled',       class: 'bg-red-100 text-red-700' },
 }
 
-function fmt(val) {
-    return Number(val ?? 0).toLocaleString('id-ID')
-}
-
 function profit(tour) {
     return (Number(tour.total_sell ?? 0) - Number(tour.total_cost ?? 0))
 }
 
-function confirmDelete(tour) {
-    if (confirm(`Hapus ${tour.code}? Semua item akan ikut terhapus.`)) {
+async function confirmDelete(tour) {
+    if (await confirm({
+        title: `Hapus ${tour.code}?`,
+        description: 'Semua item pada inquiry ini akan ikut terhapus permanen.',
+        confirmLabel: 'Hapus',
+    })) {
         router.delete(route('tours.destroy', tour.id))
     }
 }
@@ -144,23 +148,26 @@ function confirmDelete(tour) {
                                     </div>
                                 </TableCell>
                                 <TableCell class="text-right font-mono text-sm">
-                                    {{ fmt(t.total_sell) }}
+                                    {{ fmtRp(t.total_sell) }}
                                 </TableCell>
                                 <TableCell class="text-right font-mono text-sm"
                                     :class="profit(t) >= 0 ? 'text-green-700' : 'text-red-600'"
                                 >
-                                    {{ fmt(profit(t)) }}
+                                    {{ fmtRp(profit(t)) }}
                                 </TableCell>
-                                <TableCell class="text-right space-x-1 whitespace-nowrap">
-                                    <a :href="route('quotation.preview', t.id)" target="_blank" title="Lihat Quotation PDF">
-                                        <Button variant="ghost" size="sm">PDF</Button>
-                                    </a>
-                                    <Link :href="route('tours.edit', t.id)">
-                                        <Button variant="outline" size="sm">Edit</Button>
-                                    </Link>
-                                    <Button variant="destructive" size="sm" @click="confirmDelete(t)">
-                                        Hapus
-                                    </Button>
+                                <TableCell class="text-right">
+                                    <RowActions>
+                                        <DropdownMenuItem as-child>
+                                            <a :href="route('quotation.preview', t.id)" target="_blank">Lihat Quotation PDF</a>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem as-child>
+                                            <Link :href="route('tours.edit', t.id)">Edit</Link>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem variant="destructive" @click="confirmDelete(t)">
+                                            Hapus
+                                        </DropdownMenuItem>
+                                    </RowActions>
                                 </TableCell>
                             </TableRow>
                         </TableBody>

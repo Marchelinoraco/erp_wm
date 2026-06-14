@@ -37,6 +37,11 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $user,
             ],
+            // Notifikasi sekali-tampil (toast) — diisi controller via ->with('success'|'error', ...).
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+                'error'   => fn () => $request->session()->get('error'),
+            ],
             // Badge "X supplier belum di-booking" di sidebar/Reminder/Dashboard.
             'pendingBookings' => fn () => $user && in_array($user->role, ['admin', 'sales', 'operation'])
                 ? TourBooking::where('status', 'pending')->count()

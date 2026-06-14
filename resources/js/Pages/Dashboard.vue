@@ -1,6 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Head, Link } from '@inertiajs/vue3'
+import { fmtRp } from '@/lib/fmt'
 
 const props = defineProps({
     pipeline:          Array,
@@ -27,10 +28,6 @@ const STATUS_CONFIG = {
 }
 
 const totalPipeline = props.pipeline?.reduce((s, p) => s + p.total, 0) ?? 1
-
-function fmt(val) {
-    return Number(val ?? 0).toLocaleString('id-ID')
-}
 
 function fmtDate(d) {
     if (!d) return '—'
@@ -63,13 +60,13 @@ function fmtDate(d) {
                     <div class="bg-white rounded-lg border p-5 shadow-sm">
                         <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Profit Riil</p>
                         <p class="text-2xl font-bold mt-1" :class="realProfit >= 0 ? 'text-green-700' : 'text-red-600'">
-                            {{ fmt(realProfit) }}
+                            {{ fmtRp(realProfit) }}
                         </p>
                         <p class="text-xs text-muted-foreground mt-1">confirmed: jual − biaya aktual</p>
                     </div>
                     <div class="bg-white rounded-lg border p-5 shadow-sm">
                         <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Diterima Bulan Ini</p>
-                        <p class="text-2xl font-bold mt-1 text-blue-700">{{ fmt(cashInMonth) }}</p>
+                        <p class="text-2xl font-bold mt-1 text-blue-700">{{ fmtRp(cashInMonth) }}</p>
                         <p class="text-xs text-muted-foreground mt-1">
                             uang masuk {{ new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) }}
                         </p>
@@ -163,29 +160,29 @@ function fmtDate(d) {
                             <div class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                                 <div class="flex justify-between border-b pb-2">
                                     <span class="text-muted-foreground">Nilai Confirmed <span class="text-[10px]">(perkiraan)</span></span>
-                                    <span class="font-mono">{{ fmt(confirmedSell) }}</span>
+                                    <span class="font-mono">{{ fmtRp(confirmedSell) }}</span>
                                 </div>
                                 <div class="flex justify-between border-b pb-2">
                                     <span class="text-muted-foreground">Biaya Aktual <span class="text-[10px]">(bills)</span></span>
-                                    <span class="font-mono">{{ fmt(actualCost) }}</span>
+                                    <span class="font-mono">{{ fmtRp(actualCost) }}</span>
                                 </div>
                                 <div class="flex justify-between border-b pb-2">
                                     <span class="text-muted-foreground font-medium">Profit Riil</span>
                                     <span class="font-mono font-semibold" :class="realProfit >= 0 ? 'text-green-700' : 'text-red-600'">
-                                        {{ fmt(realProfit) }}
+                                        {{ fmtRp(realProfit) }}
                                     </span>
                                 </div>
                                 <div class="flex justify-between border-b pb-2">
                                     <span class="text-muted-foreground">Diterima Bln Ini</span>
-                                    <span class="font-mono text-blue-700">{{ fmt(cashInMonth) }}</span>
+                                    <span class="font-mono text-blue-700">{{ fmtRp(cashInMonth) }}</span>
                                 </div>
                                 <div class="flex justify-between">
                                     <span class="text-muted-foreground">Piutang (AR)</span>
-                                    <span class="font-mono" :class="arOutstanding > 0 ? 'text-orange-600' : ''">{{ fmt(arOutstanding) }}</span>
+                                    <span class="font-mono" :class="arOutstanding > 0 ? 'text-orange-600' : ''">{{ fmtRp(arOutstanding) }}</span>
                                 </div>
                                 <div class="flex justify-between">
                                     <span class="text-muted-foreground">Hutang (AP)</span>
-                                    <span class="font-mono" :class="apOutstanding > 0 ? 'text-red-600' : ''">{{ fmt(apOutstanding) }}</span>
+                                    <span class="font-mono" :class="apOutstanding > 0 ? 'text-red-600' : ''">{{ fmtRp(apOutstanding) }}</span>
                                 </div>
                             </div>
                             <p class="text-[11px] text-muted-foreground mt-3 pt-3 border-t">
@@ -209,7 +206,8 @@ function fmtDate(d) {
                                     Buat sekarang →
                                 </Link>
                             </div>
-                            <table v-else class="w-full text-sm">
+                            <div v-else class="overflow-x-auto">
+                            <table class="w-full text-sm">
                                 <thead>
                                     <tr class="text-xs text-muted-foreground border-b">
                                         <th class="text-left pb-2 font-medium">Kode</th>
@@ -228,7 +226,7 @@ function fmtDate(d) {
                                                 {{ STATUS_CONFIG[t.status]?.label }}
                                             </span>
                                         </td>
-                                        <td class="py-2 text-right font-mono text-xs">{{ fmt(t.total_sell) }}</td>
+                                        <td class="py-2 text-right font-mono text-xs">{{ fmtRp(t.total_sell) }}</td>
                                         <td class="py-2 text-right">
                                             <Link :href="route('tours.edit', t.id)"
                                                 class="text-xs text-primary hover:underline">
@@ -238,6 +236,7 @@ function fmtDate(d) {
                                     </tr>
                                 </tbody>
                             </table>
+                            </div>
                         </div>
 
                     </div>

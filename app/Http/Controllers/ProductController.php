@@ -58,6 +58,8 @@ class ProductController extends Controller
 
     public function edit(Product $product)
     {
+        $product->load(['prices' => fn ($q) => $q->orderBy('start_date')]);
+
         return Inertia::render('Products/Form', [
             'product'   => $product,
             'suppliers' => Supplier::orderBy('name')->get(['id', 'name']),

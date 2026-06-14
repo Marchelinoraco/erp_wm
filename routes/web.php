@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AgentProductController;
+use App\Http\Controllers\AgentProductPriceController;
 use App\Http\Controllers\BillController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ChannelManagerController;
@@ -19,6 +20,8 @@ use App\Http\Controllers\InvoicePaymentController;
 use App\Http\Controllers\ManifestController;
 use App\Http\Controllers\MyJobsController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductPriceController;
+use App\Http\Controllers\QuotationItemController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\SupplierController;
@@ -65,6 +68,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/channel-manager/{product}/approve',   [ChannelManagerController::class, 'approve'])->name('channel-manager.approve');
         Route::patch('/channel-manager/{product}/reject',    [ChannelManagerController::class, 'reject'])->name('channel-manager.reject');
         Route::patch('/channel-manager/{product}/price',     [ChannelManagerController::class, 'updatePrice'])->name('channel-manager.price');
+        // Period price approval
+        Route::patch('/channel-manager/prices/{productPrice}/approve', [ChannelManagerController::class, 'approvePrice'])->name('channel-manager.price.approve');
+        Route::patch('/channel-manager/prices/{productPrice}/reject',  [ChannelManagerController::class, 'rejectPrice'])->name('channel-manager.price.reject');
+        Route::patch('/channel-manager/prices/{productPrice}',         [ChannelManagerController::class, 'updatePeriodPrice'])->name('channel-manager.period.price');
     });
 
     // Produk Saya — travel agent (eksternal): kelola produk supplier sendiri
@@ -73,6 +80,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/agent/products',             [AgentProductController::class, 'store'])->name('agent.products.store');
         Route::patch('/agent/products/{product}',  [AgentProductController::class, 'update'])->name('agent.products.update');
         Route::delete('/agent/products/{product}', [AgentProductController::class, 'destroy'])->name('agent.products.destroy');
+        // Period prices (agent submit)
+        Route::post('/agent/products/{product}/prices',       [AgentProductPriceController::class, 'store'])->name('agent.product-prices.store');
+        Route::delete('/agent/product-prices/{productPrice}', [AgentProductPriceController::class, 'destroy'])->name('agent.product-prices.destroy');
     });
 
     // Template download — harus sebelum resource agar tidak ditangkap {product}
@@ -85,6 +95,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('products', ProductController::class)
         ->except(['show'])
         ->middleware('role:admin,sales');
+
+    // Product period prices — admin + sales
+    Route::middleware('role:admin,sales')->group(function () {
+        Route::post('/products/{product}/prices',       [ProductPriceController::class, 'store'])->name('product-prices.store');
+        Route::patch('/product-prices/{productPrice}',  [ProductPriceController::class, 'update'])->name('product-prices.update');
+        Route::delete('/product-prices/{productPrice}', [ProductPriceController::class, 'destroy'])->name('product-prices.destroy');
+    });
 
     // Master Data — Customers: admin + sales
     Route::resource('customers', CustomerController::class)
@@ -116,6 +133,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('/tours/{tour}/quotation/download', [QuotationController::class, 'download'])->name('quotation.download');
         Route::get('/tours/{tour}/quotation/preview',  [QuotationController::class, 'preview'])->name('quotation.preview');
+
+        Route::post('/tours/{tour}/quotation-items',          [QuotationItemController::class, 'store'])->name('quotation-items.store');
+        Route::patch('/quotation-items/{quotationItem}',      [QuotationItemController::class, 'update'])->name('quotation-items.update');
+        Route::delete('/quotation-items/{quotationItem}',     [QuotationItemController::class, 'destroy'])->name('quotation-items.destroy');
 
         Route::post('/tours/{tour}/assignments',   [AssignmentController::class, 'store'])->name('assignments.store');
         Route::patch('/assignments/{assignment}',  [AssignmentController::class, 'update'])->name('assignments.update');

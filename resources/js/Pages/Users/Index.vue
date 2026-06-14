@@ -2,6 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Head, useForm, router, usePage } from '@inertiajs/vue3'
 import { ref } from 'vue'
+import { confirm } from '@/lib/confirm'
 import { Button } from '@/Components/ui/button'
 import { Input } from '@/Components/ui/input'
 import { Label } from '@/Components/ui/label'
@@ -55,9 +56,9 @@ function submitEdit() {
 }
 
 // --- Delete ---
-function deleteUser(u) {
+async function deleteUser(u) {
     if (u.id === me.id) return
-    if (confirm(`Hapus akun "${u.name}"? Tindakan ini tidak bisa dibatalkan.`)) {
+    if (await confirm({ title: `Hapus akun "${u.name}"?`, description: 'Tindakan ini tidak bisa dibatalkan.', confirmLabel: 'Hapus' })) {
         router.delete(route('users.destroy', u.id))
     }
 }
@@ -111,6 +112,7 @@ function formatDate(d) {
 
                 <!-- Table -->
                 <div class="rounded-lg border bg-white shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="border-b bg-muted/40">
@@ -158,7 +160,7 @@ function formatDate(d) {
                                             <button
                                                 type="button"
                                                 class="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                                                title="Edit"
+                                                :aria-label="`Edit akun ${u.name}`"
                                                 @click="openEdit(u)"
                                             >
                                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
@@ -197,6 +199,7 @@ function formatDate(d) {
                             </tr>
                         </tbody>
                     </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -236,7 +239,9 @@ function formatDate(d) {
                     </div>
                     <div class="flex justify-end gap-2 pt-1">
                         <Button type="button" variant="outline" @click="showAdd = false">Batal</Button>
-                        <Button type="submit" :disabled="addForm.processing">Buat Akun</Button>
+                        <Button type="submit" :disabled="addForm.processing" :loading="addForm.processing">
+                            {{ addForm.processing ? 'Menyimpan...' : 'Buat Akun' }}
+                        </Button>
                     </div>
                 </form>
             </DialogContent>
@@ -277,7 +282,9 @@ function formatDate(d) {
                     </div>
                     <div class="flex justify-end gap-2 pt-1">
                         <Button type="button" variant="outline" @click="editTarget = null">Batal</Button>
-                        <Button type="submit" :disabled="editForm.processing">Simpan</Button>
+                        <Button type="submit" :disabled="editForm.processing" :loading="editForm.processing">
+                            {{ editForm.processing ? 'Menyimpan...' : 'Simpan' }}
+                        </Button>
                     </div>
                 </form>
             </DialogContent>

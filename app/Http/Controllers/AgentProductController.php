@@ -15,6 +15,7 @@ class AgentProductController extends Controller
         abort_unless($supplier, 403, 'Akun ini belum terhubung ke supplier.');
 
         $products = $supplier->products()
+            ->with(['prices' => fn ($q) => $q->orderBy('start_date')])
             ->latest()
             ->get(['id', 'name', 'type', 'unit', 'cost', 'pending_cost', 'price_status', 'price_updated_at', 'currency', 'is_active']);
 

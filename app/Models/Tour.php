@@ -79,6 +79,11 @@ class Tour extends Model
         return $this->hasMany(TourItem::class)->orderBy('sort_order');
     }
 
+    public function quotationItems()
+    {
+        return $this->hasMany(QuotationItem::class)->orderBy('sort_order');
+    }
+
     public function assignments()
     {
         return $this->hasMany(Assignment::class);

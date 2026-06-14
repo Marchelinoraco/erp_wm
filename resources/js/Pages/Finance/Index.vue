@@ -1,6 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Head, Link } from '@inertiajs/vue3'
+import { fmtRp } from '@/lib/fmt'
 
 const props = defineProps({
     ar_total:             Number,
@@ -11,10 +12,6 @@ const props = defineProps({
     unpaid_bills:         Array,
     confirmed_tours:      { type: Array, default: () => [] },
 })
-
-function fmt(val) {
-    return Number(val ?? 0).toLocaleString('id-ID')
-}
 
 function fmtDate(d) {
     if (!d) return '—'
@@ -52,22 +49,22 @@ const BILL_STATUS = {
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="bg-white rounded-xl border shadow-sm p-4">
                     <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Total Invoice</p>
-                    <p class="text-xl font-bold text-gray-900 mt-1">{{ fmt(ar_total) }}</p>
+                    <p class="text-xl font-bold text-gray-900 mt-1">{{ fmtRp(ar_total) }}</p>
                 </div>
                 <div class="bg-white rounded-xl border shadow-sm p-4">
                     <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Piutang (AR)</p>
                     <p class="text-xl font-bold mt-1" :class="arOutstanding > 0 ? 'text-orange-600' : 'text-gray-900'">
-                        {{ fmt(arOutstanding) }}
+                        {{ fmtRp(arOutstanding) }}
                     </p>
                 </div>
                 <div class="bg-white rounded-xl border shadow-sm p-4">
                     <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Total Bill</p>
-                    <p class="text-xl font-bold text-gray-900 mt-1">{{ fmt(ap_total) }}</p>
+                    <p class="text-xl font-bold text-gray-900 mt-1">{{ fmtRp(ap_total) }}</p>
                 </div>
                 <div class="bg-white rounded-xl border shadow-sm p-4">
                     <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Hutang (AP)</p>
                     <p class="text-xl font-bold mt-1" :class="apOutstanding > 0 ? 'text-red-600' : 'text-gray-900'">
-                        {{ fmt(apOutstanding) }}
+                        {{ fmtRp(apOutstanding) }}
                     </p>
                 </div>
             </div>
@@ -105,11 +102,11 @@ const BILL_STATUS = {
                                 <td class="px-4 py-3 text-gray-700">{{ t.customer ?? '—' }}</td>
                                 <td class="px-4 py-3 text-right font-semibold"
                                     :class="t.est_profit >= 0 ? 'text-green-700' : 'text-red-600'">
-                                    {{ fmt(t.est_profit) }}
+                                    {{ fmtRp(t.est_profit) }}
                                 </td>
                                 <td class="px-4 py-3 text-center">
                                     <span v-if="t.invoices_count" class="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">
-                                        {{ fmt(t.invoiced_total) }}
+                                        {{ fmtRp(t.invoiced_total) }}
                                     </span>
                                     <span v-else class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">
                                         Belum ada
@@ -117,7 +114,7 @@ const BILL_STATUS = {
                                 </td>
                                 <td class="px-4 py-3 text-center">
                                     <span v-if="t.bills_count" class="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">
-                                        {{ fmt(t.billed_total) }}
+                                        {{ fmtRp(t.billed_total) }}
                                     </span>
                                     <span v-else class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">
                                         Belum ada
@@ -166,9 +163,9 @@ const BILL_STATUS = {
                                 <td class="px-4 py-3 font-mono text-xs text-gray-600">{{ inv.tour?.code ?? '—' }}</td>
                                 <td class="px-4 py-3 text-gray-700">{{ inv.tour?.customer?.name ?? '—' }}</td>
                                 <td class="px-4 py-3 text-gray-500 text-xs">{{ fmtDate(inv.date) }}</td>
-                                <td class="px-4 py-3 text-right font-medium text-gray-800">{{ fmt(inv.total) }}</td>
+                                <td class="px-4 py-3 text-right font-medium text-gray-800">{{ fmtRp(inv.total) }}</td>
                                 <td class="px-4 py-3 text-right font-semibold text-orange-600">
-                                    {{ fmt(inv.total - inv.payments.reduce((s, p) => s + Number(p.amount), 0)) }}
+                                    {{ fmtRp(inv.total - inv.payments.reduce((s, p) => s + Number(p.amount), 0)) }}
                                 </td>
                                 <td class="px-4 py-3 text-center">
                                     <span class="text-xs px-2 py-0.5 rounded-full font-medium"
@@ -218,9 +215,9 @@ const BILL_STATUS = {
                                 <td class="px-4 py-3 font-mono text-xs text-gray-600">{{ bill.tour?.code ?? '—' }}</td>
                                 <td class="px-4 py-3 text-gray-500 text-xs">{{ bill.supplier?.name ?? '—' }}</td>
                                 <td class="px-4 py-3 text-gray-500 text-xs">{{ fmtDate(bill.date) }}</td>
-                                <td class="px-4 py-3 text-right font-medium text-gray-800">{{ fmt(bill.amount) }}</td>
+                                <td class="px-4 py-3 text-right font-medium text-gray-800">{{ fmtRp(bill.amount) }}</td>
                                 <td class="px-4 py-3 text-right font-semibold text-red-600">
-                                    {{ fmt(bill.amount - bill.payments.reduce((s, p) => s + Number(p.amount), 0)) }}
+                                    {{ fmtRp(bill.amount - bill.payments.reduce((s, p) => s + Number(p.amount), 0)) }}
                                 </td>
                                 <td class="px-4 py-3 text-center">
                                     <span class="text-xs px-2 py-0.5 rounded-full font-medium"

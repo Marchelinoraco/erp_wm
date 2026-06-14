@@ -2,6 +2,8 @@
 import { ref, computed } from 'vue'
 import { Link, usePage } from '@inertiajs/vue3'
 import ApplicationLogo from '@/Components/ApplicationLogo.vue'
+import FlashToaster from '@/Components/FlashToaster.vue'
+import ConfirmDialog from '@/Components/ConfirmDialog.vue'
 
 const page = usePage()
 const user = computed(() => page.props.auth.user)
@@ -49,50 +51,81 @@ const ICON = {
     booking:   `<path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />`,
 }
 
-const navItems = computed(() => {
+const navGroups = computed(() => {
     const role = user.value?.role
-    const items = []
 
     if (role === 'guide' || role === 'driver' || role === 'tour_leader') {
-        items.push({ label: 'Jadwal Saya', route: 'my-jobs', match: 'my-jobs*', icon: ICON.myjobs })
-        return items
+        return [{ label: null, items: [
+            { label: 'Jadwal Saya', route: 'my-jobs', match: 'my-jobs*', icon: ICON.myjobs },
+        ]}]
     }
 
     if (role === 'travel_agent') {
-        items.push({ label: 'Produk Saya', route: 'agent.products.index', match: 'agent.products.*', icon: ICON.products })
-        return items
+        return [{ label: null, items: [
+            { label: 'Produk Saya', route: 'agent.products.index', match: 'agent.products.*', icon: ICON.products },
+        ]}]
     }
 
     if (role === 'operation') {
-        items.push({ label: 'Booking', route: 'bookings.index', match: 'bookings.*', icon: ICON.booking, badge: pendingBookings.value })
-        return items
+        return [{ label: null, items: [
+            { label: 'Booking', route: 'bookings.index', match: 'bookings.*', icon: ICON.booking, badge: pendingBookings.value },
+        ]}]
     }
 
-    items.push({ label: 'Dashboard', route: 'dashboard', match: 'dashboard', icon: ICON.dashboard })
+    const groups = [
+        { label: null, items: [
+            { label: 'Dashboard', route: 'dashboard', match: 'dashboard', icon: ICON.dashboard },
+        ]},
+    ]
 
     if (role === 'admin' || role === 'sales') {
-        items.push({ label: 'Tour',         route: 'tours.index', params: { type: 'tour' },      type: 'tour',      icon: ICON.tours })
-        items.push({ label: 'Rental',       route: 'tours.index', params: { type: 'rental' },    type: 'rental',    icon: ICON.rental })
-        items.push({ label: 'Jasa Guide',   route: 'tours.index', params: { type: 'guide' },     type: 'guide',     icon: ICON.guide })
-        items.push({ label: 'Visa/Paspor',  route: 'tours.index', params: { type: 'document' },  type: 'document',  icon: ICON.document })
-        items.push({ label: 'Ticketing',    route: 'tours.index', params: { type: 'ticketing' }, type: 'ticketing', icon: ICON.ticketing })
-        items.push({ label: 'Booking',         route: 'bookings.index',         match: 'bookings.*',        icon: ICON.booking, badge: pendingBookings.value })
-        items.push({ label: 'Reminder',        route: 'reminders.index',        match: 'reminders.*',       icon: ICON.reminder })
-        items.push({ label: 'Customers',       route: 'customers.index',        match: 'customers.*',       icon: ICON.customers })
-        items.push({ label: 'Produk',          route: 'products.index',         match: 'products.*',        icon: ICON.products })
-        items.push({ label: 'Channel Manager', route: 'channel-manager.index',  match: 'channel-manager.*', icon: ICON.channel })
+        groups.push({ label: 'Penjualan', items: [
+            { label: 'Tour',        route: 'tours.index', params: { type: 'tour' },      type: 'tour',      icon: ICON.tours },
+            { label: 'Rental',      route: 'tours.index', params: { type: 'rental' },    type: 'rental',    icon: ICON.rental },
+            { label: 'Jasa Guide',  route: 'tours.index', params: { type: 'guide' },     type: 'guide',     icon: ICON.guide },
+            { label: 'Visa/Paspor', route: 'tours.index', params: { type: 'document' },  type: 'document',  icon: ICON.document },
+            { label: 'Ticketing',   route: 'tours.index', params: { type: 'ticketing' }, type: 'ticketing', icon: ICON.ticketing },
+        ]})
+
+        groups.push({ label: 'Operasional', items: [
+            { label: 'Booking',  route: 'bookings.index',  match: 'bookings.*',  icon: ICON.booking, badge: pendingBookings.value },
+            { label: 'Reminder', route: 'reminders.index', match: 'reminders.*', icon: ICON.reminder },
+        ]})
+
+        const dataItems = [
+            { label: 'Customers',       route: 'customers.index',       match: 'customers.*',       icon: ICON.customers },
+            { label: 'Produk',          route: 'products.index',        match: 'products.*',        icon: ICON.products },
+            { label: 'Channel Manager', route: 'channel-manager.index', match: 'channel-manager.*', icon: ICON.channel },
+        ]
+        if (role === 'admin') {
+            dataItems.push({ label: 'Suppliers', route: 'suppliers.index', match: 'suppliers.*', icon: ICON.suppliers })
+        }
+        groups.push({ label: 'Data Master', items: dataItems })
     }
 
     if (role === 'admin') {
-        items.push({ label: 'Suppliers',    route: 'suppliers.index', match: 'suppliers.*', icon: ICON.suppliers })
-        items.push({ label: 'Kelola Akun',  route: 'users.index',     match: 'users.*',     icon: ICON.users })
+        groups.push({ label: 'Administrasi', items: [
+            { label: 'Kelola Akun', route: 'users.index', match: 'users.*', icon: ICON.users },
+        ]})
     }
 
     if (role === 'admin' || role === 'accountant') {
-        items.push({ label: 'Keuangan', route: 'finance.index', match: 'finance.*', icon: ICON.finance })
+        groups.push({ label: 'Keuangan', items: [
+            { label: 'Keuangan', route: 'finance.index', match: 'finance.*', icon: ICON.finance },
+        ]})
     }
 
-    return items
+    return groups
+})
+
+const activeBreadcrumb = computed(() => {
+    for (const group of navGroups.value) {
+        if (!group.label) continue
+        for (const item of group.items) {
+            if (isActive(item)) return group.label
+        }
+    }
+    return null
 })
 
 const currentType = computed(() => {
@@ -111,6 +144,9 @@ function isActive(item) {
 <template>
     <div class="flex h-screen overflow-hidden bg-gray-50">
 
+        <FlashToaster />
+        <ConfirmDialog />
+
         <!-- Mobile overlay -->
         <div
             v-if="sidebarOpen"
@@ -120,6 +156,7 @@ function isActive(item) {
 
         <!-- Sidebar -->
         <aside
+            id="sidebar"
             :class="[
                 'fixed inset-y-0 left-0 z-30 flex w-60 flex-col bg-white border-r border-gray-200 shadow-sm transition-transform duration-200',
                 sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
@@ -137,14 +174,20 @@ function isActive(item) {
             </div>
 
             <!-- Navigation -->
-            <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
-                <template v-for="item in navItems" :key="item.label">
+            <nav class="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
+                <template v-for="group in navGroups" :key="group.label ?? 'main'">
+                    <p v-if="group.label" class="px-3 pt-3 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        {{ group.label }}
+                    </p>
                     <Link
+                        v-for="item in group.items"
+                        :key="item.label"
                         :href="route(item.route, item.params)"
+                        :aria-current="isActive(item) ? 'page' : undefined"
                         :class="[
                             'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                             isActive(item)
-                                ? 'bg-red-50 text-red-700'
+                                ? 'bg-primary/10 text-primary'
                                 : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
                         ]"
                         @click="sidebarOpen = false"
@@ -161,7 +204,7 @@ function isActive(item) {
                         <span class="flex-1">{{ item.label }}</span>
                         <span
                             v-if="item.badge"
-                            class="ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white"
+                            class="ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary-foreground"
                         >
                             {{ item.badge }}
                         </span>
@@ -172,7 +215,7 @@ function isActive(item) {
             <!-- User section -->
             <div class="border-t border-gray-100 p-3 space-y-0.5">
                 <div class="flex items-center gap-2.5 px-3 py-2">
-                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-700 text-xs font-bold uppercase">
+                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold uppercase">
                         {{ user.name.charAt(0) }}
                     </div>
                     <div class="min-w-0 flex-1">
@@ -218,6 +261,9 @@ function isActive(item) {
                     <!-- Mobile hamburger -->
                     <button
                         class="lg:hidden rounded-md p-1.5 text-gray-500 hover:bg-gray-100"
+                        :aria-label="sidebarOpen ? 'Tutup menu' : 'Buka menu'"
+                        :aria-expanded="sidebarOpen"
+                        aria-controls="sidebar"
                         @click="sidebarOpen = !sidebarOpen"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
@@ -226,7 +272,10 @@ function isActive(item) {
                     </button>
 
                     <!-- Page header slot -->
-                    <div class="flex-1">
+                    <div class="flex-1 min-w-0">
+                        <p v-if="activeBreadcrumb" class="text-[11px] uppercase tracking-wider font-medium text-muted-foreground leading-none mb-1">
+                            {{ activeBreadcrumb }}
+                        </p>
                         <slot name="header" />
                     </div>
                 </div>

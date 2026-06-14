@@ -8,6 +8,9 @@ import { Input } from '@/Components/ui/input'
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableEmpty,
 } from '@/Components/ui/table'
+import { DropdownMenuItem, DropdownMenuSeparator } from '@/Components/ui/dropdown-menu'
+import RowActions from '@/Components/RowActions.vue'
+import { confirm } from '@/lib/confirm'
 
 const props = defineProps({
     customers: Object,
@@ -29,8 +32,12 @@ watch(search, () => {
 const TYPE_LABELS = { agent: 'Agent', corporate: 'Korporat', direct: 'Direct' }
 const TYPE_VARIANTS = { agent: 'default', corporate: 'secondary', direct: 'outline' }
 
-function confirmDelete(id) {
-    if (confirm('Hapus customer ini?')) {
+async function confirmDelete(id) {
+    if (await confirm({
+        title: 'Hapus customer?',
+        description: 'Data customer ini akan dihapus permanen.',
+        confirmLabel: 'Hapus',
+    })) {
         router.delete(route('customers.destroy', id))
     }
 }
@@ -80,16 +87,19 @@ function confirmDelete(id) {
                                 <TableCell>{{ c.contact_person ?? '—' }}</TableCell>
                                 <TableCell>{{ c.phone ?? '—' }}</TableCell>
                                 <TableCell>{{ c.tours_count }}</TableCell>
-                                <TableCell class="text-right space-x-2">
-                                    <Link :href="route('customers.show', c.id)">
-                                        <Button variant="outline" size="sm">Riwayat</Button>
-                                    </Link>
-                                    <Link :href="route('customers.edit', c.id)">
-                                        <Button variant="outline" size="sm">Edit</Button>
-                                    </Link>
-                                    <Button variant="destructive" size="sm" @click="confirmDelete(c.id)">
-                                        Hapus
-                                    </Button>
+                                <TableCell class="text-right">
+                                    <RowActions>
+                                        <DropdownMenuItem as-child>
+                                            <Link :href="route('customers.show', c.id)">Riwayat</Link>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem as-child>
+                                            <Link :href="route('customers.edit', c.id)">Edit</Link>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem variant="destructive" @click="confirmDelete(c.id)">
+                                            Hapus
+                                        </DropdownMenuItem>
+                                    </RowActions>
                                 </TableCell>
                             </TableRow>
                         </TableBody>

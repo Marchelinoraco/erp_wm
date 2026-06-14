@@ -2,6 +2,8 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Head, Link, useForm, router } from '@inertiajs/vue3'
 import { ref } from 'vue'
+import { confirm } from '@/lib/confirm'
+import { fmtRp } from '@/lib/fmt'
 import { Button } from '@/Components/ui/button'
 import { Input } from '@/Components/ui/input'
 import { Label } from '@/Components/ui/label'
@@ -18,9 +20,6 @@ const props = defineProps({
 })
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-function fmt(val) {
-    return Number(val ?? 0).toLocaleString('id-ID')
-}
 function fmtDate(d) {
     if (!d) return '—'
     return new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -76,8 +75,8 @@ function submitInvoice() {
         })
     }
 }
-function deleteInvoice(id) {
-    if (confirm('Hapus invoice ini?')) {
+async function deleteInvoice(id) {
+    if (await confirm({ title: 'Hapus invoice ini?', confirmLabel: 'Hapus' })) {
         router.delete(route('invoices.destroy', id), { preserveScroll: true, only: ['tour'] })
     }
 }
@@ -106,8 +105,8 @@ function submitInvPayment() {
         onSuccess: () => { invPayDialogOpen.value = false; invPayForm.reset() },
     })
 }
-function deleteInvPayment(id) {
-    if (confirm('Hapus pembayaran ini?')) {
+async function deleteInvPayment(id) {
+    if (await confirm({ title: 'Hapus pembayaran ini?', confirmLabel: 'Hapus' })) {
         router.delete(route('invoice-payments.destroy', id), { preserveScroll: true, only: ['tour'] })
     }
 }
@@ -160,8 +159,8 @@ function submitBill() {
         })
     }
 }
-function deleteBill(id) {
-    if (confirm('Hapus bill ini?')) {
+async function deleteBill(id) {
+    if (await confirm({ title: 'Hapus bill ini?', confirmLabel: 'Hapus' })) {
         router.delete(route('bills.destroy', id), { preserveScroll: true, only: ['tour'] })
     }
 }
@@ -190,8 +189,8 @@ function submitBillPayment() {
         onSuccess: () => { billPayDialogOpen.value = false; billPayForm.reset() },
     })
 }
-function deleteBillPayment(id) {
-    if (confirm('Hapus pembayaran ini?')) {
+async function deleteBillPayment(id) {
+    if (await confirm({ title: 'Hapus pembayaran ini?', confirmLabel: 'Hapus' })) {
         router.delete(route('bill-payments.destroy', id), { preserveScroll: true, only: ['tour'] })
     }
 }
@@ -247,34 +246,34 @@ const CAT_LABEL = {
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 <div class="bg-white rounded-xl border shadow-sm p-4">
                     <p class="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">Budget Cost</p>
-                    <p class="text-lg font-bold text-gray-800 mt-1">{{ fmt(tour.total_cost) }}</p>
+                    <p class="text-lg font-bold text-gray-800 mt-1">{{ fmtRp(tour.total_cost) }}</p>
                 </div>
                 <div class="bg-white rounded-xl border shadow-sm p-4">
                     <p class="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">Actual Cost</p>
-                    <p class="text-lg font-bold text-gray-800 mt-1">{{ fmt(tour.actual_cost) }}</p>
+                    <p class="text-lg font-bold text-gray-800 mt-1">{{ fmtRp(tour.actual_cost) }}</p>
                 </div>
                 <div class="bg-white rounded-xl border shadow-sm p-4">
                     <p class="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">Variance</p>
                     <p class="text-lg font-bold mt-1"
                         :class="tour.cost_variance > 0 ? 'text-red-600' : tour.cost_variance < 0 ? 'text-green-600' : 'text-gray-800'">
-                        {{ tour.cost_variance > 0 ? '+' : '' }}{{ fmt(tour.cost_variance) }}
+                        {{ tour.cost_variance > 0 ? '+' : '' }}{{ fmtRp(tour.cost_variance) }}
                     </p>
                 </div>
                 <div class="bg-white rounded-xl border shadow-sm p-4">
                     <p class="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">Revenue</p>
-                    <p class="text-lg font-bold text-gray-800 mt-1">{{ fmt(tour.total_sell) }}</p>
+                    <p class="text-lg font-bold text-gray-800 mt-1">{{ fmtRp(tour.total_sell) }}</p>
                 </div>
                 <div class="bg-white rounded-xl border shadow-sm p-4">
                     <p class="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">Diterima</p>
-                    <p class="text-lg font-bold text-blue-700 mt-1">{{ fmt(tour.received) }}</p>
-                    <p class="text-[10px] text-gray-400 mt-0.5">Sisa: {{ fmt(tour.receivable) }}</p>
+                    <p class="text-lg font-bold text-blue-700 mt-1">{{ fmtRp(tour.received) }}</p>
+                    <p class="text-[10px] text-gray-400 mt-0.5">Sisa: {{ fmtRp(tour.receivable) }}</p>
                 </div>
                 <div class="rounded-xl border shadow-sm p-4"
                     :class="tour.actual_profit >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'">
                     <p class="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">Profit Riil</p>
                     <p class="text-lg font-bold mt-1"
                         :class="tour.actual_profit >= 0 ? 'text-green-700' : 'text-red-600'">
-                        {{ fmt(tour.actual_profit) }}
+                        {{ fmtRp(tour.actual_profit) }}
                     </p>
                 </div>
             </div>
@@ -307,8 +306,8 @@ const CAT_LABEL = {
                                 </p>
                             </div>
                             <div class="text-right shrink-0">
-                                <p class="font-bold text-gray-800">{{ fmt(inv.total) }}</p>
-                                <p class="text-xs text-orange-600">Sisa: {{ fmt(inv.total - invPaid(inv)) }}</p>
+                                <p class="font-bold text-gray-800">{{ fmtRp(inv.total) }}</p>
+                                <p class="text-xs text-orange-600">Sisa: {{ fmtRp(inv.total - invPaid(inv)) }}</p>
                             </div>
                         </div>
 
@@ -316,7 +315,7 @@ const CAT_LABEL = {
                         <div v-if="inv.payments?.length" class="mt-3 ml-2 space-y-1">
                             <div v-for="p in inv.payments" :key="p.id"
                                 class="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 rounded px-3 py-1.5">
-                                <span class="text-green-600 font-medium">+{{ fmt(p.amount) }}</span>
+                                <span class="text-green-600 font-medium">+{{ fmtRp(p.amount) }}</span>
                                 <span class="text-gray-400">{{ fmtDate(p.date) }} · {{ p.method }}</span>
                                 <span v-if="p.notes" class="text-gray-400 truncate">· {{ p.notes }}</span>
                                 <button @click="deleteInvPayment(p.id)"
@@ -366,8 +365,8 @@ const CAT_LABEL = {
                                 </p>
                             </div>
                             <div class="text-right shrink-0">
-                                <p class="font-bold text-gray-800">{{ fmt(bill.amount) }}</p>
-                                <p class="text-xs text-red-600">Sisa: {{ fmt(bill.amount - billPaid(bill)) }}</p>
+                                <p class="font-bold text-gray-800">{{ fmtRp(bill.amount) }}</p>
+                                <p class="text-xs text-red-600">Sisa: {{ fmtRp(bill.amount - billPaid(bill)) }}</p>
                             </div>
                         </div>
 
@@ -375,7 +374,7 @@ const CAT_LABEL = {
                         <div v-if="bill.payments?.length" class="mt-3 ml-2 space-y-1">
                             <div v-for="p in bill.payments" :key="p.id"
                                 class="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 rounded px-3 py-1.5">
-                                <span class="text-blue-600 font-medium">-{{ fmt(p.amount) }}</span>
+                                <span class="text-blue-600 font-medium">-{{ fmtRp(p.amount) }}</span>
                                 <span class="text-gray-400">{{ fmtDate(p.date) }} · {{ p.method }}</span>
                                 <span v-if="p.notes" class="text-gray-400 truncate">· {{ p.notes }}</span>
                                 <button @click="deleteBillPayment(p.id)"

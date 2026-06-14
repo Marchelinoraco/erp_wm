@@ -2,6 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Head, Link } from '@inertiajs/vue3'
 import { computed } from 'vue'
+import { fmtRp } from '@/lib/fmt'
 import { Button } from '@/Components/ui/button'
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableEmpty,
@@ -57,10 +58,6 @@ const TYPE_LABELS = { agent: 'Agent', corporate: 'Korporat', direct: 'Direct' }
 
 const totalConfirmed = computed(() => props.tours.filter(t => t.status === 'confirmed').length)
 const totalRevenue   = computed(() => props.tours.reduce((sum, t) => sum + (t.total_sell ?? 0), 0))
-
-function fmt(val) {
-    return Number(val ?? 0).toLocaleString('id-ID')
-}
 
 function fmtDate(d) {
     if (!d) return '—'
@@ -136,7 +133,7 @@ function fmtDateTime(d) {
                     </div>
                     <div class="rounded-lg border bg-white p-4 shadow-sm">
                         <p class="text-xs text-muted-foreground">Total Revenue (Est.)</p>
-                        <p class="text-lg font-bold mt-1 font-mono">{{ fmt(totalRevenue) }}</p>
+                        <p class="text-lg font-bold mt-1 font-mono">{{ fmtRp(totalRevenue) }}</p>
                     </div>
                 </div>
 

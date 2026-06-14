@@ -10,6 +10,9 @@ import {
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableEmpty,
 } from '@/Components/ui/table'
+import { DropdownMenuItem, DropdownMenuSeparator } from '@/Components/ui/dropdown-menu'
+import RowActions from '@/Components/RowActions.vue'
+import { confirm } from '@/lib/confirm'
 
 const props = defineProps({
     suppliers: Object,
@@ -51,8 +54,12 @@ const TYPE_COLORS = {
     other:      'bg-gray-100 text-gray-700',
 }
 
-function confirmDelete(id) {
-    if (confirm('Hapus supplier ini?')) {
+async function confirmDelete(id) {
+    if (await confirm({
+        title: 'Hapus supplier?',
+        description: 'Supplier ini akan dihapus permanen.',
+        confirmLabel: 'Hapus',
+    })) {
         router.delete(route('suppliers.destroy', id))
     }
 }
@@ -121,13 +128,16 @@ function confirmDelete(id) {
                                 <TableCell>{{ s.contact_person ?? '—' }}</TableCell>
                                 <TableCell>{{ s.phone ?? '—' }}</TableCell>
                                 <TableCell>{{ s.products_count }}</TableCell>
-                                <TableCell class="text-right space-x-2">
-                                    <Link :href="route('suppliers.edit', s.id)">
-                                        <Button variant="outline" size="sm">Edit</Button>
-                                    </Link>
-                                    <Button variant="destructive" size="sm" @click="confirmDelete(s.id)">
-                                        Hapus
-                                    </Button>
+                                <TableCell class="text-right">
+                                    <RowActions>
+                                        <DropdownMenuItem as-child>
+                                            <Link :href="route('suppliers.edit', s.id)">Edit</Link>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem variant="destructive" @click="confirmDelete(s.id)">
+                                            Hapus
+                                        </DropdownMenuItem>
+                                    </RowActions>
                                 </TableCell>
                             </TableRow>
                         </TableBody>

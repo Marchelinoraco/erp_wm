@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use App\Models\Product;
+use App\Models\QuotationItem;
 use App\Models\Supplier;
 use App\Models\Tour;
 use App\Http\Controllers\TourEmailController;
+use App\Models\TourItem;
 use App\Models\TourPackage;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -89,7 +91,7 @@ class TourController extends Controller
 
     public function edit(Tour $tour)
     {
-        $tour->load(['customer', 'items.product', 'assignments', 'itineraryDays', 'itineraryHours', 'histories', 'invoices']);
+        $tour->load(['customer', 'items.product', 'quotationItems.product', 'assignments', 'itineraryDays', 'itineraryHours', 'histories', 'invoices']);
         $tour->append(['total_cost', 'total_sell', 'profit', 'margin', 'itinerary_pdf_url']);
 
         return Inertia::render('Tours/Edit', [
@@ -119,10 +121,10 @@ class TourController extends Controller
             'type'           => 'nullable|string|in:' . implode(',', array_keys(Tour::TYPES)),
             'customer_id'    => 'nullable|exists:customers,id',
             'title'          => 'nullable|string|max:255',
-            'pax'            => 'required|integer|min:1',
+            'pax'            => 'sometimes|required|integer|min:1',
             'start_date'     => 'nullable|date',
             'end_date'       => 'nullable|date|after_or_equal:start_date',
-            'status'         => 'required|string|in:inquiry,quotation_draft,quotation_sent,follow_up,negotiation,confirmed,cancelled',
+            'status'         => 'sometimes|required|string|in:inquiry,quotation_draft,quotation_sent,follow_up,negotiation,confirmed,cancelled',
             'sales_person'   => 'nullable|string|max:255',
             'default_markup' => 'nullable|numeric|min:0|max:100',
             'notes'          => 'nullable|string',
@@ -158,6 +160,11 @@ class TourController extends Controller
                 'created_by'      => auth()->user()->name,
             ]);
 
+            // Konversi quotation items yang disetujui → tour items saat dikonfirmasi.
+            if ($data['status'] === 'confirmed') {
+                $this->convertApprovedQuotationItems($tour);
+            }
+
             // Auto-buat invoice DRAFT saat tour dikonfirmasi (anti-duplikat).
             // Nominal = total jual (snapshot item); akuntan finalisasi & kirim.
             if ($data['status'] === 'confirmed' && $tour->invoices()->count() === 0) {
@@ -180,6 +187,57 @@ class TourController extends Controller
 
         return redirect()->route('tours.index')
             ->with('success', 'Tour berhasil dihapus.');
+    }
+
+    /**
+     * Konversi quotation items yang disetujui customer menjadi tour items.
+     * Hanya berjalan satu kali saat status berubah ke confirmed.
+     */
+    private function convertApprovedQuotationItems(Tour $tour): void
+    {
+        $approved = $tour->quotationItems()
+            ->where('status', 'approved')
+            ->with('product')
+            ->get();
+
+        if ($approved->isEmpty()) {
+            return;
+        }
+
+        $maxOrder = $tour->items()->max('sort_order') ?? 0;
+
+        foreach ($approved as $qi) {
+            if ($qi->product) {
+                $item = TourItem::fromProduct($qi->product, [
+                    'tour_id'    => $tour->id,
+                    'description' => $qi->label,
+                    'qty'        => $qi->qty,
+                    'nights'     => $qi->nights,
+                    'unit_sell'  => $qi->unit_sell,
+                    'sort_order' => ++$maxOrder,
+                ]);
+            } else {
+                $item = new TourItem([
+                    'tour_id'     => $tour->id,
+                    'product_id'  => null,
+                    'description' => $qi->label,
+                    'qty'         => $qi->qty,
+                    'nights'      => $qi->nights,
+                    'unit_cost'   => 0,
+                    'unit_sell'   => $qi->unit_sell,
+                    'currency'    => 'IDR',
+                    'sort_order'  => ++$maxOrder,
+                ]);
+            }
+            $item->save();
+        }
+
+        $tour->histories()->create([
+            'type'            => 'note',
+            'status_snapshot' => 'confirmed',
+            'description'     => $approved->count() . ' item quotation yang disetujui customer berhasil ditambahkan ke Item Produk tour.',
+            'created_by'      => auth()->user()?->name ?? 'Sistem',
+        ]);
     }
 
     /**
