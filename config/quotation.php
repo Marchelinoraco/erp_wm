@@ -19,6 +19,24 @@ return [
         'website'    => 'welcomemanado.com',
     ],
 
+    /*
+    | Rekening tujuan pembayaran INVOICE — tampil di PDF invoice.
+    | ⚠️ WAJIB diisi dengan rekening resmi perusahaan sebelum invoice dikirim ke customer.
+    */
+    'bank' => [
+        [
+            'bank'    => 'Bank BCA',
+            'account' => '0000000000',           // ← GANTI dengan no. rekening asli
+            'name'    => 'PT. Welcome Manado Wisata',
+        ],
+        // Tambah rekening lain bila perlu, contoh:
+        // ['bank' => 'Bank Mandiri', 'account' => '0000000000', 'name' => 'PT. Welcome Manado Wisata'],
+    ],
+
+    'payment_terms' => "Pembayaran dianggap lunas setelah dana diterima penuh di rekening kami.
+Mohon cantumkan NOMOR INVOICE pada keterangan/berita transfer.
+Bukti transfer dapat dikirimkan via email atau WhatsApp kami.",
+
     'included' => "Transportasi Full AC sesuai jumlah peserta
 Private Boat ke Pulau Bunaken
 Hotel sesuai pilihan – sekamar berdua (dbl/twin)

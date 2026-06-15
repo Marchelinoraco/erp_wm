@@ -116,6 +116,16 @@ class Tour extends Model
         return $this->hasMany(Invoice::class);
     }
 
+    /**
+     * Samakan total invoice berstatus draft dengan jumlah jual item terkini.
+     * Invoice 'draft' selalu mengikuti item; begitu 'sent'/'partial'/'paid' nilainya terkunci.
+     */
+    public function syncDraftInvoiceTotals(): void
+    {
+        $sum = (float) $this->items()->sum('line_sell');
+        $this->invoices()->where('status', 'draft')->update(['total' => $sum]);
+    }
+
     public function bookings()
     {
         return $this->hasMany(TourBooking::class);

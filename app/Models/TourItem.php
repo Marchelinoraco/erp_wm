@@ -9,6 +9,16 @@ class TourItem extends Model
     // line_cost & line_sell adalah stored generated columns — jangan diisi manual
     protected $guarded = ['id', 'line_cost', 'line_sell'];
 
+    /**
+     * Setiap perubahan item → samakan total invoice draft tour terkait.
+     * Membuat invoice 'draft' selalu sinkron dengan jumlah item, dari sumber mana pun.
+     */
+    protected static function booted(): void
+    {
+        static::saved(fn (self $item) => $item->tour?->syncDraftInvoiceTotals());
+        static::deleted(fn (self $item) => $item->tour?->syncDraftInvoiceTotals());
+    }
+
     public function tour()
     {
         return $this->belongsTo(Tour::class);

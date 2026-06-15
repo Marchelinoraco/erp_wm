@@ -324,7 +324,13 @@ const CAT_LABEL = {
                         </div>
 
                         <!-- Actions -->
-                        <div class="mt-3 flex gap-2">
+                        <div class="mt-3 flex gap-2 flex-wrap">
+                            <a :href="route('invoices.preview', inv.id)" target="_blank">
+                                <Button size="sm" variant="outline">👁 PDF</Button>
+                            </a>
+                            <a :href="route('invoices.download', inv.id)">
+                                <Button size="sm" variant="outline">⬇ Unduh</Button>
+                            </a>
                             <Button size="sm" variant="outline" @click="openAddInvPayment(inv)">+ Bayar</Button>
                             <Button size="sm" variant="outline" @click="openEditInvoice(inv)">Edit</Button>
                             <Button size="sm" variant="destructive" @click="deleteInvoice(inv.id)">Hapus</Button>
@@ -413,7 +419,12 @@ const CAT_LABEL = {
                     </div>
                     <div class="space-y-1.5">
                         <Label>Total (IDR)</Label>
-                        <Input type="number" v-model="invForm.total" min="0" step="any" required />
+                        <Input type="number" v-model="invForm.total" min="0" step="any"
+                            :disabled="editingInvoice && editingInvoice.status === 'draft'"
+                            :required="!editingInvoice || editingInvoice.status !== 'draft'" />
+                        <p v-if="editingInvoice && editingInvoice.status === 'draft'" class="text-xs text-gray-500">
+                            Total otomatis mengikuti item tour selama status <b>Draft</b>. Ubah status ke <b>Dikirim</b> untuk mengunci nilainya.
+                        </p>
                     </div>
                     <div v-if="editingInvoice" class="space-y-1.5">
                         <Label>Status</Label>

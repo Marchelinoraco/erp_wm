@@ -175,6 +175,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/finance/{tour}/invoices',           [InvoiceController::class, 'store'])->name('invoices.store');
         Route::patch('/finance/invoices/{invoice}',       [InvoiceController::class, 'update'])->name('invoices.update');
         Route::delete('/finance/invoices/{invoice}',      [InvoiceController::class, 'destroy'])->name('invoices.destroy');
+        Route::get('/finance/invoices/{invoice}/preview',  [InvoiceController::class, 'preview'])->name('invoices.preview');
+        Route::get('/finance/invoices/{invoice}/download', [InvoiceController::class, 'download'])->name('invoices.download');
         Route::post('/finance/invoices/{invoice}/payments',          [InvoicePaymentController::class, 'store'])->name('invoice-payments.store');
         Route::delete('/finance/invoice-payments/{invoicePayment}',  [InvoicePaymentController::class, 'destroy'])->name('invoice-payments.destroy');
 
