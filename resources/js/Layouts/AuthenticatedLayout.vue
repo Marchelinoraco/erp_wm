@@ -112,6 +112,7 @@ const navGroups = computed(() => {
     if (role === 'admin' || role === 'accountant') {
         groups.push({ label: 'Keuangan', items: [
             { label: 'Keuangan', route: 'finance.index', match: 'finance.*', icon: ICON.finance },
+            { label: 'Rekening', route: 'bank-accounts.index', match: 'bank-accounts.*', icon: ICON.finance },
         ]})
     }
 

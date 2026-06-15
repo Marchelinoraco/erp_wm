@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AgentProductController;
 use App\Http\Controllers\AgentProductPriceController;
+use App\Http\Controllers\BankAccountController;
 use App\Http\Controllers\BillController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ChannelManagerController;
@@ -169,6 +170,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Finance — admin + accountant
     Route::middleware('role:admin,accountant')->group(function () {
         Route::get('/finance',             [FinanceController::class, 'index'])->name('finance.index');
+
+        // Rekening pembayaran (tampil di invoice) — dikelola akuntan
+        Route::get('/finance/bank-accounts',                   [BankAccountController::class, 'index'])->name('bank-accounts.index');
+        Route::post('/finance/bank-accounts',                  [BankAccountController::class, 'store'])->name('bank-accounts.store');
+        Route::patch('/finance/bank-accounts/{bankAccount}',   [BankAccountController::class, 'update'])->name('bank-accounts.update');
+        Route::delete('/finance/bank-accounts/{bankAccount}',  [BankAccountController::class, 'destroy'])->name('bank-accounts.destroy');
+
         Route::get('/finance/{tour}',      [FinanceController::class, 'tour'])->name('finance.tour');
 
         // AR

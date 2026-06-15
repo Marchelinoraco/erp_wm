@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BankAccount;
 use App\Models\Invoice;
 use App\Models\Tour;
 use Illuminate\Http\Request;
@@ -111,7 +112,7 @@ class InvoiceController extends Controller
         $html = view('invoice', [
             'invoice'      => $invoice,
             'company'      => config('quotation.company'),
-            'bank'         => config('quotation.bank', []),
+            'bank'         => $this->bankAccounts(),
             'paymentTerms' => config('quotation.payment_terms', ''),
             'logo'         => $this->logoDataUri(),
             'items'        => $items,
@@ -162,6 +163,19 @@ class InvoiceController extends Controller
         }
 
         return $items;
+    }
+
+    /** Rekening aktif dari DB (dikelola akuntan); fallback ke config bila kosong. */
+    private function bankAccounts(): array
+    {
+        $accounts = BankAccount::active()->get()
+            ->map(fn ($b) => [
+                'bank'    => $b->bank,
+                'account' => $b->account_number,
+                'name'    => $b->holder_name,
+            ])->all();
+
+        return $accounts ?: config('quotation.bank', []);
     }
 
     /** Logo di-embed sebagai data URI agar pasti tampil. */
