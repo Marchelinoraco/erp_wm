@@ -44,18 +44,24 @@
     table.items tbody td .sub { color: #64748b; font-size: 7.5pt; }
 
     /* ── Totals box ── */
-    .totals { width: 56%; margin-left: 44%; border-collapse: collapse; margin-top: 8px; margin-bottom: 6px; }
-    .totals td { padding: 6px 12px; font-size: 9pt; }
+    .totals-wrap { width: 100%; border-collapse: collapse; margin: 8px 0 6px; }
+    .totals-wrap td.spacer { width: 48%; }
+    .totals {
+        width: 100%; border-collapse: collapse;
+        border: 1px solid #e2e8f0; border-radius: 6px;
+    }
+    .totals td { padding: 7px 14px; font-size: 9pt; }
     .totals td.lbl { color: #64748b; }
     .totals td.amt { text-align: right; font-weight: bold; color: #0f3460; white-space: nowrap; }
     .totals tr.sub td { border-bottom: 1px solid #eef2f7; }
-    .totals tr.total td { border-top: 2px solid #0f3460; font-size: 9.5pt; }
+    .totals tr.total td { border-top: 1px solid #e2e8f0; }
     .totals tr.total td.lbl { color: #0f3460; font-weight: bold; }
-    .totals tr.due td { background: #0f3460; color: #fff; font-size: 11pt; font-weight: bold; }
+    .totals tr.paidrow td { border-bottom: 1px solid #eef2f7; }
+    .totals tr.paidrow td.amt { color: #16a34a; }
+    .totals tr.due td { background: #0f3460; color: #fff; font-size: 11pt; font-weight: bold; padding: 9px 14px; }
     .totals tr.due td.lbl { color: #c9d6ea; }
     .totals tr.due td.amt { color: #fff; }
     .totals tr.due.paid td { background: #16a34a; }
-    .totals tr.paidrow td.amt { color: #16a34a; }
 
     .terbilang { font-size: 8pt; color: #475569; font-style: italic; margin: 2px 0 14px; }
     .terbilang b { color: #0f3460; font-style: normal; }
@@ -246,8 +252,17 @@
 </table>
 
 {{-- ── TOTALS ── --}}
+@php
+    // Rincian (Subtotal/Penyesuaian) hanya perlu bila ada penyesuaian atau pembayaran;
+    // bila tidak, cukup satu baris Total agar tidak dobel angka yang sama.
+    $showBreakdown = $items->count() && (abs($adjustment) >= 1 || $paid > 0);
+@endphp
+<table class="totals-wrap">
+<tr>
+<td class="spacer"></td>
+<td>
 <table class="totals">
-    @if($items->count())
+    @if($showBreakdown)
     <tr class="sub">
         <td class="lbl">Subtotal</td>
         <td class="amt">IDR {{ $fmt($itemsTotal) }}</td>
@@ -275,6 +290,9 @@
         <td class="lbl">{{ $outstanding <= 0 ? 'LUNAS' : ($paid > 0 ? 'SISA TAGIHAN' : 'TOTAL TAGIHAN') }}</td>
         <td class="amt">IDR {{ $fmt(max($outstanding, 0)) }}</td>
     </tr>
+</table>
+</td>
+</tr>
 </table>
 
 <p class="terbilang">Terbilang: <b>{{ $amountWords }}</b></p>
