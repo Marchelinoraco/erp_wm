@@ -137,27 +137,64 @@ const qItemTotal = computed(() =>
 )
 
 // ── Kalkulator Harga per Pax ──────────────────────────────────────────────
-const paxCounts = ref([2, 4, 6])
+const compareMode = ref('pax') // 'pax' = jumlah pax · 'vehicle' = per kendaraan
 const markup = ref(Number(props.tour.default_markup) || 0)
-function addPax() { paxCounts.value.push(2) }
-function removePax(i) { paxCounts.value.splice(i, 1) }
 
 const lineOf = (i) => i.qty * i.nights * Number(i.unit_sell)
 const calcItems = computed(() => (props.tour.quotation_items ?? []).filter(qi => qi.status !== 'rejected'))
 const sharedTotal = computed(() => calcItems.value.filter(i => i.pax_mode === 'shared').reduce((s, i) => s + lineOf(i), 0))
 const perPaxTotal = computed(() => calcItems.value.filter(i => i.pax_mode === 'per_pax').reduce((s, i) => s + lineOf(i), 0))
+
+const withMarkup = (raw) => Math.ceil(raw * (1 + (Number(markup.value) || 0) / 100) / 1000) * 1000
+
+// Mode jumlah pax
+const paxCounts = ref([2, 4, 6])
+function addPax() { paxCounts.value.push(2) }
+function removePax(i) { paxCounts.value.splice(i, 1) }
 function perPaxPrice(n) {
-    const raw = (n > 0 ? sharedTotal.value / n : 0) + perPaxTotal.value
-    return Math.ceil(raw * (1 + (Number(markup.value) || 0) / 100) / 1000) * 1000
+    return withMarkup((n > 0 ? sharedTotal.value / n : 0) + perPaxTotal.value)
+}
+
+// Mode per kendaraan — tiap mobil: biaya + muat pax. Item transport katalog
+// dikecualikan dari "shared" agar tak dobel (biaya mobil dari sini).
+const transportIds = computed(() => new Set(props.products.filter(p => p.type === 'transport').map(p => p.id)))
+const sharedNonCarTotal = computed(() =>
+    calcItems.value.filter(i => i.pax_mode === 'shared' && !transportIds.value.has(i.product_id)).reduce((s, i) => s + lineOf(i), 0)
+)
+const transportProducts = computed(() => props.products.filter(p => p.type === 'transport'))
+const vehicles = ref([
+    { label: 'Toyota Avanza', cost: null, pax: 4 },
+    { label: 'Innova Reborn', cost: null, pax: 6 },
+    { label: 'Hiace', cost: null, pax: 12 },
+])
+function addVehicle() { vehicles.value.push({ label: '', cost: null, pax: 4 }) }
+function removeVehicle(i) { vehicles.value.splice(i, 1) }
+function pickVehicle(i, e) {
+    const p = props.products.find(x => x.id === Number(e.target.value))
+    if (p) { vehicles.value[i].label = p.name; vehicles.value[i].cost = Number(p.sell) }
+    e.target.value = ''
+}
+function vehiclePerPax(v) {
+    const n = Number(v.pax) || 1
+    return withMarkup(((Number(v.cost) || 0) + sharedNonCarTotal.value) / n + perPaxTotal.value)
 }
 
 const applying = ref(false)
 function applyToQuotation() {
-    const counts = paxCounts.value.filter(p => p > 0)
-    if (!counts.length) return
-    const tiers = counts.map((p, i) => ({ id: `t${i + 1}_${p}`, pax: p, vehicle: '', group_cost: null, label: `Min ${p} pax`, note: '' }))
-    const base = { label: 'Harga per Pax', enabled: true, prices: {} }
-    tiers.forEach(t => { base.prices[t.id] = perPaxPrice(t.pax) })
+    let tiers, base
+    if (compareMode.value === 'vehicle') {
+        const list = vehicles.value.filter(v => Number(v.pax) > 0)
+        if (!list.length) return
+        tiers = list.map((v, i) => ({ id: `v${i + 1}_${v.pax}`, pax: Number(v.pax), vehicle: v.label, group_cost: null, label: `Min ${v.pax} pax`, note: v.label }))
+        base = { label: 'Harga per Pax', enabled: true, prices: {} }
+        list.forEach((v, i) => { base.prices[tiers[i].id] = vehiclePerPax(v) })
+    } else {
+        const counts = paxCounts.value.filter(p => p > 0)
+        if (!counts.length) return
+        tiers = counts.map((p, i) => ({ id: `t${i + 1}_${p}`, pax: p, vehicle: '', group_cost: null, label: `Min ${p} pax`, note: '' }))
+        base = { label: 'Harga per Pax', enabled: true, prices: {} }
+        tiers.forEach(t => { base.prices[t.id] = perPaxPrice(t.pax) })
+    }
     const pricing = { mode: 'manual', tiers, base, hotels: [], optionals: props.tour.pricing?.optionals ?? [] }
 
     applying.value = true
@@ -280,15 +317,27 @@ function applyToQuotation() {
         <div class="px-5 py-4 border-b">
             <h3 class="font-semibold">Kalkulator Harga per Pax</h3>
             <p class="text-xs text-muted-foreground mt-0.5">
-                Perbandingan harga/pax dari item di atas. <b class="text-teal-700">Per pax</b> = tetap; <b class="text-purple-700">Dibagi pax</b> = total grup ÷ jumlah pax.
+                <b class="text-teal-700">Per pax</b> = tetap; <b class="text-purple-700">Dibagi pax</b> = total grup ÷ jumlah pax.
             </p>
         </div>
         <div class="p-5 space-y-4">
+            <!-- Mode & markup -->
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="inline-flex rounded-md border p-0.5 text-sm">
+                    <button type="button" @click="compareMode = 'pax'" :class="compareMode === 'pax' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'" class="px-3 py-1 rounded transition-colors">Per Jumlah Pax</button>
+                    <button type="button" @click="compareMode = 'vehicle'" :class="compareMode === 'vehicle' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'" class="px-3 py-1 rounded transition-colors">Per Kendaraan</button>
+                </div>
+                <div class="flex items-center gap-2">
+                    <Label class="text-xs">Markup %</Label>
+                    <Input type="number" v-model.number="markup" min="0" step="any" class="h-8 w-20 text-sm" />
+                </div>
+            </div>
+
             <!-- Subtotal komponen -->
             <div class="grid grid-cols-2 gap-3 text-sm">
                 <div class="rounded-md border p-3">
-                    <p class="text-xs text-purple-700">Biaya Dibagi (grup)</p>
-                    <p class="font-mono font-semibold">{{ fmtRp(sharedTotal) }}</p>
+                    <p class="text-xs text-purple-700">{{ compareMode === 'vehicle' ? 'Biaya Dibagi (selain mobil)' : 'Biaya Dibagi (grup)' }}</p>
+                    <p class="font-mono font-semibold">{{ fmtRp(compareMode === 'vehicle' ? sharedNonCarTotal : sharedTotal) }}</p>
                     <p class="text-[11px] text-muted-foreground">÷ jumlah pax</p>
                 </div>
                 <div class="rounded-md border p-3">
@@ -298,8 +347,8 @@ function applyToQuotation() {
                 </div>
             </div>
 
-            <!-- Pengaturan pax & markup -->
-            <div class="flex flex-wrap items-end gap-3">
+            <!-- ══ Mode: Per Jumlah Pax ══ -->
+            <template v-if="compareMode === 'pax'">
                 <div class="space-y-1">
                     <Label class="text-xs">Bandingkan jumlah pax</Label>
                     <div class="flex items-center gap-2 flex-wrap">
@@ -310,31 +359,58 @@ function applyToQuotation() {
                         <Button type="button" size="sm" variant="outline" class="h-8" @click="addPax">+ pax</Button>
                     </div>
                 </div>
-                <div class="space-y-1">
-                    <Label class="text-xs">Markup %</Label>
-                    <Input type="number" v-model.number="markup" min="0" step="any" class="h-8 w-24 text-sm" />
+                <div class="overflow-x-auto rounded-md border">
+                    <table class="w-full text-sm">
+                        <thead class="bg-muted/50">
+                            <tr><th v-for="p in paxCounts.filter(x => x > 0)" :key="p" class="px-3 py-2 text-center font-medium">{{ p }} pax</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td v-for="p in paxCounts.filter(x => x > 0)" :key="p" class="px-3 py-3 text-center">
+                                    <span class="font-mono font-bold text-base text-gray-900">{{ fmtRp(perPaxPrice(p)) }}</span>
+                                    <span class="block text-[10px] text-muted-foreground">/pax</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
-            </div>
+                <p class="text-[11px] text-muted-foreground">Harga/pax = (biaya dibagi ÷ pax + biaya per pax) × (1 + markup). Bulat ke atas Rp 1.000.</p>
+            </template>
 
-            <!-- Perbandingan -->
-            <div class="overflow-x-auto rounded-md border">
-                <table class="w-full text-sm">
-                    <thead class="bg-muted/50">
-                        <tr>
-                            <th v-for="p in paxCounts.filter(x => x > 0)" :key="p" class="px-3 py-2 text-center font-medium">{{ p }} pax</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td v-for="p in paxCounts.filter(x => x > 0)" :key="p" class="px-3 py-3 text-center">
-                                <span class="font-mono font-bold text-base text-gray-900">{{ fmtRp(perPaxPrice(p)) }}</span>
-                                <span class="block text-[10px] text-muted-foreground">/pax</span>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <p class="text-[11px] text-muted-foreground">Harga/pax = (biaya dibagi ÷ pax + biaya per pax) × (1 + markup). Dibulatkan ke atas per Rp 1.000.</p>
+            <!-- ══ Mode: Per Kendaraan ══ -->
+            <template v-else>
+                <div class="space-y-2">
+                    <Label class="text-xs">Opsi Kendaraan (nama · biaya total · muat pax)</Label>
+                    <p class="text-[11px] text-muted-foreground -mt-1">Jangan tambahkan mobil sebagai item di atas — masukkan di sini. Item "Dibagi pax" lain (guide/boat) tetap dihitung.</p>
+                    <div v-for="(v, i) in vehicles" :key="i" class="grid grid-cols-12 gap-2 items-center">
+                        <Input v-model="v.label" placeholder="Nama mobil" class="h-8 text-sm col-span-4" />
+                        <Input type="number" v-model.number="v.cost" placeholder="Biaya total" min="0" step="any" class="h-8 text-sm col-span-3" />
+                        <Input type="number" v-model.number="v.pax" placeholder="Muat" min="1" class="h-8 text-sm text-center col-span-2" />
+                        <select @change="(e) => pickVehicle(i, e)" class="h-8 text-xs border rounded-md col-span-2" title="Ambil dari katalog">
+                            <option value="">katalog…</option>
+                            <option v-for="p in transportProducts" :key="p.id" :value="p.id">{{ p.name }}</option>
+                        </select>
+                        <button type="button" class="text-gray-300 hover:text-red-500 col-span-1" @click="removeVehicle(i)">×</button>
+                    </div>
+                    <Button type="button" size="sm" variant="outline" class="h-8" @click="addVehicle">+ Kendaraan</Button>
+                </div>
+                <div class="overflow-x-auto rounded-md border">
+                    <table class="w-full text-sm">
+                        <thead class="bg-muted/50">
+                            <tr><th v-for="(v, i) in vehicles.filter(x => Number(x.pax) > 0)" :key="i" class="px-3 py-2 text-center font-medium">{{ v.label || 'Mobil' }}<span class="block text-[10px] text-muted-foreground font-normal">{{ v.pax }} pax</span></th></tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td v-for="(v, i) in vehicles.filter(x => Number(x.pax) > 0)" :key="i" class="px-3 py-3 text-center">
+                                    <span class="font-mono font-bold text-base text-gray-900">{{ fmtRp(vehiclePerPax(v)) }}</span>
+                                    <span class="block text-[10px] text-muted-foreground">/pax</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-[11px] text-muted-foreground">Harga/pax = ((biaya mobil + biaya dibagi) ÷ muat pax + biaya per pax) × (1 + markup). Bulat ke atas Rp 1.000.</p>
+            </template>
 
             <div class="flex justify-end">
                 <Button size="sm" :disabled="applying" @click="applyToQuotation">
