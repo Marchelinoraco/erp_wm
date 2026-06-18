@@ -111,8 +111,10 @@ const navGroups = computed(() => {
 
     if (role === 'admin' || role === 'accountant') {
         groups.push({ label: 'Keuangan', items: [
-            { label: 'Keuangan', route: 'finance.index', match: 'finance.*', icon: ICON.finance },
-            { label: 'Rekening', route: 'bank-accounts.index', match: 'bank-accounts.*', icon: ICON.finance },
+            { label: 'Keuangan',  route: 'finance.index',        match: ['finance.index', 'finance.tour'], icon: ICON.finance },
+            { label: 'Arus Kas',  route: 'finance.cashflow',     match: 'finance.cashflow', icon: ICON.finance },
+            { label: 'Transaksi', route: 'finance.transactions', match: 'finance.transactions', icon: ICON.finance },
+            { label: 'Rekening',  route: 'bank-accounts.index',  match: 'bank-accounts.*', icon: ICON.finance },
         ]})
     }
 
@@ -138,7 +140,8 @@ function isActive(item) {
     if (item.type !== undefined) {
         return route().current('tours.index') && currentType.value === item.type
     }
-    return route().current(item.match)
+    const patterns = Array.isArray(item.match) ? item.match : [item.match]
+    return patterns.some(p => route().current(p))
 }
 </script>
 

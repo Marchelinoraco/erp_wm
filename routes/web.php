@@ -4,6 +4,7 @@ use App\Http\Controllers\AgentProductController;
 use App\Http\Controllers\AgentProductPriceController;
 use App\Http\Controllers\BankAccountController;
 use App\Http\Controllers\BillController;
+use App\Http\Controllers\FinanceLedgerController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ChannelManagerController;
 use App\Http\Controllers\ReminderController;
@@ -170,6 +171,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Finance — admin + accountant
     Route::middleware('role:admin,accountant')->group(function () {
         Route::get('/finance',             [FinanceController::class, 'index'])->name('finance.index');
+
+        // Buku kas / akuntansi — pencatatan pendapatan & pengeluaran
+        Route::get('/finance/cash-flow',     [FinanceLedgerController::class, 'cashFlow'])->name('finance.cashflow');
+        Route::get('/finance/transactions',  [FinanceLedgerController::class, 'transactions'])->name('finance.transactions');
+        Route::post('/finance/transactions', [FinanceLedgerController::class, 'storeTransaction'])->name('finance.transactions.store');
+        Route::patch('/finance/transactions/{finTransaction}',  [FinanceLedgerController::class, 'updateTransaction'])->name('finance.transactions.update');
+        Route::delete('/finance/transactions/{finTransaction}', [FinanceLedgerController::class, 'destroyTransaction'])->name('finance.transactions.destroy');
+        Route::post('/finance/categories',   [FinanceLedgerController::class, 'storeCategory'])->name('finance.categories.store');
+        Route::patch('/finance/categories/{finCategory}',  [FinanceLedgerController::class, 'updateCategory'])->name('finance.categories.update');
+        Route::delete('/finance/categories/{finCategory}', [FinanceLedgerController::class, 'destroyCategory'])->name('finance.categories.destroy');
+        Route::post('/finance/cash-accounts', [FinanceLedgerController::class, 'storeCashAccount'])->name('finance.cash-accounts.store');
+        Route::patch('/finance/cash-accounts/{cashAccount}',  [FinanceLedgerController::class, 'updateCashAccount'])->name('finance.cash-accounts.update');
+        Route::delete('/finance/cash-accounts/{cashAccount}', [FinanceLedgerController::class, 'destroyCashAccount'])->name('finance.cash-accounts.destroy');
 
         // Rekening pembayaran (tampil di invoice) — dikelola akuntan
         Route::get('/finance/bank-accounts',                   [BankAccountController::class, 'index'])->name('bank-accounts.index');
