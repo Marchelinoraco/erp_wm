@@ -7,7 +7,6 @@ use App\Models\FinCategory;
 use App\Models\FinTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class FinanceLedgerController extends Controller
@@ -205,6 +204,143 @@ class FinanceLedgerController extends Controller
                 'net'     => array_sum($netSeries),
                 'balance' => $accounts->sum('balance'),
             ],
+        ]);
+    }
+
+    // ── Halaman: Jurnal Bulanan (debit = kredit) ─────────────────────────────
+    public function journal(Request $request)
+    {
+        $month = $request->input('month', now()->format('Y-m'));
+        [$y, $m] = array_pad(explode('-', $month), 2, now()->month);
+
+        $txns = FinTransaction::with(['category', 'cashAccount'])
+            ->whereYear('date', (int) $y)->whereMonth('date', (int) $m)
+            ->orderBy('date')->orderBy('id')->get();
+
+        $entries = $txns->map(fn ($t) => [
+            'date'        => $t->date->format('Y-m-d'),
+            'description' => $t->description ?: ($t->category?->name ?? '-'),
+            'ref'         => $t->source === 'manual' ? 'Manual' : ($t->source === 'invoice' ? 'AR' : 'AP'),
+            'lines'       => $t->journalLines(),
+        ])->values();
+
+        $total = (float) $txns->sum('amount');
+
+        return Inertia::render('Finance/Journal', [
+            'month'   => $month,
+            'entries' => $entries,
+            'totals'  => ['debit' => $total, 'credit' => $total, 'count' => $txns->count()],
+        ]);
+    }
+
+    // ── Halaman: Buku Besar + Laba Akuntansi ──────────────────────────────────
+    public function ledger(Request $request)
+    {
+        $year  = (int) $request->input('year', now()->year);
+        $month = $request->input('month'); // kosong = setahun penuh
+
+        $q = FinTransaction::with(['category', 'cashAccount'])->whereYear('date', $year);
+        if ($month) {
+            $q->whereMonth('date', (int) $month);
+        }
+        $txns = $q->orderBy('date')->orderBy('id')->get();
+
+        $acc = [];
+        $touch = function (string $key, string $name, string $group) use (&$acc) {
+            $acc[$key] ??= ['name' => $name, 'group' => $group, 'debit' => 0.0, 'credit' => 0.0, 'postings' => []];
+        };
+
+        foreach ($txns as $t) {
+            $amt      = (float) $t->amount;
+            $date     = $t->date->format('Y-m-d');
+            $cashKey  = 'cash-' . $t->cash_account_id;
+            $catKey   = 'cat-' . $t->fin_category_id;
+            $cashName = $t->cashAccount?->name ?? 'Kas';
+            $catName  = $t->category?->name ?? '-';
+
+            $touch($cashKey, $cashName, 'aset');
+            $touch($catKey, $catName, $t->direction === 'in' ? 'pendapatan' : 'beban');
+
+            if ($t->direction === 'in') {
+                $acc[$cashKey]['debit'] += $amt;
+                $acc[$cashKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $catName, 'debit' => $amt, 'credit' => 0];
+                $acc[$catKey]['credit'] += $amt;
+                $acc[$catKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $cashName, 'debit' => 0, 'credit' => $amt];
+            } else {
+                $acc[$catKey]['debit'] += $amt;
+                $acc[$catKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $cashName, 'debit' => $amt, 'credit' => 0];
+                $acc[$cashKey]['credit'] += $amt;
+                $acc[$cashKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $catName, 'debit' => 0, 'credit' => $amt];
+            }
+        }
+
+        $accounts = collect($acc)->map(function ($a) {
+            $normalDebit  = in_array($a['group'], ['aset', 'beban']);
+            $a['balance'] = $normalDebit ? $a['debit'] - $a['credit'] : $a['credit'] - $a['debit'];
+            return $a;
+        })->sortBy([['group', 'asc'], ['name', 'asc']])->values();
+
+        $pendapatan = (float) $accounts->where('group', 'pendapatan')->sum('balance');
+        $beban      = (float) $accounts->where('group', 'beban')->sum('balance');
+
+        return Inertia::render('Finance/Ledger', [
+            'year'     => $year,
+            'years'    => $this->availableYears(),
+            'month'    => $month,
+            'accounts' => $accounts,
+            'profit'   => ['income' => $pendapatan, 'expense' => $beban, 'net' => $pendapatan - $beban],
+        ]);
+    }
+
+    // ── Halaman: Rekap Mingguan / Bulanan ─────────────────────────────────────
+    public function recap(Request $request)
+    {
+        $mode = $request->input('mode', 'monthly') === 'weekly' ? 'weekly' : 'monthly';
+        $labels = $income = $expense = $net = $rows = [];
+
+        if ($mode === 'weekly') {
+            $month = $request->input('month', now()->format('Y-m'));
+            [$y, $m] = array_pad(explode('-', $month), 2, now()->month);
+            $txns = FinTransaction::whereYear('date', (int) $y)->whereMonth('date', (int) $m)->get();
+
+            $bucket = [];
+            foreach ($txns as $t) {
+                $w = (int) ceil($t->date->day / 7);
+                $bucket[$w]['in']  = ($bucket[$w]['in'] ?? 0) + ($t->direction === 'in' ? (float) $t->amount : 0);
+                $bucket[$w]['out'] = ($bucket[$w]['out'] ?? 0) + ($t->direction === 'out' ? (float) $t->amount : 0);
+            }
+            $maxW = $bucket ? max(array_keys($bucket)) : 4;
+            for ($w = 1; $w <= max($maxW, 4); $w++) {
+                $in = (float) ($bucket[$w]['in'] ?? 0);
+                $out = (float) ($bucket[$w]['out'] ?? 0);
+                $labels[] = "Minggu $w"; $income[] = $in; $expense[] = $out; $net[] = $in - $out;
+                $rows[] = ['label' => "Minggu $w", 'income' => $in, 'expense' => $out, 'net' => $in - $out];
+            }
+            $periodLabel = Carbon::create((int) $y, (int) $m, 1)->translatedFormat('F Y');
+        } else {
+            $year = (int) $request->input('year', now()->year);
+            for ($mo = 1; $mo <= 12; $mo++) {
+                $in  = (float) FinTransaction::whereYear('date', $year)->whereMonth('date', $mo)->where('direction', 'in')->sum('amount');
+                $out = (float) FinTransaction::whereYear('date', $year)->whereMonth('date', $mo)->where('direction', 'out')->sum('amount');
+                $lab = Carbon::create($year, $mo, 1)->translatedFormat('M');
+                $labels[] = $lab; $income[] = $in; $expense[] = $out; $net[] = $in - $out;
+                $rows[] = ['label' => Carbon::create($year, $mo, 1)->translatedFormat('F'), 'income' => $in, 'expense' => $out, 'net' => $in - $out];
+            }
+            $periodLabel = (string) $year;
+        }
+
+        return Inertia::render('Finance/Recap', [
+            'mode'          => $mode,
+            'periodLabel'   => $periodLabel,
+            'year'          => (int) $request->input('year', now()->year),
+            'month'         => $request->input('month', now()->format('Y-m')),
+            'years'         => $this->availableYears(),
+            'labels'        => $labels,
+            'incomeSeries'  => $income,
+            'expenseSeries' => $expense,
+            'netSeries'     => $net,
+            'rows'          => $rows,
+            'totals'        => ['income' => array_sum($income), 'expense' => array_sum($expense), 'net' => array_sum($net)],
         ]);
     }
 

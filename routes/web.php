@@ -174,6 +174,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Buku kas / akuntansi — pencatatan pendapatan & pengeluaran
         Route::get('/finance/cash-flow',     [FinanceLedgerController::class, 'cashFlow'])->name('finance.cashflow');
+        Route::get('/finance/journal',       [FinanceLedgerController::class, 'journal'])->name('finance.journal');
+        Route::get('/finance/ledger',        [FinanceLedgerController::class, 'ledger'])->name('finance.ledger');
+        Route::get('/finance/recap',         [FinanceLedgerController::class, 'recap'])->name('finance.recap');
         Route::get('/finance/transactions',  [FinanceLedgerController::class, 'transactions'])->name('finance.transactions');
         Route::post('/finance/transactions', [FinanceLedgerController::class, 'storeTransaction'])->name('finance.transactions.store');
         Route::patch('/finance/transactions/{finTransaction}',  [FinanceLedgerController::class, 'updateTransaction'])->name('finance.transactions.update');

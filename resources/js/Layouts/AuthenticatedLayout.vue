@@ -114,6 +114,9 @@ const navGroups = computed(() => {
             { label: 'Keuangan',  route: 'finance.index',        match: ['finance.index', 'finance.tour'], icon: ICON.finance },
             { label: 'Arus Kas',  route: 'finance.cashflow',     match: 'finance.cashflow', icon: ICON.finance },
             { label: 'Transaksi', route: 'finance.transactions', match: 'finance.transactions', icon: ICON.finance },
+            { label: 'Jurnal',    route: 'finance.journal',      match: 'finance.journal', icon: ICON.finance },
+            { label: 'Buku Besar',route: 'finance.ledger',       match: 'finance.ledger', icon: ICON.finance },
+            { label: 'Rekap',     route: 'finance.recap',        match: 'finance.recap', icon: ICON.finance },
             { label: 'Rekening',  route: 'bank-accounts.index',  match: 'bank-accounts.*', icon: ICON.finance },
         ]})
     }
