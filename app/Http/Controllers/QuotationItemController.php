@@ -18,15 +18,24 @@ class QuotationItemController extends Controller
             'label'      => 'required|string|max:255',
             'qty'        => 'integer|min:1',
             'nights'     => 'integer|min:1',
+            'pax_mode'   => 'nullable|in:shared,per_pax',
             'unit_sell'  => 'required|numeric|min:0',
             'notes'      => 'nullable|string',
         ]);
+
+        // Default cerdas: transport/guide = dibagi rata (shared), selain itu per pax
+        $paxMode = $data['pax_mode'] ?? null;
+        if (! $paxMode && ! empty($data['product_id'])) {
+            $type = Product::find($data['product_id'])?->type;
+            $paxMode = in_array($type, ['transport', 'guide']) ? 'shared' : 'per_pax';
+        }
 
         $tour->quotationItems()->create([
             'product_id' => $data['product_id'] ?? null,
             'label'      => $data['label'],
             'qty'        => $data['qty'] ?? 1,
             'nights'     => $data['nights'] ?? 1,
+            'pax_mode'   => $paxMode ?? 'per_pax',
             'unit_sell'  => $data['unit_sell'],
             'notes'      => $data['notes'] ?? null,
             'status'     => 'proposed',
@@ -44,6 +53,7 @@ class QuotationItemController extends Controller
             'label'     => 'sometimes|string|max:255',
             'qty'       => 'sometimes|integer|min:1',
             'nights'    => 'sometimes|integer|min:1',
+            'pax_mode'  => 'sometimes|in:shared,per_pax',
             'unit_sell' => 'sometimes|numeric|min:0',
             'notes'     => 'sometimes|nullable|string',
             'status'    => 'sometimes|string|in:proposed,approved,rejected',

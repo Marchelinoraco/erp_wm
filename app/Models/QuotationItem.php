@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class QuotationItem extends Model
 {
     protected $fillable = [
-        'tour_id', 'product_id', 'label', 'qty', 'nights',
+        'tour_id', 'product_id', 'label', 'qty', 'nights', 'pax_mode',
         'unit_sell', 'notes', 'status', 'sort_order',
     ];
 

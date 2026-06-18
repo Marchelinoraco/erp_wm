@@ -23,7 +23,7 @@ const qItemSearch     = ref('')
 const editingQItemId  = ref(null)
 
 const qItemForm = useForm({
-    product_id: null, label: '', qty: 1, nights: 1, unit_sell: '', notes: '',
+    product_id: null, label: '', qty: 1, nights: 1, pax_mode: 'per_pax', unit_sell: '', notes: '',
 })
 
 const filteredQProducts = computed(() => {
@@ -50,12 +50,14 @@ function openQItemDialog() {
     qItemForm.reset()
     qItemForm.qty    = 1
     qItemForm.nights = 1
+    qItemForm.pax_mode = 'per_pax'
 }
 
 function selectQProduct(p) {
     qItemForm.product_id = p.id
     qItemForm.label      = p.name
     qItemForm.unit_sell  = Number(p.sell)
+    qItemForm.pax_mode   = ['transport', 'guide'].includes(p.type) ? 'shared' : 'per_pax'
     qItemStep.value      = 'form'
 }
 
@@ -63,6 +65,7 @@ function useManualQItem() {
     qItemForm.product_id = null
     qItemForm.label      = ''
     qItemForm.unit_sell  = ''
+    qItemForm.pax_mode   = 'per_pax'
     qItemStep.value      = 'form'
 }
 
@@ -75,6 +78,7 @@ function submitQItem() {
             qItemForm.reset()
             qItemForm.qty    = 1
             qItemForm.nights = 1
+            qItemForm.pax_mode = 'per_pax'
         },
     })
 }
@@ -85,6 +89,7 @@ function startEditQItem(qi) {
     qItemForm.label      = qi.label
     qItemForm.qty        = qi.qty
     qItemForm.nights     = qi.nights
+    qItemForm.pax_mode   = qi.pax_mode ?? 'per_pax'
     qItemForm.unit_sell  = Number(qi.unit_sell)
     qItemForm.notes      = qi.notes ?? ''
 }
@@ -94,6 +99,7 @@ function cancelEditQItem() {
     qItemForm.reset()
     qItemForm.qty    = 1
     qItemForm.nights = 1
+    qItemForm.pax_mode = 'per_pax'
 }
 
 function saveQItem(id) {
@@ -110,6 +116,12 @@ function setQItemStatus(id, status) {
     })
 }
 
+function setPaxMode(qi) {
+    router.patch(route('quotation-items.update', qi.id), {
+        pax_mode: qi.pax_mode === 'shared' ? 'per_pax' : 'shared',
+    }, { preserveScroll: true, only: ['tour'] })
+}
+
 async function deleteQItem(id) {
     if (await confirm({ title: 'Hapus item penawaran?', confirmLabel: 'Hapus' })) {
         router.delete(route('quotation-items.destroy', id), {
@@ -123,6 +135,38 @@ const qItemTotal = computed(() =>
         .filter(qi => qi.status === 'approved')
         .reduce((s, qi) => s + qi.qty * qi.nights * Number(qi.unit_sell), 0)
 )
+
+// ── Kalkulator Harga per Pax ──────────────────────────────────────────────
+const paxCounts = ref([2, 4, 6])
+const markup = ref(Number(props.tour.default_markup) || 0)
+function addPax() { paxCounts.value.push(2) }
+function removePax(i) { paxCounts.value.splice(i, 1) }
+
+const lineOf = (i) => i.qty * i.nights * Number(i.unit_sell)
+const calcItems = computed(() => (props.tour.quotation_items ?? []).filter(qi => qi.status !== 'rejected'))
+const sharedTotal = computed(() => calcItems.value.filter(i => i.pax_mode === 'shared').reduce((s, i) => s + lineOf(i), 0))
+const perPaxTotal = computed(() => calcItems.value.filter(i => i.pax_mode === 'per_pax').reduce((s, i) => s + lineOf(i), 0))
+function perPaxPrice(n) {
+    const raw = (n > 0 ? sharedTotal.value / n : 0) + perPaxTotal.value
+    return Math.ceil(raw * (1 + (Number(markup.value) || 0) / 100) / 1000) * 1000
+}
+
+const applying = ref(false)
+function applyToQuotation() {
+    const counts = paxCounts.value.filter(p => p > 0)
+    if (!counts.length) return
+    const tiers = counts.map((p, i) => ({ id: `t${i + 1}_${p}`, pax: p, vehicle: '', group_cost: null, label: `Min ${p} pax`, note: '' }))
+    const base = { label: 'Harga per Pax', enabled: true, prices: {} }
+    tiers.forEach(t => { base.prices[t.id] = perPaxPrice(t.pax) })
+    const pricing = { mode: 'manual', tiers, base, hotels: [], optionals: props.tour.pricing?.optionals ?? [] }
+
+    applying.value = true
+    router.patch(route('tours.update', props.tour.id), { pricing }, {
+        preserveScroll: true,
+        onSuccess: () => window.location.reload(),
+        onFinish: () => { applying.value = false },
+    })
+}
 </script>
 
 <template>
@@ -148,7 +192,6 @@ const qItemTotal = computed(() =>
                             <div class="col-span-2 space-y-1">
                                 <Label class="text-xs">Label / Nama</Label>
                                 <Input v-model="qItemForm.label" class="h-8 text-sm" />
-                                <p v-if="qItemForm.errors.label" class="text-xs text-destructive">{{ qItemForm.errors.label }}</p>
                             </div>
                             <div class="space-y-1">
                                 <Label class="text-xs">Qty</Label>
@@ -161,7 +204,13 @@ const qItemTotal = computed(() =>
                             <div class="col-span-2 space-y-1">
                                 <Label class="text-xs">Harga Jual / unit</Label>
                                 <Input type="number" v-model.number="qItemForm.unit_sell" min="0" step="1000" class="h-8 text-sm text-right" />
-                                <p v-if="qItemForm.errors.unit_sell" class="text-xs text-destructive">{{ qItemForm.errors.unit_sell }}</p>
+                            </div>
+                            <div class="col-span-2 space-y-1">
+                                <Label class="text-xs">Perhitungan Pax</Label>
+                                <div class="flex rounded-md border p-0.5 h-8">
+                                    <button type="button" class="flex-1 rounded text-xs transition-colors" :class="qItemForm.pax_mode === 'per_pax' ? 'bg-teal-600 text-white' : 'text-gray-500'" @click="qItemForm.pax_mode = 'per_pax'">Per Pax</button>
+                                    <button type="button" class="flex-1 rounded text-xs transition-colors" :class="qItemForm.pax_mode === 'shared' ? 'bg-purple-600 text-white' : 'text-gray-500'" @click="qItemForm.pax_mode = 'shared'">Dibagi pax</button>
+                                </div>
                             </div>
                             <div class="col-span-2 space-y-1">
                                 <Label class="text-xs">Catatan</Label>
@@ -183,7 +232,14 @@ const qItemTotal = computed(() =>
                             {{ QITEM_STATUS[qi.status]?.label }}
                         </span>
                         <div class="flex-1 min-w-0">
-                            <div class="text-sm font-medium leading-tight">{{ qi.label }}</div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="text-sm font-medium leading-tight">{{ qi.label }}</span>
+                                <button type="button" @click="setPaxMode(qi)" :title="qi.pax_mode === 'shared' ? 'Biaya grup, dibagi jumlah pax' : 'Biaya per orang'"
+                                    class="text-[10px] px-1.5 py-0.5 rounded border transition-colors"
+                                    :class="qi.pax_mode === 'shared' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-teal-50 text-teal-700 border-teal-200'">
+                                    {{ qi.pax_mode === 'shared' ? '÷ Dibagi pax' : '∕ Per pax' }}
+                                </button>
+                            </div>
                             <div class="text-xs text-muted-foreground mt-0.5">
                                 {{ qi.qty }} × {{ qi.nights }} mlm × {{ fmtRp(qi.unit_sell) }}
                                 = <span class="font-medium text-foreground font-mono">{{ fmtRp(qi.qty * qi.nights * Number(qi.unit_sell)) }}</span>
@@ -219,8 +275,77 @@ const qItemTotal = computed(() =>
         </div>
     </div>
 
+    <!-- Kalkulator Harga per Pax -->
+    <div v-if="calcItems.length" class="rounded-lg border bg-white shadow-sm overflow-hidden">
+        <div class="px-5 py-4 border-b">
+            <h3 class="font-semibold">Kalkulator Harga per Pax</h3>
+            <p class="text-xs text-muted-foreground mt-0.5">
+                Perbandingan harga/pax dari item di atas. <b class="text-teal-700">Per pax</b> = tetap; <b class="text-purple-700">Dibagi pax</b> = total grup ÷ jumlah pax.
+            </p>
+        </div>
+        <div class="p-5 space-y-4">
+            <!-- Subtotal komponen -->
+            <div class="grid grid-cols-2 gap-3 text-sm">
+                <div class="rounded-md border p-3">
+                    <p class="text-xs text-purple-700">Biaya Dibagi (grup)</p>
+                    <p class="font-mono font-semibold">{{ fmtRp(sharedTotal) }}</p>
+                    <p class="text-[11px] text-muted-foreground">÷ jumlah pax</p>
+                </div>
+                <div class="rounded-md border p-3">
+                    <p class="text-xs text-teal-700">Biaya per Pax</p>
+                    <p class="font-mono font-semibold">{{ fmtRp(perPaxTotal) }}</p>
+                    <p class="text-[11px] text-muted-foreground">tetap per orang</p>
+                </div>
+            </div>
+
+            <!-- Pengaturan pax & markup -->
+            <div class="flex flex-wrap items-end gap-3">
+                <div class="space-y-1">
+                    <Label class="text-xs">Bandingkan jumlah pax</Label>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <div v-for="(p, i) in paxCounts" :key="i" class="flex items-center">
+                            <Input type="number" v-model.number="paxCounts[i]" min="1" class="h-8 w-16 text-sm text-center" />
+                            <button type="button" class="text-gray-300 hover:text-red-500 ml-0.5" @click="removePax(i)">×</button>
+                        </div>
+                        <Button type="button" size="sm" variant="outline" class="h-8" @click="addPax">+ pax</Button>
+                    </div>
+                </div>
+                <div class="space-y-1">
+                    <Label class="text-xs">Markup %</Label>
+                    <Input type="number" v-model.number="markup" min="0" step="any" class="h-8 w-24 text-sm" />
+                </div>
+            </div>
+
+            <!-- Perbandingan -->
+            <div class="overflow-x-auto rounded-md border">
+                <table class="w-full text-sm">
+                    <thead class="bg-muted/50">
+                        <tr>
+                            <th v-for="p in paxCounts.filter(x => x > 0)" :key="p" class="px-3 py-2 text-center font-medium">{{ p }} pax</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td v-for="p in paxCounts.filter(x => x > 0)" :key="p" class="px-3 py-3 text-center">
+                                <span class="font-mono font-bold text-base text-gray-900">{{ fmtRp(perPaxPrice(p)) }}</span>
+                                <span class="block text-[10px] text-muted-foreground">/pax</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-[11px] text-muted-foreground">Harga/pax = (biaya dibagi ÷ pax + biaya per pax) × (1 + markup). Dibulatkan ke atas per Rp 1.000.</p>
+
+            <div class="flex justify-end">
+                <Button size="sm" :disabled="applying" @click="applyToQuotation">
+                    {{ applying ? 'Menerapkan…' : 'Terapkan ke Quotation →' }}
+                </Button>
+            </div>
+        </div>
+    </div>
+
     <!-- Dialog: Tambah Produk Penawaran -->
-    <Dialog :open="qItemDialogOpen" @update:open="v => { if (!v) { qItemDialogOpen = false; qItemForm.reset(); qItemForm.qty = 1; qItemForm.nights = 1 } }">
+    <Dialog :open="qItemDialogOpen" @update:open="v => { if (!v) { qItemDialogOpen = false; qItemForm.reset(); qItemForm.qty = 1; qItemForm.nights = 1; qItemForm.pax_mode = 'per_pax' } }">
         <DialogContent class="max-w-xl">
             <DialogHeader>
                 <DialogTitle>{{ qItemStep === 'pick' ? 'Pilih Produk' : 'Detail Item Penawaran' }}</DialogTitle>
@@ -263,7 +388,7 @@ const qItemTotal = computed(() =>
                         <span class="font-medium text-foreground">{{ products.find(p => p.id === qItemForm.product_id)?.name }}</span>
                     </span>
                     <button type="button" class="text-xs underline text-muted-foreground"
-                        @click="qItemStep = 'pick'; qItemForm.reset(); qItemForm.qty = 1; qItemForm.nights = 1">Ganti</button>
+                        @click="qItemStep = 'pick'; qItemForm.reset(); qItemForm.qty = 1; qItemForm.nights = 1; qItemForm.pax_mode = 'per_pax'">Ganti</button>
                 </div>
                 <form @submit.prevent="submitQItem" class="space-y-4 mt-1">
                     <div class="space-y-1.5">
@@ -285,6 +410,14 @@ const qItemTotal = computed(() =>
                             <Input type="number" v-model.number="qItemForm.unit_sell" min="0" step="1000" class="text-right" />
                             <p v-if="qItemForm.errors.unit_sell" class="text-xs text-destructive">{{ qItemForm.errors.unit_sell }}</p>
                         </div>
+                    </div>
+                    <div class="space-y-1.5">
+                        <Label>Perhitungan Pax</Label>
+                        <div class="flex rounded-md border p-0.5">
+                            <button type="button" class="flex-1 py-1.5 rounded text-sm transition-colors" :class="qItemForm.pax_mode === 'per_pax' ? 'bg-teal-600 text-white' : 'text-gray-500'" @click="qItemForm.pax_mode = 'per_pax'">Per Pax (tetap)</button>
+                            <button type="button" class="flex-1 py-1.5 rounded text-sm transition-colors" :class="qItemForm.pax_mode === 'shared' ? 'bg-purple-600 text-white' : 'text-gray-500'" @click="qItemForm.pax_mode = 'shared'">Dibagi pax (grup)</button>
+                        </div>
+                        <p class="text-[11px] text-muted-foreground">Transport/guide biasanya "Dibagi pax"; hotel-per-orang/makan/tiket "Per Pax".</p>
                     </div>
                     <div v-if="qItemForm.qty && qItemForm.nights && qItemForm.unit_sell" class="text-sm text-right text-muted-foreground">
                         Subtotal: <span class="font-mono font-semibold text-foreground">{{ fmtRp(qItemForm.qty * qItemForm.nights * qItemForm.unit_sell) }}</span>
