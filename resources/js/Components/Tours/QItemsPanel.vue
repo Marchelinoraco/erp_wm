@@ -149,10 +149,14 @@ const withMarkup = (raw) => Math.ceil(raw * (1 + (Number(markup.value) || 0) / 1
 
 // Mode jumlah pax
 const paxCounts = ref([2, 4, 6])
+const validPax = computed(() => paxCounts.value.filter(p => p > 0))
 function addPax() { paxCounts.value.push(2) }
 function removePax(i) { paxCounts.value.splice(i, 1) }
+// Kontribusi 1 item ke harga/pax: shared = total ÷ pax, per_pax = tetap
+const itemPerPax = (i, n) => i.pax_mode === 'shared' ? (n > 0 ? lineOf(i) / n : 0) : lineOf(i)
+const subtotalPerPax = (n) => (n > 0 ? sharedTotal.value / n : 0) + perPaxTotal.value
 function perPaxPrice(n) {
-    return withMarkup((n > 0 ? sharedTotal.value / n : 0) + perPaxTotal.value)
+    return withMarkup(subtotalPerPax(n))
 }
 
 // Mode per kendaraan — tiap mobil: biaya + muat pax. Item transport katalog
@@ -362,19 +366,37 @@ function applyToQuotation() {
                 <div class="overflow-x-auto rounded-md border">
                     <table class="w-full text-sm">
                         <thead class="bg-muted/50">
-                            <tr><th v-for="p in paxCounts.filter(x => x > 0)" :key="p" class="px-3 py-2 text-center font-medium">{{ p }} pax</th></tr>
-                        </thead>
-                        <tbody>
                             <tr>
-                                <td v-for="p in paxCounts.filter(x => x > 0)" :key="p" class="px-3 py-3 text-center">
-                                    <span class="font-mono font-bold text-base text-gray-900">{{ fmtRp(perPaxPrice(p)) }}</span>
-                                    <span class="block text-[10px] text-muted-foreground">/pax</span>
+                                <th class="px-3 py-2 text-left font-medium">Item Produk</th>
+                                <th v-for="p in validPax" :key="p" class="px-3 py-2 text-right font-medium whitespace-nowrap">{{ p }} pax</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y">
+                            <tr v-for="i in calcItems" :key="i.id">
+                                <td class="px-3 py-1.5">
+                                    <span class="font-medium">{{ i.label }}</span>
+                                    <span class="ml-1 text-[10px] px-1 py-0.5 rounded" :class="i.pax_mode === 'shared' ? 'bg-purple-50 text-purple-700' : 'bg-teal-50 text-teal-700'">{{ i.pax_mode === 'shared' ? '÷ dibagi' : '∕ per pax' }}</span>
                                 </td>
+                                <td v-for="p in validPax" :key="p" class="px-3 py-1.5 text-right font-mono text-gray-600">{{ fmtRp(itemPerPax(i, p)) }}</td>
                             </tr>
                         </tbody>
+                        <tfoot>
+                            <tr class="border-t bg-gray-50">
+                                <td class="px-3 py-1.5 font-medium">Subtotal /pax</td>
+                                <td v-for="p in validPax" :key="p" class="px-3 py-1.5 text-right font-mono">{{ fmtRp(subtotalPerPax(p)) }}</td>
+                            </tr>
+                            <tr class="bg-gray-50">
+                                <td class="px-3 py-1.5 text-muted-foreground text-xs">Markup & pembulatan</td>
+                                <td v-for="p in validPax" :key="p" class="px-3 py-1.5 text-right font-mono text-xs text-muted-foreground">+ {{ fmtRp(perPaxPrice(p) - subtotalPerPax(p)) }}</td>
+                            </tr>
+                            <tr class="border-t-2 border-gray-800 bg-gray-50 font-bold">
+                                <td class="px-3 py-2">Harga /pax</td>
+                                <td v-for="p in validPax" :key="p" class="px-3 py-2 text-right font-mono text-gray-900">{{ fmtRp(perPaxPrice(p)) }}</td>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
-                <p class="text-[11px] text-muted-foreground">Harga/pax = (biaya dibagi ÷ pax + biaya per pax) × (1 + markup). Bulat ke atas Rp 1.000.</p>
+                <p class="text-[11px] text-muted-foreground">Item <b class="text-purple-700">÷ dibagi</b> mengecil saat pax bertambah; <b class="text-teal-700">per pax</b> tetap. Harga/pax = (subtotal) × (1 + markup), bulat ke atas Rp 1.000.</p>
             </template>
 
             <!-- ══ Mode: Per Kendaraan ══ -->
