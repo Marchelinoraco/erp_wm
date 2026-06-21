@@ -179,6 +179,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/finance/recap',         [FinanceLedgerController::class, 'recap'])->name('finance.recap');
         Route::get('/finance/balance-sheet', [FinanceLedgerController::class, 'balanceSheet'])->name('finance.balance-sheet');
         Route::get('/finance/account-balances', [FinanceLedgerController::class, 'accountBalances'])->name('finance.account-balances');
+
+        // Unduh PDF laporan keuangan
+        Route::get('/finance/account-balances/pdf', [FinanceLedgerController::class, 'accountBalancesPdf'])->name('finance.account-balances.pdf');
+        Route::get('/finance/balance-sheet/pdf',    [FinanceLedgerController::class, 'balanceSheetPdf'])->name('finance.balance-sheet.pdf');
+        Route::get('/finance/journal/pdf',          [FinanceLedgerController::class, 'journalPdf'])->name('finance.journal.pdf');
+        Route::get('/finance/ledger/pdf',           [FinanceLedgerController::class, 'ledgerPdf'])->name('finance.ledger.pdf');
+        Route::get('/finance/recap/pdf',            [FinanceLedgerController::class, 'recapPdf'])->name('finance.recap.pdf');
         Route::get('/finance/transactions',  [FinanceLedgerController::class, 'transactions'])->name('finance.transactions');
         Route::post('/finance/transactions', [FinanceLedgerController::class, 'storeTransaction'])->name('finance.transactions.store');
         Route::patch('/finance/transactions/{finTransaction}',  [FinanceLedgerController::class, 'updateTransaction'])->name('finance.transactions.update');

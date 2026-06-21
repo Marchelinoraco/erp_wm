@@ -25,7 +25,10 @@ const balanced = props.totals.debit === props.totals.credit
         <template #header>
             <div class="flex items-center justify-between">
                 <h1 class="text-base font-semibold text-gray-800">Jurnal Pencatatan</h1>
-                <input type="month" :value="month" @change="changeMonth" class="text-sm border rounded-md px-2 py-1" />
+                <div class="flex items-center gap-2">
+                    <input type="month" :value="month" @change="changeMonth" class="text-sm border rounded-md px-2 py-1" />
+                    <a :href="route('finance.journal.pdf', { month })" target="_blank" class="text-sm px-3 py-1 rounded-md border bg-white hover:bg-gray-50">⬇ PDF</a>
+                </div>
             </div>
         </template>
 

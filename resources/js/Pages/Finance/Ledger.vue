@@ -69,6 +69,7 @@ const monthName = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', '
                     <select v-model="yearSel" @change="changePeriod" class="text-sm border rounded-md px-2 py-1">
                         <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
                     </select>
+                    <a :href="route('finance.ledger.pdf', { year: yearSel, month: monthSel || undefined })" target="_blank" class="text-sm px-3 py-1 rounded-md border bg-white hover:bg-gray-50">⬇ PDF</a>
                 </div>
             </div>
         </template>

@@ -29,7 +29,10 @@ const chartSeries = computed(() => [{ name: 'Saldo', data: props.accounts.map(a 
 
     <AuthenticatedLayout>
         <template #header>
-            <h1 class="text-base font-semibold text-gray-800">Saldo per Akun</h1>
+            <div class="flex items-center justify-between">
+                <h1 class="text-base font-semibold text-gray-800">Saldo per Akun</h1>
+                <a :href="route('finance.account-balances.pdf')" target="_blank" class="text-sm px-3 py-1 rounded-md border bg-white hover:bg-gray-50">⬇ Unduh PDF</a>
+            </div>
         </template>
 
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">

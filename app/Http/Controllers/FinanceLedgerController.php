@@ -9,6 +9,7 @@ use App\Models\FinCategory;
 use App\Models\FinTransaction;
 use App\Models\Invoice;
 use App\Models\InvoicePayment;
+use App\Support\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
@@ -214,7 +215,20 @@ class FinanceLedgerController extends Controller
     // ── Halaman: Jurnal Bulanan (debit = kredit) ─────────────────────────────
     public function journal(Request $request)
     {
+        return Inertia::render('Finance/Journal', $this->journalData($request->input('month', now()->format('Y-m'))));
+    }
+
+    public function journalPdf(Request $request)
+    {
         $month = $request->input('month', now()->format('Y-m'));
+        return Pdf::stream('finance.journal', $this->journalData($month) + [
+            'title'  => 'Jurnal',
+            'period' => $this->monthLabel($month),
+        ], 'Jurnal-' . $month);
+    }
+
+    private function journalData(string $month): array
+    {
         [$y, $m] = array_pad(explode('-', $month), 2, now()->month);
 
         $txns = FinTransaction::with(['category', 'cashAccount'])
@@ -230,19 +244,38 @@ class FinanceLedgerController extends Controller
 
         $total = (float) $txns->sum('amount');
 
-        return Inertia::render('Finance/Journal', [
+        return [
             'month'   => $month,
             'entries' => $entries,
             'totals'  => ['debit' => $total, 'credit' => $total, 'count' => $txns->count()],
-        ]);
+        ];
+    }
+
+    private function monthLabel(string $month): string
+    {
+        [$y, $m] = array_pad(explode('-', $month), 2, now()->month);
+        return Carbon::create((int) $y, (int) $m, 1)->translatedFormat('F Y');
     }
 
     // ── Halaman: Buku Besar + Laba Akuntansi ──────────────────────────────────
     public function ledger(Request $request)
     {
-        $year  = (int) $request->input('year', now()->year);
-        $month = $request->input('month'); // kosong = setahun penuh
+        return Inertia::render('Finance/Ledger', $this->ledgerData((int) $request->input('year', now()->year), $request->input('month')));
+    }
 
+    public function ledgerPdf(Request $request)
+    {
+        $year  = (int) $request->input('year', now()->year);
+        $month = $request->input('month');
+        $period = $month ? $this->monthLabel("{$year}-" . str_pad((string) $month, 2, '0', STR_PAD_LEFT)) : "Tahun {$year}";
+        return Pdf::stream('finance.ledger', $this->ledgerData($year, $month) + [
+            'title'  => 'Buku Besar',
+            'period' => $period,
+        ], 'Buku-Besar-' . $year . ($month ? '-' . $month : ''));
+    }
+
+    private function ledgerData(int $year, $month): array
+    {
         $q = FinTransaction::with(['category', 'cashAccount'])->whereYear('date', $year);
         if ($month) {
             $q->whereMonth('date', (int) $month);
@@ -287,17 +320,31 @@ class FinanceLedgerController extends Controller
         $pendapatan = (float) $accounts->where('group', 'pendapatan')->sum('balance');
         $beban      = (float) $accounts->where('group', 'beban')->sum('balance');
 
-        return Inertia::render('Finance/Ledger', [
+        return [
             'year'     => $year,
             'years'    => $this->availableYears(),
             'month'    => $month,
             'accounts' => $accounts,
             'profit'   => ['income' => $pendapatan, 'expense' => $beban, 'net' => $pendapatan - $beban],
-        ]);
+        ];
     }
 
     // ── Halaman: Rekap Mingguan / Bulanan ─────────────────────────────────────
     public function recap(Request $request)
+    {
+        return Inertia::render('Finance/Recap', $this->recapData($request));
+    }
+
+    public function recapPdf(Request $request)
+    {
+        $d = $this->recapData($request);
+        return Pdf::stream('finance.recap', $d + [
+            'title'  => 'Rekap ' . ($d['mode'] === 'weekly' ? 'Mingguan' : 'Bulanan'),
+            'period' => $d['periodLabel'],
+        ], 'Rekap-' . $d['mode'] . '-' . ($d['mode'] === 'weekly' ? $d['month'] : $d['year']));
+    }
+
+    private function recapData(Request $request): array
     {
         $mode = $request->input('mode', 'monthly') === 'weekly' ? 'weekly' : 'monthly';
         $labels = $income = $expense = $net = $rows = [];
@@ -333,7 +380,7 @@ class FinanceLedgerController extends Controller
             $periodLabel = (string) $year;
         }
 
-        return Inertia::render('Finance/Recap', [
+        return [
             'mode'          => $mode,
             'periodLabel'   => $periodLabel,
             'year'          => (int) $request->input('year', now()->year),
@@ -345,16 +392,28 @@ class FinanceLedgerController extends Controller
             'netSeries'     => $net,
             'rows'          => $rows,
             'totals'        => ['income' => array_sum($income), 'expense' => array_sum($expense), 'net' => array_sum($net)],
-        ]);
+        ];
     }
 
     // ── Halaman: Saldo per Akun/Pos (Kas, Bank, Piutang, Hutang) ──────────────
     public function accountBalances()
     {
+        return Inertia::render('Finance/AccountBalances', $this->accountBalancesData());
+    }
+
+    public function accountBalancesPdf()
+    {
+        return Pdf::stream('finance.account_balances', $this->accountBalancesData() + [
+            'title'  => 'Saldo per Akun',
+            'period' => 'Per ' . now()->translatedFormat('d F Y'),
+        ], 'Saldo-Akun-' . now()->format('Ymd'));
+    }
+
+    private function accountBalancesData(): array
+    {
         $accounts = CashAccount::orderBy('sort_order')->orderBy('id')->get()->map(function ($a) {
             $in    = (float) $a->transactions()->where('direction', 'in')->sum('amount');
             $out   = (float) $a->transactions()->where('direction', 'out')->sum('amount');
-            $count = $a->transactions()->count();
             return [
                 'name'    => $a->name,
                 'type'    => $a->type,
@@ -362,25 +421,35 @@ class FinanceLedgerController extends Controller
                 'masuk'   => $in,
                 'keluar'  => $out,
                 'saldo'   => (float) $a->opening_balance + $in - $out,
-                'count'   => $count,
+                'count'   => $a->transactions()->count(),
             ];
         });
 
-        $ar = (float) Invoice::sum('total') - (float) InvoicePayment::sum('amount');
-        $ap = (float) Bill::sum('amount') - (float) BillPayment::sum('amount');
-
-        return Inertia::render('Finance/AccountBalances', [
+        return [
             'accounts'  => $accounts,
             'cashTotal' => (float) $accounts->sum('saldo'),
-            'ar'        => $ar,
-            'ap'        => $ap,
-        ]);
+            'ar'        => (float) Invoice::sum('total') - (float) InvoicePayment::sum('amount'),
+            'ap'        => (float) Bill::sum('amount') - (float) BillPayment::sum('amount'),
+        ];
     }
 
     // ── Halaman: Neraca (Balance Sheet) per tahun ─────────────────────────────
     public function balanceSheet(Request $request)
     {
-        $year    = (int) $request->input('year', now()->year);
+        return Inertia::render('Finance/BalanceSheet', $this->balanceSheetData((int) $request->input('year', now()->year)));
+    }
+
+    public function balanceSheetPdf(Request $request)
+    {
+        $year = (int) $request->input('year', now()->year);
+        return Pdf::stream('finance.balance_sheet', $this->balanceSheetData($year) + [
+            'title'  => 'Neraca',
+            'period' => "Per 31 Desember {$year}",
+        ], "Neraca-{$year}");
+    }
+
+    private function balanceSheetData(int $year): array
+    {
         $endDate = "{$year}-12-31";
 
         // ASET — Kas & Bank per akun (saldo s/d akhir tahun)
@@ -409,14 +478,14 @@ class FinanceLedgerController extends Controller
         $labaDitahan  = ($invoicedRev + $manualIncome) - ($billedCost + $manualExpense);
         $ekuitasTotal = $modal + $labaDitahan;
 
-        return Inertia::render('Finance/BalanceSheet', [
+        return [
             'year'      => $year,
             'years'     => $this->availableYears(),
             'aset'      => ['cash' => $cashAccounts, 'ar' => $ar, 'total' => $asetTotal],
             'kewajiban' => ['ap' => $ap, 'total' => $kewajibanTotal],
             'ekuitas'   => ['modal' => $modal, 'laba_ditahan' => $labaDitahan, 'total' => $ekuitasTotal],
             'balanced'  => abs($asetTotal - ($kewajibanTotal + $ekuitasTotal)) < 1,
-        ]);
+        ];
     }
 
     private function balanceBefore(Carbon $date): float

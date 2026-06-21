@@ -59,6 +59,7 @@ const chartSeries = computed(() => [
                     <select v-else :value="year" @change="(e) => go({ year: e.target.value })" class="text-sm border rounded-md px-2 py-1">
                         <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
                     </select>
+                    <a :href="route('finance.recap.pdf', { mode, year, month })" target="_blank" class="text-sm px-3 py-1 rounded-md border bg-white hover:bg-gray-50">⬇ PDF</a>
                 </div>
             </div>
         </template>
