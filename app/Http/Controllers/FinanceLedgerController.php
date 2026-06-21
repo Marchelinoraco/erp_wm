@@ -2,9 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Bill;
+use App\Models\BillPayment;
 use App\Models\CashAccount;
 use App\Models\FinCategory;
 use App\Models\FinTransaction;
+use App\Models\Invoice;
+use App\Models\InvoicePayment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
@@ -341,6 +345,48 @@ class FinanceLedgerController extends Controller
             'netSeries'     => $net,
             'rows'          => $rows,
             'totals'        => ['income' => array_sum($income), 'expense' => array_sum($expense), 'net' => array_sum($net)],
+        ]);
+    }
+
+    // ── Halaman: Neraca (Balance Sheet) per tahun ─────────────────────────────
+    public function balanceSheet(Request $request)
+    {
+        $year    = (int) $request->input('year', now()->year);
+        $endDate = "{$year}-12-31";
+
+        // ASET — Kas & Bank per akun (saldo s/d akhir tahun)
+        $cashAccounts = CashAccount::orderBy('sort_order')->orderBy('id')->get()->map(function ($a) use ($endDate) {
+            $in  = (float) FinTransaction::where('cash_account_id', $a->id)->where('direction', 'in')->where('date', '<=', $endDate)->sum('amount');
+            $out = (float) FinTransaction::where('cash_account_id', $a->id)->where('direction', 'out')->where('date', '<=', $endDate)->sum('amount');
+            return ['name' => $a->name, 'type' => $a->type, 'balance' => (float) $a->opening_balance + $in - $out];
+        });
+        $cashTotal = (float) $cashAccounts->sum('balance');
+
+        // Piutang (AR) & Hutang (AP) — outstanding s/d akhir tahun
+        $ar = (float) Invoice::where('date', '<=', $endDate)->sum('total')
+            - (float) InvoicePayment::where('date', '<=', $endDate)->sum('amount');
+        $ap = (float) Bill::where('date', '<=', $endDate)->sum('amount')
+            - (float) BillPayment::where('date', '<=', $endDate)->sum('amount');
+
+        $asetTotal      = $cashTotal + $ar;
+        $kewajibanTotal = $ap;
+
+        // EKUITAS — modal awal + laba ditahan (akrual, s/d akhir tahun)
+        $modal        = (float) CashAccount::sum('opening_balance');
+        $invoicedRev  = (float) Invoice::where('date', '<=', $endDate)->sum('total');
+        $billedCost   = (float) Bill::where('date', '<=', $endDate)->sum('amount');
+        $manualIncome = (float) FinTransaction::where('source', 'manual')->where('direction', 'in')->where('date', '<=', $endDate)->sum('amount');
+        $manualExpense = (float) FinTransaction::where('source', 'manual')->where('direction', 'out')->where('date', '<=', $endDate)->sum('amount');
+        $labaDitahan  = ($invoicedRev + $manualIncome) - ($billedCost + $manualExpense);
+        $ekuitasTotal = $modal + $labaDitahan;
+
+        return Inertia::render('Finance/BalanceSheet', [
+            'year'      => $year,
+            'years'     => $this->availableYears(),
+            'aset'      => ['cash' => $cashAccounts, 'ar' => $ar, 'total' => $asetTotal],
+            'kewajiban' => ['ap' => $ap, 'total' => $kewajibanTotal],
+            'ekuitas'   => ['modal' => $modal, 'laba_ditahan' => $labaDitahan, 'total' => $ekuitasTotal],
+            'balanced'  => abs($asetTotal - ($kewajibanTotal + $ekuitasTotal)) < 1,
         ]);
     }
 
