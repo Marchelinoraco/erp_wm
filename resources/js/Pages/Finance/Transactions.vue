@@ -42,9 +42,38 @@ const formCategories = computed(() =>
 
 function setDirection(dir) {
     form.direction = dir
+    showNewCat.value = false
     if (!formCategories.value.some(c => c.id === form.fin_category_id)) {
         form.fin_category_id = formCategories.value[0]?.id ?? null
     }
+}
+
+// ── Tambah kategori inline (dari form transaksi) ──
+const showNewCat = ref(false)
+const newCatName = ref('')
+const creatingCat = ref(false)
+function toggleNewCat() {
+    showNewCat.value = !showNewCat.value
+    newCatName.value = ''
+}
+function createCategory() {
+    const name = newCatName.value.trim()
+    if (!name) return
+    const type = form.direction === 'in' ? 'income' : 'expense'
+    const beforeIds = new Set(props.categories.map(c => c.id))
+    creatingCat.value = true
+    router.post(route('finance.categories.store'), { name, type }, {
+        preserveScroll: true,
+        preserveState: true,
+        only: ['categories'],
+        onSuccess: () => {
+            const added = props.categories.find(c => c.type === type && !beforeIds.has(c.id))
+            if (added) form.fin_category_id = added.id
+            showNewCat.value = false
+            newCatName.value = ''
+        },
+        onFinish: () => { creatingCat.value = false },
+    })
 }
 
 function openAdd() {
@@ -55,6 +84,7 @@ function openAdd() {
     form.cash_account_id = props.cashAccounts[0]?.id ?? null
     form.fin_category_id = formCategories.value[0]?.id ?? null
     form.clearErrors()
+    showNewCat.value = false
     dialogOpen.value = true
 }
 function openEdit(t) {
@@ -66,6 +96,7 @@ function openEdit(t) {
     form.amount = Number(t.amount)
     form.description = t.description ?? ''
     form.clearErrors()
+    showNewCat.value = false
     dialogOpen.value = true
 }
 function submit() {
@@ -242,10 +273,21 @@ const expenseCats = computed(() => props.categories.filter(c => c.type === 'expe
                         </div>
                     </div>
                     <div class="space-y-1.5">
-                        <Label>Kategori</Label>
-                        <select v-model="form.fin_category_id" class="w-full border rounded-md px-3 py-2 text-sm" required>
+                        <div class="flex items-center justify-between">
+                            <Label>Kategori</Label>
+                            <button type="button" class="text-xs text-primary hover:underline" @click="toggleNewCat">
+                                {{ showNewCat ? '← Pilih yang ada' : '+ Kategori baru' }}
+                            </button>
+                        </div>
+                        <select v-if="!showNewCat" v-model="form.fin_category_id" class="w-full border rounded-md px-3 py-2 text-sm" required>
                             <option v-for="c in formCategories" :key="c.id" :value="c.id">{{ c.name }}</option>
                         </select>
+                        <div v-else class="flex gap-2">
+                            <Input v-model="newCatName" :placeholder="`Kategori ${form.direction === 'in' ? 'pemasukan' : 'pengeluaran'} baru`" @keyup.enter.prevent="createCategory" autofocus />
+                            <Button type="button" size="sm" variant="outline" :disabled="creatingCat || !newCatName.trim()" @click="createCategory">
+                                {{ creatingCat ? '…' : 'Tambah' }}
+                            </Button>
+                        </div>
                         <p v-if="form.errors.fin_category_id" class="text-xs text-red-600">{{ form.errors.fin_category_id }}</p>
                     </div>
                     <div class="space-y-1.5">
