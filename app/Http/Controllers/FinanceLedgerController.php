@@ -348,6 +348,35 @@ class FinanceLedgerController extends Controller
         ]);
     }
 
+    // ── Halaman: Saldo per Akun/Pos (Kas, Bank, Piutang, Hutang) ──────────────
+    public function accountBalances()
+    {
+        $accounts = CashAccount::orderBy('sort_order')->orderBy('id')->get()->map(function ($a) {
+            $in    = (float) $a->transactions()->where('direction', 'in')->sum('amount');
+            $out   = (float) $a->transactions()->where('direction', 'out')->sum('amount');
+            $count = $a->transactions()->count();
+            return [
+                'name'    => $a->name,
+                'type'    => $a->type,
+                'opening' => (float) $a->opening_balance,
+                'masuk'   => $in,
+                'keluar'  => $out,
+                'saldo'   => (float) $a->opening_balance + $in - $out,
+                'count'   => $count,
+            ];
+        });
+
+        $ar = (float) Invoice::sum('total') - (float) InvoicePayment::sum('amount');
+        $ap = (float) Bill::sum('amount') - (float) BillPayment::sum('amount');
+
+        return Inertia::render('Finance/AccountBalances', [
+            'accounts'  => $accounts,
+            'cashTotal' => (float) $accounts->sum('saldo'),
+            'ar'        => $ar,
+            'ap'        => $ap,
+        ]);
+    }
+
     // ── Halaman: Neraca (Balance Sheet) per tahun ─────────────────────────────
     public function balanceSheet(Request $request)
     {

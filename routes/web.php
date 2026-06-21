@@ -178,6 +178,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/finance/ledger',        [FinanceLedgerController::class, 'ledger'])->name('finance.ledger');
         Route::get('/finance/recap',         [FinanceLedgerController::class, 'recap'])->name('finance.recap');
         Route::get('/finance/balance-sheet', [FinanceLedgerController::class, 'balanceSheet'])->name('finance.balance-sheet');
+        Route::get('/finance/account-balances', [FinanceLedgerController::class, 'accountBalances'])->name('finance.account-balances');
         Route::get('/finance/transactions',  [FinanceLedgerController::class, 'transactions'])->name('finance.transactions');
         Route::post('/finance/transactions', [FinanceLedgerController::class, 'storeTransaction'])->name('finance.transactions.store');
         Route::patch('/finance/transactions/{finTransaction}',  [FinanceLedgerController::class, 'updateTransaction'])->name('finance.transactions.update');
