@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\MiceTemplate;
 use App\Models\Product;
 use App\Models\QuotationItem;
 use App\Models\Supplier;
@@ -70,11 +71,13 @@ class TourController extends Controller
     {
         $data = $request->validate([
             'type'           => 'required|string|in:' . implode(',', array_keys(Tour::TYPES)),
+            'tour_direction' => 'nullable|in:inbound,outbound',
             'inquiry_source' => 'nullable|in:website,external',
             'package_id'     => 'nullable|exists:tour_packages,id',
             'customer_id'    => 'nullable|exists:customers,id',
             'title'          => 'nullable|string|max:255',
             'pax'            => 'required|integer|min:1',
+            'budget'         => 'nullable|numeric|min:0',
             'start_date'     => 'nullable|date',
             'end_date'       => 'nullable|date|after_or_equal:start_date',
             'status'         => 'required|string|in:inquiry,quotation_draft,quotation_sent,follow_up,negotiation,confirmed,cancelled',
@@ -99,8 +102,10 @@ class TourController extends Controller
             'customers'   => Customer::orderBy('name')->get(['id', 'name']),
             'products'    => Product::where('is_active', true)
                 ->orderBy('type')
+                ->orderBy('group_label')
+                ->orderBy('grade')
                 ->orderBy('name')
-                ->get(['id', 'name', 'type', 'unit', 'cost', 'sell', 'currency']),
+                ->get(['id', 'name', 'type', 'unit', 'cost', 'sell', 'currency', 'group_label', 'grade']),
             'manifestUrl'    => URL::signedRoute('manifest', ['tour' => $tour->id]),
             'fieldUsers'     => User::whereIn('role', ['guide', 'driver', 'tour_leader'])
                 ->orderBy('name')
@@ -112,6 +117,9 @@ class TourController extends Controller
                 'child_policy' => config('quotation.child_policy'),
                 'terms'        => config('quotation.terms'),
             ],
+            'miceTemplates' => $tour->type === 'mice'
+                ? MiceTemplate::orderBy('name')->get(['id', 'name', 'description', 'items'])
+                : [],
         ]);
     }
 
@@ -119,9 +127,11 @@ class TourController extends Controller
     {
         $data = $request->validate([
             'type'           => 'nullable|string|in:' . implode(',', array_keys(Tour::TYPES)),
+            'tour_direction' => 'nullable|in:inbound,outbound',
             'customer_id'    => 'nullable|exists:customers,id',
             'title'          => 'nullable|string|max:255',
             'pax'            => 'sometimes|required|integer|min:1',
+            'budget'         => 'nullable|numeric|min:0',
             'start_date'     => 'nullable|date',
             'end_date'       => 'nullable|date|after_or_equal:start_date',
             'status'         => 'sometimes|required|string|in:inquiry,quotation_draft,quotation_sent,follow_up,negotiation,confirmed,cancelled',

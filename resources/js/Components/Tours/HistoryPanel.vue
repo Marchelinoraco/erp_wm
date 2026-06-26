@@ -25,7 +25,7 @@ const HISTORY_COLORS = {
     email:     'bg-sky-100 text-sky-700',
     confirmed: 'bg-green-100 text-green-700',
     cancelled: 'bg-red-100 text-red-700',
-}
+}   
 const HISTORY_ICONS = {
     revision: '↺', note: '📝', call: '📞', meeting: '👥', email: '✉', confirmed: '✓', cancelled: '✕',
 }

@@ -11,6 +11,29 @@ import { TYPE_LABELS } from '@/lib/tourConstants'
 
 const props = defineProps({ tour: Object, products: Array })
 
+// ── Budget Gauge (MICE) ───────────────────────────────────────────────────────
+const isMice  = props.tour.type === 'mice'
+const budget  = computed(() => Number(props.tour.budget) || 0)
+
+const approvedTotal = computed(() =>
+    (props.tour.quotation_items ?? [])
+        .filter(qi => qi.status !== 'rejected')
+        .reduce((s, qi) => s + qi.qty * qi.nights * Number(qi.unit_sell), 0)
+)
+
+const budgetPct     = computed(() => budget.value > 0 ? Math.min((approvedTotal.value / budget.value) * 100, 150) : 0)
+const budgetOver    = computed(() => budget.value > 0 && approvedTotal.value > budget.value)
+const budgetRemain  = computed(() => budget.value - approvedTotal.value)
+
+// Margin guard: bandingkan total jual vs total modal (dari tour_items)
+const totalCost     = computed(() => Number(props.tour.total_cost) || 0)
+const marginPct     = computed(() =>
+    approvedTotal.value > 0
+        ? Math.round((approvedTotal.value - totalCost.value) / approvedTotal.value * 100)
+        : 0
+)
+const marginDanger  = computed(() => marginPct.value < 15 && approvedTotal.value > 0)
+
 const QITEM_STATUS = {
     proposed: { label: 'Diajukan',  cls: 'bg-blue-100 text-blue-700' },
     approved: { label: 'Disetujui', cls: 'bg-green-100 text-green-700' },
@@ -26,22 +49,62 @@ const qItemForm = useForm({
     product_id: null, label: '', qty: 1, nights: 1, pax_mode: 'per_pax', unit_sell: '', notes: '',
 })
 
+const GRADE_CFG = {
+    hemat:   { label: 'Hemat',   cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+    standar: { label: 'Standar', cls: 'bg-blue-100 text-blue-700 border-blue-200' },
+    premium: { label: 'Premium', cls: 'bg-amber-100 text-amber-700 border-amber-200' },
+}
+
 const filteredQProducts = computed(() => {
     const q = qItemSearch.value.toLowerCase()
     if (!q) return props.products
     return props.products.filter(p =>
-        p.name.toLowerCase().includes(q) || p.type.toLowerCase().includes(q)
+        p.name.toLowerCase().includes(q) ||
+        p.type.toLowerCase().includes(q) ||
+        (p.group_label ?? '').toLowerCase().includes(q)
     )
 })
 
+// Susun produk per tipe: varian dikelompokkan ke dalam satu entry, produk tunggal tetap sendiri.
 const qProductsByType = computed(() => {
     const groups = {}
     filteredQProducts.value.forEach(p => {
         if (!groups[p.type]) groups[p.type] = []
-        groups[p.type].push(p)
+        if (p.group_label && p.grade) {
+            // Cari grup varian yang sudah ada dalam type ini
+            const existing = groups[p.type].find(e => e._isVariantGroup && e.group_label === p.group_label)
+            if (existing) {
+                existing.variants.push(p)
+            } else {
+                groups[p.type].push({ _isVariantGroup: true, group_label: p.group_label, variants: [p] })
+            }
+        } else {
+            groups[p.type].push({ _isVariantGroup: false, ...p })
+        }
     })
     return groups
 })
+
+// Map product_id → saudara variannya (untuk swap di view mode)
+const variantSiblingsOf = computed(() => {
+    const map = {}
+    props.products.forEach(p => {
+        if (!p.group_label || !p.grade) return
+        const siblings = props.products.filter(
+            s => s.group_label === p.group_label && s.type === p.type
+        )
+        map[p.id] = siblings
+    })
+    return map
+})
+
+function swapGrade(qi, newProduct) {
+    router.patch(route('quotation-items.update', qi.id), {
+        product_id: newProduct.id,
+        label:      newProduct.name,
+        unit_sell:  Number(newProduct.sell),
+    }, { preserveScroll: true, only: ['tour'] })
+}
 
 function openQItemDialog() {
     qItemStep.value       = 'pick'
@@ -281,6 +344,25 @@ function applyToQuotation() {
                                     {{ qi.pax_mode === 'shared' ? '÷ Dibagi pax' : '∕ Per pax' }}
                                 </button>
                             </div>
+                            <!-- Swap grade — tampil bila produk ini punya saudara varian -->
+                            <div v-if="qi.product_id && variantSiblingsOf[qi.product_id]?.length > 1"
+                                class="flex items-center gap-1 mt-1 flex-wrap">
+                                <span class="text-[10px] text-muted-foreground">Grade:</span>
+                                <button
+                                    v-for="sib in variantSiblingsOf[qi.product_id]" :key="sib.id"
+                                    type="button"
+                                    class="text-[10px] px-2 py-0.5 rounded-full border font-semibold transition-opacity"
+                                    :class="[
+                                        GRADE_CFG[sib.grade]?.cls ?? 'bg-gray-100 text-gray-700 border-gray-200',
+                                        sib.id === qi.product_id ? 'ring-1 ring-offset-1 ring-current opacity-100' : 'opacity-50 hover:opacity-100'
+                                    ]"
+                                    :title="`Ganti ke ${GRADE_CFG[sib.grade]?.label} — ${fmtRp(sib.sell)}`"
+                                    :disabled="sib.id === qi.product_id"
+                                    @click="swapGrade(qi, sib)">
+                                    {{ GRADE_CFG[sib.grade]?.label }}
+                                    <span class="font-mono font-normal">{{ fmtRp(sib.sell) }}</span>
+                                </button>
+                            </div>
                             <div class="text-xs text-muted-foreground mt-0.5">
                                 {{ qi.qty }} × {{ qi.nights }} mlm × {{ fmtRp(qi.unit_sell) }}
                                 = <span class="font-medium text-foreground font-mono">{{ fmtRp(qi.qty * qi.nights * Number(qi.unit_sell)) }}</span>
@@ -313,6 +395,60 @@ function applyToQuotation() {
         <div v-if="qItemTotal > 0" class="border-t px-5 py-3 bg-green-50/50 flex items-center justify-between">
             <span class="text-xs text-muted-foreground">Total item disetujui:</span>
             <span class="font-mono font-semibold text-green-800">{{ fmtRp(qItemTotal) }}</span>
+        </div>
+    </div>
+
+    <!-- Budget Gauge — hanya untuk MICE dan bila budget diisi -->
+    <div v-if="isMice && budget > 0" class="rounded-lg border bg-white shadow-sm overflow-hidden">
+        <div class="px-5 py-4 border-b flex items-center justify-between">
+            <div>
+                <h3 class="font-semibold">Budget Klien</h3>
+                <p class="text-xs text-muted-foreground mt-0.5">Pantau sisa anggaran & margin sebelum kirim penawaran.</p>
+            </div>
+            <span class="font-mono font-semibold text-sm">{{ fmtRp(budget) }}</span>
+        </div>
+        <div class="px-5 py-4 space-y-4">
+            <!-- Progress bar -->
+            <div>
+                <div class="flex justify-between text-xs mb-1.5">
+                    <span class="text-muted-foreground">Terpakai</span>
+                    <span :class="budgetOver ? 'text-red-600 font-semibold' : 'text-foreground'">
+                        {{ fmtRp(approvedTotal) }} ({{ Math.round(budgetPct) }}%)
+                    </span>
+                </div>
+                <div class="h-3 rounded-full bg-gray-100 overflow-hidden">
+                    <div
+                        class="h-full rounded-full transition-all duration-300"
+                        :class="budgetOver ? 'bg-red-500' : budgetPct >= 90 ? 'bg-amber-400' : 'bg-emerald-500'"
+                        :style="{ width: Math.min(budgetPct, 100) + '%' }"
+                    />
+                </div>
+                <div class="flex justify-between text-xs mt-1.5">
+                    <span v-if="!budgetOver" class="text-emerald-700 font-medium">Sisa {{ fmtRp(budgetRemain) }}</span>
+                    <span v-else class="text-red-600 font-semibold">⚠ Over {{ fmtRp(-budgetRemain) }} dari budget</span>
+                    <span class="text-muted-foreground">Budget {{ fmtRp(budget) }}</span>
+                </div>
+            </div>
+
+            <!-- Margin guard -->
+            <div class="rounded-md border p-3 flex items-center justify-between"
+                :class="marginDanger ? 'border-red-200 bg-red-50' : 'border-gray-100 bg-gray-50'">
+                <div>
+                    <p class="text-xs font-medium" :class="marginDanger ? 'text-red-700' : 'text-foreground'">
+                        Margin
+                        <span v-if="marginDanger" class="ml-1">⚠ Di bawah batas aman (15%)</span>
+                    </p>
+                    <p class="text-[11px] text-muted-foreground mt-0.5">Harga jual − Modal estimasi</p>
+                </div>
+                <span class="font-mono font-bold text-lg" :class="marginDanger ? 'text-red-600' : 'text-emerald-700'">
+                    {{ marginPct }}%
+                </span>
+            </div>
+
+            <p v-if="budgetOver || marginDanger" class="text-[11px] text-muted-foreground">
+                <span v-if="budgetOver">Kurangi atau turunkan harga item agar masuk budget. </span>
+                <span v-if="marginDanger">Pastikan harga jual cukup menutupi modal sebelum dikirim ke klien.</span>
+            </p>
         </div>
     </div>
 
@@ -453,17 +589,36 @@ function applyToQuotation() {
             <template v-if="qItemStep === 'pick'">
                 <Input v-model="qItemSearch" placeholder="Cari produk..." class="mt-1" />
                 <div class="max-h-72 overflow-y-auto mt-2 space-y-3 pr-1">
-                    <div v-for="(prods, type) in qProductsByType" :key="type">
+                    <div v-for="(entries, type) in qProductsByType" :key="type">
                         <p class="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-1 mb-1">
                             {{ TYPE_LABELS[type] ?? type }}
                         </p>
-                        <div class="space-y-0.5">
-                            <button v-for="p in prods" :key="p.id" type="button"
-                                class="w-full text-left flex items-center justify-between px-3 py-2 rounded hover:bg-muted transition-colors"
-                                @click="selectQProduct(p)">
-                                <span class="text-sm font-medium">{{ p.name }}</span>
-                                <span class="text-xs text-muted-foreground font-mono">{{ fmtRp(p.sell) }}</span>
-                            </button>
+                        <div class="space-y-1">
+                            <template v-for="entry in entries" :key="entry._isVariantGroup ? entry.group_label : entry.id">
+                                <!-- Grup Varian: tampil sebagai satu baris dengan chip grade -->
+                                <div v-if="entry._isVariantGroup"
+                                    class="px-3 py-2 rounded border border-dashed border-muted-foreground/20 bg-muted/30">
+                                    <p class="text-sm font-medium mb-1.5">{{ entry.group_label }}</p>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        <button
+                                            v-for="v in entry.variants" :key="v.id"
+                                            type="button"
+                                            class="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold transition-colors hover:opacity-80"
+                                            :class="GRADE_CFG[v.grade]?.cls ?? 'bg-gray-100 text-gray-700 border-gray-200'"
+                                            @click="selectQProduct(v)">
+                                            {{ GRADE_CFG[v.grade]?.label ?? v.grade }}
+                                            <span class="font-mono font-normal opacity-75">{{ fmtRp(v.sell) }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <!-- Produk tunggal -->
+                                <button v-else type="button"
+                                    class="w-full text-left flex items-center justify-between px-3 py-2 rounded hover:bg-muted transition-colors"
+                                    @click="selectQProduct(entry)">
+                                    <span class="text-sm font-medium">{{ entry.name }}</span>
+                                    <span class="text-xs text-muted-foreground font-mono">{{ fmtRp(entry.sell) }}</span>
+                                </button>
+                            </template>
                         </div>
                     </div>
                     <div v-if="!Object.keys(qProductsByType).length" class="text-center text-sm text-muted-foreground py-6">

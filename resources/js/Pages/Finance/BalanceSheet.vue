@@ -82,6 +82,30 @@ const donutSeries = computed(() => asetParts.value.map(p => p.value))
                             <span class="text-gray-600">Piutang Usaha (AR)</span>
                             <span class="font-mono">{{ fmtRp(aset.ar) }}</span>
                         </div>
+
+                        <!-- Aset Tetap -->
+                        <template v-if="aset.fixed && aset.fixed.length">
+                            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mt-4 mb-2">Aset Tetap</p>
+                            <div v-for="grp in aset.fixed" :key="grp.category" class="mb-3">
+                                <p class="text-xs text-gray-500 font-medium mb-1">{{ grp.label }}</p>
+                                <div v-for="item in grp.items" :key="item.name" class="flex justify-between text-sm pl-2">
+                                    <span class="text-gray-600">{{ item.name }}</span>
+                                    <span class="font-mono">{{ fmtRp(item.cost) }}</span>
+                                </div>
+                                <div class="flex justify-between text-sm pl-2 text-red-500 italic">
+                                    <span>Akumulasi Penyusutan</span>
+                                    <span class="font-mono">({{ fmtRp(grp.total_accum) }})</span>
+                                </div>
+                                <div class="flex justify-between text-sm pl-2 border-t mt-1 pt-1 font-medium">
+                                    <span class="text-gray-700">Nilai Buku Bersih</span>
+                                    <span class="font-mono text-emerald-700">{{ fmtRp(grp.total_net) }}</span>
+                                </div>
+                            </div>
+                            <div class="flex justify-between text-sm pt-2 border-t font-semibold">
+                                <span class="text-gray-700">Total Aset Tetap (Neto)</span>
+                                <span class="font-mono text-emerald-700">{{ fmtRp(aset.fixed_net) }}</span>
+                            </div>
+                        </template>
                     </div>
                     <div class="px-5 py-3 border-t bg-blue-50/50 flex justify-between font-bold">
                         <span class="text-blue-800">TOTAL ASET</span>
@@ -95,16 +119,35 @@ const donutSeries = computed(() => asetParts.value.map(p => p.value))
                         <h2 class="text-sm font-bold text-amber-800 uppercase tracking-wide">Kewajiban & Ekuitas</h2>
                     </div>
                     <div class="px-5 py-3">
-                        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Kewajiban</p>
+                        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Kewajiban Jangka Pendek</p>
                         <div class="flex justify-between text-sm">
                             <span class="text-gray-600">Hutang Usaha (AP)</span>
                             <span class="font-mono">{{ fmtRp(kewajiban.ap) }}</span>
                         </div>
 
+                        <template v-if="kewajiban.loans && kewajiban.loans.length">
+                            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1 mt-4">Kewajiban Jangka Panjang</p>
+                            <div v-for="grp in kewajiban.loans" :key="grp.type" class="mb-3">
+                                <p class="text-xs text-gray-500 font-medium mb-1">{{ grp.label }}</p>
+                                <div v-for="item in grp.items" :key="item.name" class="flex justify-between text-sm pl-2">
+                                    <span class="text-gray-600">{{ item.name }}</span>
+                                    <span class="font-mono">{{ fmtRp(item.outstanding) }}</span>
+                                </div>
+                                <div class="flex justify-between text-sm pl-2 border-t mt-1 pt-1 font-medium">
+                                    <span class="text-gray-700">Subtotal {{ grp.label }}</span>
+                                    <span class="font-mono text-red-700">{{ fmtRp(grp.total) }}</span>
+                                </div>
+                            </div>
+                            <div class="flex justify-between text-sm pt-1 border-t font-semibold">
+                                <span class="text-gray-700">Total Hutang Bank/Leasing</span>
+                                <span class="font-mono text-red-700">{{ fmtRp(kewajiban.loans_total) }}</span>
+                            </div>
+                        </template>
+
                         <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1 mt-4">Ekuitas</p>
                         <div class="space-y-1.5">
                             <div class="flex justify-between text-sm">
-                                <span class="text-gray-600">Modal Awal</span>
+                                <span class="text-gray-600">Modal Disetor</span>
                                 <span class="font-mono">{{ fmtRp(ekuitas.modal) }}</span>
                             </div>
                             <div class="flex justify-between text-sm">

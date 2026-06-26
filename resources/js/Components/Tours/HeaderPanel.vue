@@ -16,11 +16,15 @@ const tourType     = props.tour.type ?? 'tour'
 const detailFields = TYPE_FIELDS[tourType] ?? []
 const isTour       = tourType === 'tour'
 
+const isMice = tourType === 'mice'
+
 const headerForm = useForm({
     type:           tourType,
+    tour_direction: props.tour.tour_direction ?? 'inbound',
     customer_id:    props.tour.customer_id ? String(props.tour.customer_id) : 'none',
     title:          props.tour.title          ?? '',
     pax:            props.tour.pax            ?? 1,
+    budget:         props.tour.budget         ?? '',
     start_date:     props.tour.start_date     ?? '',
     end_date:       props.tour.end_date       ?? '',
     status:         props.tour.status         ?? 'inquiry',
@@ -80,9 +84,23 @@ function saveHeader() {
                 <Input id="title" v-model="headerForm.title" placeholder="Mis. 4D3N Manado Heritage" />
             </div>
 
+            <!-- Arah Tour — hanya untuk tipe Tour, menentukan klasifikasi Laba Rugi -->
+            <div v-if="isTour" class="space-y-1.5">
+                <Label>Arah Tour
+                    <span class="text-xs text-muted-foreground font-normal ml-1">— untuk klasifikasi Laba Rugi</span>
+                </Label>
+                <Select v-model="headerForm.tour_direction">
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="inbound">Inbound — Tamu datang ke Manado</SelectItem>
+                        <SelectItem value="outbound">Outbound — Tamu ke luar Manado</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+
             <div class="grid grid-cols-3 gap-4">
                 <div class="space-y-1.5">
-                    <Label for="pax">Pax</Label>
+                    <Label for="pax">{{ isMice ? 'Jumlah Peserta (Pax)' : 'Pax' }}</Label>
                     <Input id="pax" type="number" v-model="headerForm.pax" min="1" />
                 </div>
                 <div class="space-y-1.5">
@@ -93,6 +111,27 @@ function saveHeader() {
                     <Label for="end_date">Tanggal Selesai</Label>
                     <Input id="end_date" type="date" v-model="headerForm.end_date" />
                 </div>
+            </div>
+
+            <!-- Budget klien — hanya untuk MICE -->
+            <div v-if="isMice" class="space-y-1.5">
+                <Label for="budget">
+                    Budget Klien (IDR)
+                    <span class="text-xs text-muted-foreground font-normal ml-1">— batas anggaran event dari klien</span>
+                </Label>
+                <div class="relative">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">Rp</span>
+                    <Input
+                        id="budget"
+                        type="number"
+                        v-model.number="headerForm.budget"
+                        min="0"
+                        step="1000"
+                        placeholder="0"
+                        class="pl-9 text-right font-mono"
+                    />
+                </div>
+                <p v-if="headerForm.errors.budget" class="text-xs text-destructive">{{ headerForm.errors.budget }}</p>
             </div>
 
             <div class="grid grid-cols-2 gap-4">

@@ -7,6 +7,7 @@ export const INQUIRY_TYPES = {
     guide:     { label: 'Jasa Guide',        build: 'Jasa Guide Baru',          noun: 'jasa guide' },
     document:  { label: 'Visa/Paspor',       build: 'Pengurusan Dokumen Baru',  noun: 'dokumen' },
     ticketing: { label: 'Ticketing',         build: 'Ticketing Baru',           noun: 'tiket' },
+    mice:      { label: 'MICE / Event',      build: 'Event Baru',               noun: 'event' },
 }
 
 // Warna badge per tipe (Tailwind).
@@ -16,6 +17,7 @@ export const TYPE_BADGE = {
     guide:     'bg-emerald-100 text-emerald-700',
     document:  'bg-violet-100 text-violet-700',
     ticketing: 'bg-rose-100 text-rose-700',
+    mice:      'bg-pink-100 text-pink-700',
 }
 
 // Field khusus per tipe → dirender ke tours.details (JSON).
@@ -49,6 +51,13 @@ export const TYPE_FIELDS = {
         { key: 'depart_date',  label: 'Tgl Berangkat',    type: 'date' },
         { key: 'return_date',  label: 'Tgl Pulang',       type: 'date' },
         { key: 'pnr',          label: 'Kode Booking / PNR', type: 'text' },
+    ],
+    mice: [
+        { key: 'event_type', label: 'Jenis Acara',    type: 'text', placeholder: 'mis. Corporate Gathering / Seminar / Meeting' },
+        { key: 'room_setup', label: 'Setup Ruangan',  type: 'text', placeholder: 'mis. Theater / Classroom / Round Table / U-Shape' },
+        { key: 'venue_name', label: 'Nama Venue',     type: 'text', placeholder: 'mis. Ballroom Hotel Aryaduta Manado' },
+        { key: 'duration',   label: 'Durasi Acara',   type: 'text', placeholder: 'mis. 1 hari / Half-day / 2 hari' },
+        { key: 'note',       label: 'Catatan Tambahan', type: 'textarea' },
     ],
 }
 

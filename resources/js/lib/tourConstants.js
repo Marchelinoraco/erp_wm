@@ -10,5 +10,7 @@ export const STATUS_CONFIG = {
 
 export const TYPE_LABELS = {
     hotel: 'Hotel', transport: 'Transport', guide: 'Guide',
-    restaurant: 'Restaurant', attraction: 'Attraction', other: 'Lainnya',
+    restaurant: 'Restaurant', attraction: 'Attraction',
+    venue: 'Venue', equipment: 'Equipment / Perlengkapan',
+    other: 'Lainnya',
 }

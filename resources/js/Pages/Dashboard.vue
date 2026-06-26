@@ -68,7 +68,7 @@ function fmtDate(d) {
                         <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Diterima Bulan Ini</p>
                         <p class="text-2xl font-bold mt-1 text-blue-700">{{ fmtRp(cashInMonth) }}</p>
                         <p class="text-xs text-muted-foreground mt-1">
-                            uang masuk {{ new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) }}
+                            uang masuk  {{ new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) }}
                         </p>
                     </div>
                 </div>

@@ -14,9 +14,10 @@ import ItemsPanel       from '@/Components/Tours/ItemsPanel.vue'
 import OperasionalPanel from '@/Components/Tours/OperasionalPanel.vue'
 import ItineraryPanel   from '@/Components/Tours/ItineraryPanel.vue'
 import QuotationPanel   from '@/Components/Tours/QuotationPanel.vue'
-import QItemsPanel      from '@/Components/Tours/QItemsPanel.vue'
-import HistoryPanel     from '@/Components/Tours/HistoryPanel.vue'
-import CostingPanel     from '@/Components/Tours/CostingPanel.vue'
+import QItemsPanel         from '@/Components/Tours/QItemsPanel.vue'
+import MiceTemplatePanel   from '@/Components/Tours/MiceTemplatePanel.vue'
+import HistoryPanel        from '@/Components/Tours/HistoryPanel.vue'
+import CostingPanel        from '@/Components/Tours/CostingPanel.vue'
 
 const props = defineProps({
     tour:              Object,
@@ -26,10 +27,12 @@ const props = defineProps({
     fieldUsers:        Array,
     emailTemplates:    Object,
     quotationDefaults: Object,
+    miceTemplates:     { type: Array, default: () => [] },
 })
 
 const tourType      = props.tour.type ?? 'tour'
 const isTour        = computed(() => tourType === 'tour')
+const isMice        = computed(() => tourType === 'mice')
 const customerEmail = computed(() => props.tour.customer?.email ?? '')
 
 // ── Email dialog ───────────────────────────────────────────────────────────────
@@ -95,6 +98,7 @@ function sendEmail() {
                         <ItineraryPanel v-if="isTour" :tour="tour" />
                         <QuotationPanel :tour="tour" :quotation-defaults="quotationDefaults" :is-tour="isTour" />
                         <QItemsPanel :tour="tour" :products="products" />
+                        <MiceTemplatePanel v-if="isMice" :tour="tour" :mice-templates="miceTemplates" />
                         <HistoryPanel :tour="tour" />
                     </div>
 

@@ -198,6 +198,50 @@
 </table>
 @endif
 
+{{-- ── RINCIAN BIAYA (tampil bila ada quotation_items disetujui/diajukan) ── --}}
+@php
+    $rincian = collect($qItems ?? [])->filter(fn ($qi) => ($qi->status ?? '') !== 'rejected');
+@endphp
+@if($rincian->count())
+<div class="section-title"><span class="tick">|</span> RINCIAN BIAYA</div>
+<table width="100%" style="border-collapse:collapse;margin-bottom:14px;">
+    <thead>
+        <tr style="background:#0f3460;">
+            <th style="padding:7px 12px;text-align:left;font-size:8pt;color:#ffffff;font-weight:bold;width:44%;">Komponen</th>
+            <th style="padding:7px 8px;text-align:center;font-size:8pt;color:#ffffff;font-weight:bold;width:8%;">Qty</th>
+            <th style="padding:7px 8px;text-align:center;font-size:8pt;color:#ffffff;font-weight:bold;width:8%;">Unit</th>
+            <th style="padding:7px 12px;text-align:right;font-size:8pt;color:#ffffff;font-weight:bold;width:18%;">Harga/Unit</th>
+            <th style="padding:7px 12px;text-align:right;font-size:8pt;color:#ffffff;font-weight:bold;width:22%;">Subtotal</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach($rincian as $i => $qi)
+        @php $subtotal = $qi->qty * $qi->nights * (float) $qi->unit_sell; @endphp
+        <tr style="background: {{ $i % 2 === 0 ? '#ffffff' : '#f8fafc' }};">
+            <td style="padding:6px 12px;font-size:8.5pt;border:1px solid #e2e8f0;vertical-align:top;">
+                {{ $qi->label }}
+                @if($qi->notes)
+                <div style="font-size:7pt;color:#94a3b8;margin-top:1px;">{{ $qi->notes }}</div>
+                @endif
+            </td>
+            <td style="padding:6px 8px;font-size:8.5pt;border:1px solid #e2e8f0;text-align:center;vertical-align:top;">{{ $qi->qty }}</td>
+            <td style="padding:6px 8px;font-size:8.5pt;border:1px solid #e2e8f0;text-align:center;vertical-align:top;color:#64748b;">
+                {{ $qi->nights > 1 ? $qi->nights . 'x' : '—' }}
+            </td>
+            <td style="padding:6px 12px;font-size:8.5pt;border:1px solid #e2e8f0;text-align:right;font-family:monospace;vertical-align:top;">{{ $fmt($qi->unit_sell) }}</td>
+            <td style="padding:6px 12px;font-size:8.5pt;border:1px solid #e2e8f0;text-align:right;font-family:monospace;font-weight:bold;vertical-align:top;">{{ $fmt($subtotal) }}</td>
+        </tr>
+        @endforeach
+        <tr style="background:#f1f5f9;border-top:2px solid #0f3460;">
+            <td colspan="4" style="padding:8px 12px;font-size:9pt;font-weight:bold;color:#0f3460;border:1px solid #e2e8f0;">Total Biaya Event</td>
+            <td style="padding:8px 12px;font-size:10pt;font-weight:bold;color:#0f3460;text-align:right;font-family:monospace;border:1px solid #e2e8f0;">
+                IDR {{ $fmt($rincian->sum(fn ($qi) => $qi->qty * $qi->nights * (float) $qi->unit_sell)) }}
+            </td>
+        </tr>
+    </tbody>
+</table>
+@endif
+
 {{-- ── HARGA ── --}}
 <div class="section-title"><span class="tick">|</span> HARGA</div>
 <table width="100%" style="border-collapse:collapse;margin-bottom:14px;">

@@ -9,6 +9,10 @@ use App\Models\FinCategory;
 use App\Models\FinTransaction;
 use App\Models\Invoice;
 use App\Models\InvoicePayment;
+use App\Models\FinanceSetting;
+use App\Models\FixedAsset;
+use App\Models\Loan;
+use App\Models\Tour;
 use App\Support\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -466,25 +470,188 @@ class FinanceLedgerController extends Controller
         $ap = (float) Bill::where('date', '<=', $endDate)->sum('amount')
             - (float) BillPayment::where('date', '<=', $endDate)->sum('amount');
 
-        $asetTotal      = $cashTotal + $ar;
-        $kewajibanTotal = $ap;
+        // Aset Tetap — nilai buku per akhir tahun, dikelompok per kategori
+        $fixedAssets       = FixedAsset::where('is_active', true)->orderBy('category')->orderBy('name')->get();
+        $fixedAssetGroups  = $fixedAssets->groupBy('category')->map(function ($g, $cat) use ($year) {
+            return [
+                'category'   => $cat,
+                'label'      => FixedAsset::CATEGORIES[$cat] ?? $cat,
+                'items'      => $g->map(fn ($a) => [
+                    'name'        => $a->name,
+                    'cost'        => (float) $a->acquisition_cost,
+                    'accumulated' => $a->accumulatedAsOf($year),
+                    'book_value'  => $a->bookValueAsOf($year),
+                ])->values(),
+                'total_cost'  => (float) $g->sum('acquisition_cost'),
+                'total_accum' => (float) $g->map(fn ($a) => $a->accumulatedAsOf($year))->sum(),
+                'total_net'   => (float) $g->map(fn ($a) => $a->bookValueAsOf($year))->sum(),
+            ];
+        })->values();
+        $totalFixedNet  = round((float) $fixedAssets->map(fn ($a) => $a->bookValueAsOf($year))->sum(), 2);
+        $totalFixedCost = (float) $fixedAssets->sum('acquisition_cost');
+        $totalFixedAccum = round((float) $fixedAssets->map(fn ($a) => $a->accumulatedAsOf($year))->sum(), 2);
 
-        // EKUITAS — modal awal + laba ditahan (akrual, s/d akhir tahun)
-        $modal        = (float) CashAccount::sum('opening_balance');
-        $invoicedRev  = (float) Invoice::where('date', '<=', $endDate)->sum('total');
-        $billedCost   = (float) Bill::where('date', '<=', $endDate)->sum('amount');
-        $manualIncome = (float) FinTransaction::where('source', 'manual')->where('direction', 'in')->where('date', '<=', $endDate)->sum('amount');
+        $asetTotal = $cashTotal + $ar + $totalFixedNet;
+
+        // KEWAJIBAN — AP + hutang bank/leasing
+        $loans = Loan::where('is_active', true)->orderBy('loan_type')->orderBy('name')->get();
+        $loanGroups = $loans->groupBy('loan_type')->map(function ($g, $type) {
+            return [
+                'type'  => $type,
+                'label' => Loan::TYPES[$type] ?? $type,
+                'items' => $g->map(fn ($l) => [
+                    'name'        => $l->name,
+                    'lender'      => $l->lender,
+                    'original'    => (float) $l->original_amount,
+                    'outstanding' => (float) $l->outstanding_balance,
+                ])->values(),
+                'total' => round((float) $g->sum('outstanding_balance'), 2),
+            ];
+        })->values();
+        $totalLoans     = round((float) $loans->sum('outstanding_balance'), 2);
+        $kewajibanTotal = $ap + $totalLoans;
+
+        // EKUITAS — modal disetor (setting) + laba ditahan (akrual, s/d akhir tahun)
+        $modal         = FinanceSetting::get('modal_disetor');
+        $invoicedRev   = (float) Invoice::where('date', '<=', $endDate)->sum('total');
+        $billedCost    = (float) Bill::where('date', '<=', $endDate)->sum('amount');
+        $manualIncome  = (float) FinTransaction::where('source', 'manual')->where('direction', 'in')->where('date', '<=', $endDate)->sum('amount');
         $manualExpense = (float) FinTransaction::where('source', 'manual')->where('direction', 'out')->where('date', '<=', $endDate)->sum('amount');
-        $labaDitahan  = ($invoicedRev + $manualIncome) - ($billedCost + $manualExpense);
-        $ekuitasTotal = $modal + $labaDitahan;
+        $totalAccumDepreciation = (float) $fixedAssets->map(fn ($a) => $a->accumulatedAsOf($year))->sum();
+        $labaDitahan   = ($invoicedRev + $manualIncome) - ($billedCost + $manualExpense) - $totalAccumDepreciation;
+        $ekuitasTotal  = $modal + $labaDitahan;
 
         return [
             'year'      => $year,
             'years'     => $this->availableYears(),
-            'aset'      => ['cash' => $cashAccounts, 'ar' => $ar, 'total' => $asetTotal],
-            'kewajiban' => ['ap' => $ap, 'total' => $kewajibanTotal],
+            'aset'      => [
+                'cash'        => $cashAccounts,
+                'ar'          => $ar,
+                'fixed'       => $fixedAssetGroups,
+                'fixed_cost'  => $totalFixedCost,
+                'fixed_accum' => $totalFixedAccum,
+                'fixed_net'   => $totalFixedNet,
+                'total'       => $asetTotal,
+            ],
+            'kewajiban' => [
+                'ap'          => $ap,
+                'loans'       => $loanGroups,
+                'loans_total' => $totalLoans,
+                'total'       => $kewajibanTotal,
+            ],
             'ekuitas'   => ['modal' => $modal, 'laba_ditahan' => $labaDitahan, 'total' => $ekuitasTotal],
             'balanced'  => abs($asetTotal - ($kewajibanTotal + $ekuitasTotal)) < 1,
+        ];
+    }
+
+    // ── Halaman: Laporan Laba Rugi ───────────────────────────────────────────────
+    public function incomeStatement(Request $request)
+    {
+        return Inertia::render('Finance/IncomeStatement', $this->incomeStatementData((int) $request->input('year', now()->year)));
+    }
+
+    public function incomeStatementPdf(Request $request)
+    {
+        $year = (int) $request->input('year', now()->year);
+        return Pdf::stream('finance.income_statement', $this->incomeStatementData($year) + [
+            'title'  => 'Laporan Laba Rugi',
+            'period' => "Tahun {$year}",
+        ], "Laba-Rugi-{$year}");
+    }
+
+    private const BUSINESS_LINES = [
+        'inbound'   => 'Tur Inbound',
+        'outbound'  => 'Tur Outbound',
+        'transport' => 'Transport',
+        'mice'      => 'MICE / Event',
+        'other'     => 'Lainnya',
+    ];
+
+    private function businessLine(?Tour $tour): string
+    {
+        if (! $tour) return 'other';
+        return match ($tour->type) {
+            'tour'   => $tour->tour_direction === 'outbound' ? 'outbound' : 'inbound',
+            'rental' => 'transport',
+            'guide'  => 'inbound',
+            'mice'   => 'mice',
+            default  => 'other',
+        };
+    }
+
+    private function incomeStatementData(int $year): array
+    {
+        $invoices = Invoice::with('tour')->whereYear('date', $year)->get();
+        $bills    = Bill::with('tour')->whereYear('date', $year)->get();
+
+        $lines = [];
+        foreach (self::BUSINESS_LINES as $key => $label) {
+            $rev  = (float) $invoices->filter(fn ($inv)  => $this->businessLine($inv->tour)  === $key)->sum('total');
+            $cogs = (float) $bills->filter(fn ($bill) => $this->businessLine($bill->tour) === $key)->sum('amount');
+            if ($rev > 0 || $cogs > 0) {
+                $gross   = $rev - $cogs;
+                $lines[] = [
+                    'key'       => $key,
+                    'label'     => $label,
+                    'revenue'   => $rev,
+                    'cogs'      => $cogs,
+                    'gross'     => $gross,
+                    'gross_pct' => $rev > 0 ? round($gross / $rev * 100, 1) : null,
+                ];
+            }
+        }
+
+        $totalRev    = (float) collect($lines)->sum('revenue');
+        $totalCogs   = (float) collect($lines)->sum('cogs');
+        $grossProfit = $totalRev - $totalCogs;
+
+        // Biaya operasional — transaksi kas manual keluar, dikelompok per kategori
+        $opexTxns = FinTransaction::with('category')
+            ->where('source', 'manual')
+            ->where('direction', 'out')
+            ->whereYear('date', $year)
+            ->get();
+
+        $opex = $opexTxns
+            ->groupBy('fin_category_id')
+            ->map(fn ($g) => [
+                'name'  => $g->first()->category?->name ?? '—',
+                'total' => (float) $g->sum('amount'),
+            ])
+            ->sortByDesc('total')
+            ->values();
+
+        $totalOpex   = (float) $opexTxns->sum('amount');
+        $otherIncome = (float) FinTransaction::where('source', 'manual')
+            ->where('direction', 'in')
+            ->whereYear('date', $year)
+            ->sum('amount');
+
+        // Beban penyusutan aset tetap (non-kas, garis lurus)
+        $depreciationItems = FixedAsset::where('is_active', true)->get()
+            ->map(fn ($a) => ['name' => $a->name, 'total' => $a->depreciationForYear($year)])
+            ->filter(fn ($d) => $d['total'] > 0)
+            ->sortByDesc('total')
+            ->values();
+        $totalDepreciation = (float) $depreciationItems->sum('total');
+
+        $netProfit = $grossProfit - $totalOpex - $totalDepreciation + $otherIncome;
+
+        return [
+            'year'              => $year,
+            'years'             => $this->availableYears(),
+            'lines'             => $lines,
+            'totalRevenue'      => $totalRev,
+            'totalCogs'         => $totalCogs,
+            'grossProfit'       => $grossProfit,
+            'grossMargin'       => $totalRev > 0 ? round($grossProfit / $totalRev * 100, 1) : null,
+            'opex'              => $opex,
+            'totalOpex'         => $totalOpex,
+            'depreciation'      => $depreciationItems,
+            'totalDepreciation' => $totalDepreciation,
+            'otherIncome'       => $otherIncome,
+            'netProfit'         => $netProfit,
+            'netMargin'         => $totalRev > 0 ? round($netProfit / $totalRev * 100, 1) : null,
         ];
     }
 

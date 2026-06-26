@@ -40,7 +40,15 @@ function applyFilter() {
 
 const TYPE_LABELS = {
     hotel: 'Hotel', transport: 'Transport', guide: 'Guide',
-    restaurant: 'Restaurant', attraction: 'Attraction', agent: 'Agent', other: 'Lainnya',
+    restaurant: 'Restaurant', attraction: 'Attraction',
+    venue: 'Venue', equipment: 'Equipment',
+    agent: 'Agent', other: 'Lainnya',
+}
+
+const GRADE_CFG = {
+    hemat:   { label: 'Hemat',   cls: 'bg-emerald-100 text-emerald-700' },
+    standar: { label: 'Standar', cls: 'bg-blue-100 text-blue-700' },
+    premium: { label: 'Premium', cls: 'bg-amber-100 text-amber-700' },
 }
 
 async function confirmDelete(id) {
@@ -101,6 +109,8 @@ async function confirmDelete(id) {
                             <SelectItem value="guide">Guide</SelectItem>
                             <SelectItem value="restaurant">Restaurant</SelectItem>
                             <SelectItem value="attraction">Attraction</SelectItem>
+                            <SelectItem value="venue">Venue</SelectItem>
+                            <SelectItem value="equipment">Equipment</SelectItem>
                             <SelectItem value="agent">Agent</SelectItem>
                             <SelectItem value="other">Lainnya</SelectItem>
                         </SelectContent>
@@ -118,15 +128,19 @@ async function confirmDelete(id) {
                                 <TableHead class="text-right">Cost (IDR)</TableHead>
                                 <TableHead class="text-right">Sell (IDR)</TableHead>
                                 <TableHead>Status</TableHead>
+                                <TableHead>Varian</TableHead>
                                 <TableHead class="w-32"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            <TableEmpty v-if="products.data.length === 0" :colspan="8">
+                            <TableEmpty v-if="products.data.length === 0" :colspan="9">
                                 Tidak ada produk.
                             </TableEmpty>
                             <TableRow v-for="p in products.data" :key="p.id">
-                                <TableCell class="font-medium">{{ p.name }}</TableCell>
+                                <TableCell class="font-medium">
+                                    {{ p.name }}
+                                    <span v-if="p.group_label" class="block text-xs text-muted-foreground">{{ p.group_label }}</span>
+                                </TableCell>
                                 <TableCell>
                                     <Badge variant="secondary">{{ TYPE_LABELS[p.type] ?? p.type }}</Badge>
                                 </TableCell>
@@ -138,6 +152,13 @@ async function confirmDelete(id) {
                                     <Badge :variant="p.is_active ? 'default' : 'outline'">
                                         {{ p.is_active ? 'Aktif' : 'Non-aktif' }}
                                     </Badge>
+                                </TableCell>
+                                <TableCell>
+                                    <span v-if="p.grade"
+                                        :class="['text-[10px] px-2 py-0.5 rounded-full font-semibold', GRADE_CFG[p.grade]?.cls]">
+                                        {{ GRADE_CFG[p.grade]?.label }}
+                                    </span>
+                                    <span v-else class="text-muted-foreground text-xs">—</span>
                                 </TableCell>
                                 <TableCell class="text-right">
                                     <RowActions>

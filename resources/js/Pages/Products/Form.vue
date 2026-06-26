@@ -29,10 +29,13 @@ const form = useForm({
     currency:    props.product?.currency    ?? 'IDR',
     is_active:   props.product?.is_active   ?? true,
     notes:       props.product?.notes       ?? '',
+    group_label: props.product?.group_label ?? '',
+    grade:       props.product?.grade       ?? 'none',
 })
 
 function submit() {
     if (form.supplier_id === 'none') form.supplier_id = ''
+    if (form.grade === 'none') form.grade = ''
     if (isEdit) {
         form.patch(route('products.update', props.product.id))
     } else {
@@ -115,6 +118,8 @@ async function deletePeriod(id) {
                                         <SelectItem value="guide">Guide</SelectItem>
                                         <SelectItem value="restaurant">Restaurant</SelectItem>
                                         <SelectItem value="attraction">Attraction</SelectItem>
+                                        <SelectItem value="venue">Venue</SelectItem>
+                                        <SelectItem value="equipment">Equipment / Perlengkapan</SelectItem>
                                         <SelectItem value="agent">Agent</SelectItem>
                                         <SelectItem value="other">Lainnya</SelectItem>
                                     </SelectContent>
@@ -193,6 +198,39 @@ async function deletePeriod(id) {
                         <div class="space-y-1.5">
                             <Label for="notes">Catatan</Label>
                             <Textarea id="notes" v-model="form.notes" rows="3" placeholder="Info tambahan..." />
+                        </div>
+
+                        <!-- Varian Harga -->
+                        <div class="rounded-md border border-dashed p-4 space-y-3 bg-muted/30">
+                            <div>
+                                <p class="text-sm font-medium">Varian Harga <span class="text-xs text-muted-foreground font-normal">(opsional)</span></p>
+                                <p class="text-xs text-muted-foreground mt-0.5">
+                                    Isi jika produk ini bagian dari grup varian (mis. Lunch Hemat / Standar / Premium).
+                                    Produk dengan <strong>Nama Grup</strong> sama akan dikelompokkan di picker QItems.
+                                </p>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="space-y-1.5">
+                                    <Label for="group_label">Nama Grup Varian</Label>
+                                    <Input id="group_label" v-model="form.group_label" placeholder="Mis. Lunch Prasmanan" />
+                                    <p v-if="form.errors.group_label" class="text-xs text-destructive">{{ form.errors.group_label }}</p>
+                                </div>
+                                <div class="space-y-1.5">
+                                    <Label>Grade</Label>
+                                    <Select v-model="form.grade">
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Pilih grade..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">— Bukan varian —</SelectItem>
+                                            <SelectItem value="hemat">Hemat</SelectItem>
+                                            <SelectItem value="standar">Standar</SelectItem>
+                                            <SelectItem value="premium">Premium</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <p v-if="form.errors.grade" class="text-xs text-destructive">{{ form.errors.grade }}</p>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="flex justify-end gap-3 pt-2">

@@ -24,6 +24,10 @@ use App\Http\Controllers\MyJobsController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductPriceController;
 use App\Http\Controllers\QuotationItemController;
+use App\Http\Controllers\FiscalController;
+use App\Http\Controllers\FixedAssetController;
+use App\Http\Controllers\LoanController;
+use App\Http\Controllers\MiceTemplateController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\SupplierController;
@@ -140,6 +144,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/quotation-items/{quotationItem}',      [QuotationItemController::class, 'update'])->name('quotation-items.update');
         Route::delete('/quotation-items/{quotationItem}',     [QuotationItemController::class, 'destroy'])->name('quotation-items.destroy');
 
+        // MICE Templates
+        Route::post('/mice-templates',                               [MiceTemplateController::class, 'store'])->name('mice-templates.store');
+        Route::patch('/mice-templates/{miceTemplate}',               [MiceTemplateController::class, 'update'])->name('mice-templates.update');
+        Route::delete('/mice-templates/{miceTemplate}',              [MiceTemplateController::class, 'destroy'])->name('mice-templates.destroy');
+        Route::post('/mice-templates/{miceTemplate}/apply/{tour}',   [MiceTemplateController::class, 'apply'])->name('mice-templates.apply');
+        Route::post('/tours/{tour}/save-as-mice-template',           [MiceTemplateController::class, 'saveFromTour'])->name('mice-templates.save-from-tour');
+
         Route::post('/tours/{tour}/assignments',   [AssignmentController::class, 'store'])->name('assignments.store');
         Route::patch('/assignments/{assignment}',  [AssignmentController::class, 'update'])->name('assignments.update');
         Route::delete('/assignments/{assignment}', [AssignmentController::class, 'destroy'])->name('assignments.destroy');
@@ -178,11 +189,33 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/finance/ledger',        [FinanceLedgerController::class, 'ledger'])->name('finance.ledger');
         Route::get('/finance/recap',         [FinanceLedgerController::class, 'recap'])->name('finance.recap');
         Route::get('/finance/balance-sheet', [FinanceLedgerController::class, 'balanceSheet'])->name('finance.balance-sheet');
+        Route::get('/finance/income-statement',     [FinanceLedgerController::class, 'incomeStatement'])->name('finance.income-statement');
+
+        // Aset Tetap
+        Route::get('/finance/fixed-assets',                    [FixedAssetController::class, 'index'])->name('finance.fixed-assets');
+        Route::post('/finance/fixed-assets',                   [FixedAssetController::class, 'store'])->name('fixed-assets.store');
+        Route::patch('/finance/fixed-assets/{fixedAsset}',    [FixedAssetController::class, 'update'])->name('fixed-assets.update');
+        Route::delete('/finance/fixed-assets/{fixedAsset}',   [FixedAssetController::class, 'destroy'])->name('fixed-assets.destroy');
+
+        // Koreksi Fiskal (PPh Badan)
+        Route::get('/finance/fiscal',                          [FiscalController::class, 'index'])->name('finance.fiscal');
+        Route::get('/finance/fiscal/pdf',                      [FiscalController::class, 'pdf'])->name('finance.fiscal.pdf');
+        Route::post('/finance/fiscal/corrections',             [FiscalController::class, 'store'])->name('fiscal.corrections.store');
+        Route::patch('/finance/fiscal/corrections/{fiscalCorrection}', [FiscalController::class, 'update'])->name('fiscal.corrections.update');
+        Route::delete('/finance/fiscal/corrections/{fiscalCorrection}',[FiscalController::class, 'destroy'])->name('fiscal.corrections.destroy');
+
+        // Hutang & Pinjaman
+        Route::get('/finance/loans',              [LoanController::class, 'index'])->name('finance.loans');
+        Route::post('/finance/loans',             [LoanController::class, 'store'])->name('loans.store');
+        Route::patch('/finance/loans/{loan}',     [LoanController::class, 'update'])->name('loans.update');
+        Route::delete('/finance/loans/{loan}',    [LoanController::class, 'destroy'])->name('loans.destroy');
+        Route::patch('/finance/settings',         [LoanController::class, 'updateSetting'])->name('finance.settings.update');
         Route::get('/finance/account-balances', [FinanceLedgerController::class, 'accountBalances'])->name('finance.account-balances');
 
         // Unduh PDF laporan keuangan
-        Route::get('/finance/account-balances/pdf', [FinanceLedgerController::class, 'accountBalancesPdf'])->name('finance.account-balances.pdf');
-        Route::get('/finance/balance-sheet/pdf',    [FinanceLedgerController::class, 'balanceSheetPdf'])->name('finance.balance-sheet.pdf');
+        Route::get('/finance/account-balances/pdf',    [FinanceLedgerController::class, 'accountBalancesPdf'])->name('finance.account-balances.pdf');
+        Route::get('/finance/balance-sheet/pdf',       [FinanceLedgerController::class, 'balanceSheetPdf'])->name('finance.balance-sheet.pdf');
+        Route::get('/finance/income-statement/pdf',    [FinanceLedgerController::class, 'incomeStatementPdf'])->name('finance.income-statement.pdf');
         Route::get('/finance/journal/pdf',          [FinanceLedgerController::class, 'journalPdf'])->name('finance.journal.pdf');
         Route::get('/finance/ledger/pdf',           [FinanceLedgerController::class, 'ledgerPdf'])->name('finance.ledger.pdf');
         Route::get('/finance/recap/pdf',            [FinanceLedgerController::class, 'recapPdf'])->name('finance.recap.pdf');

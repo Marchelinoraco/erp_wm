@@ -32,7 +32,12 @@ class QuotationController extends Controller
 
     private function build(Tour $tour): Mpdf
     {
+        $isTour = ($tour->type ?? 'tour') === 'tour';
+
         $tour->load(['customer', 'items.product', 'itineraryDays', 'itineraryHours']);
+        if (! $isTour) {
+            $tour->load('quotationItems');
+        }
         $tour->append(['total_cost', 'total_sell', 'profit', 'margin', 'type_label']);
 
         $tmp = storage_path('app/mpdf');
@@ -56,7 +61,6 @@ class QuotationController extends Controller
 
         $mpdf->SetTitle('Quotation ' . $tour->code);
 
-        $isTour   = ($tour->type ?? 'tour') === 'tour';
         $viewName = $isTour ? 'quotation' : 'quotation_service';
 
         $html = view($viewName, [
@@ -64,11 +68,12 @@ class QuotationController extends Controller
             'company' => config('quotation.company'),
             'logo'    => $this->logoDataUri(),
             // Untuk non-tour: tidak fallback ke config default (agar tidak tampil jika dikosongkan)
-            'included'    => $isTour ? ($tour->included ?: config('quotation.included')) : ($tour->included ?: ''),
-            'excluded'    => $isTour ? ($tour->excluded ?: config('quotation.excluded')) : ($tour->excluded ?: ''),
-            'childPolicy' => $isTour ? ($tour->child_policy ?: config('quotation.child_policy')) : '',
-            'terms'       => $tour->terms ?: config('quotation.terms'),
+            'included'     => $isTour ? ($tour->included ?: config('quotation.included')) : ($tour->included ?: ''),
+            'excluded'     => $isTour ? ($tour->excluded ?: config('quotation.excluded')) : ($tour->excluded ?: ''),
+            'childPolicy'  => $isTour ? ($tour->child_policy ?: config('quotation.child_policy')) : '',
+            'terms'        => $tour->terms ?: config('quotation.terms'),
             'detailLabels' => Tour::DETAIL_LABELS[$tour->type] ?? [],
+            'qItems'       => $isTour ? collect() : ($tour->quotationItems ?? collect()),
         ])->render();
 
         $mpdf->WriteHTML($html);

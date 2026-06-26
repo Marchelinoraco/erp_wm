@@ -15,6 +15,7 @@ class Tour extends Model
         'price_validity' => 'date',
         'pricing'        => 'array',
         'details'        => 'array',
+        'budget'         => 'decimal:2',
     ];
 
     /** Jenis inquiry/order yang didukung → label tampilan. */
@@ -24,6 +25,7 @@ class Tour extends Model
         'guide'     => 'Jasa Guide',
         'document'  => 'Visa/Paspor',
         'ticketing' => 'Ticketing',
+        'mice'      => 'MICE / Event',
     ];
 
     /** Label field `details` per tipe — dipakai untuk render di PDF quotation.
@@ -56,6 +58,13 @@ class Tour extends Model
             'depart_date' => 'Tgl Berangkat',
             'return_date' => 'Tgl Pulang',
             'pnr'         => 'Kode Booking / PNR',
+        ],
+        'mice' => [
+            'event_type'  => 'Jenis Acara',
+            'room_setup'  => 'Setup Ruangan',
+            'venue_name'  => 'Nama Venue',
+            'duration'    => 'Durasi Acara',
+            'note'        => 'Catatan Tambahan',
         ],
     ];
 

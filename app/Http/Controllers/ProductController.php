@@ -40,7 +40,7 @@ class ProductController extends Controller
     {
         $data = $request->validate([
             'name'        => 'required|string|max:255',
-            'type'        => 'required|string|in:hotel,transport,guide,restaurant,attraction,agent,other',
+            'type'        => 'required|string|in:hotel,transport,guide,restaurant,attraction,venue,equipment,agent,other',
             'supplier_id' => 'nullable|exists:suppliers,id',
             'unit'        => 'required|string|in:per_pax,per_unit,per_night',
             'cost'        => 'required|numeric|min:0',
@@ -48,6 +48,8 @@ class ProductController extends Controller
             'currency'    => 'required|string|size:3',
             'is_active'   => 'boolean',
             'notes'       => 'nullable|string',
+            'group_label' => 'nullable|string|max:255',
+            'grade'       => 'nullable|string|in:hemat,standar,premium',
         ]);
 
         Product::create($data);
@@ -70,7 +72,7 @@ class ProductController extends Controller
     {
         $data = $request->validate([
             'name'        => 'required|string|max:255',
-            'type'        => 'required|string|in:hotel,transport,guide,restaurant,attraction,agent,other',
+            'type'        => 'required|string|in:hotel,transport,guide,restaurant,attraction,venue,equipment,agent,other',
             'supplier_id' => 'nullable|exists:suppliers,id',
             'unit'        => 'required|string|in:per_pax,per_unit,per_night',
             'cost'        => 'required|numeric|min:0',
@@ -78,6 +80,8 @@ class ProductController extends Controller
             'currency'    => 'required|string|size:3',
             'is_active'   => 'boolean',
             'notes'       => 'nullable|string',
+            'group_label' => 'nullable|string|max:255',
+            'grade'       => 'nullable|string|in:hemat,standar,premium',
         ]);
 
         $product->update($data);
