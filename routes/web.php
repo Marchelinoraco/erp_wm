@@ -64,10 +64,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->except(['show', 'create', 'edit'])
         ->middleware('role:admin');
 
-    // Master Data — Suppliers: admin only
+    // Master Data — Suppliers: admin + sales
     Route::resource('suppliers', SupplierController::class)
         ->except(['show'])
-        ->middleware('role:admin');
+        ->middleware('role:admin,sales');
 
     // Channel Manager — internal (admin + sales): review harga travel agent
     Route::middleware('role:admin,sales')->group(function () {

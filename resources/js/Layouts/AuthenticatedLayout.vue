@@ -97,11 +97,9 @@ const navGroups = computed(() => {
         const dataItems = [
             { label: 'Customers',       route: 'customers.index',       match: 'customers.*',       icon: ICON.customers },
             { label: 'Produk',          route: 'products.index',        match: 'products.*',        icon: ICON.products },
+            { label: 'Suppliers',       route: 'suppliers.index',       match: 'suppliers.*',       icon: ICON.suppliers },
             { label: 'Channel Manager', route: 'channel-manager.index', match: 'channel-manager.*', icon: ICON.channel },
         ]
-        if (role === 'admin') {
-            dataItems.push({ label: 'Suppliers', route: 'suppliers.index', match: 'suppliers.*', icon: ICON.suppliers })
-        }
         groups.push({ label: 'Data Master', items: dataItems })
     }
 
