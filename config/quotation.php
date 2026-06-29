@@ -28,10 +28,14 @@ return [
             'bank'    => 'Bank BCA',
             'account' => '0000000000',           // ← GANTI dengan no. rekening asli
             'name'    => 'PT. Welcome Manado Wisata',
+            'swift'   => 'CENAIDJA',              // opsional — tampil di invoice bila diisi
         ],
         // Tambah rekening lain bila perlu, contoh:
         // ['bank' => 'Bank Mandiri', 'account' => '0000000000', 'name' => 'PT. Welcome Manado Wisata'],
     ],
+
+    // Catatan kecil di bawah tabel invoice (di atas info pembayaran).
+    'invoice_note' => 'The prices above do not include interbank transfer fees. Interbank transfer fees should be calculated and added separately.',
 
     'payment_terms' => "Pembayaran dianggap lunas setelah dana diterima penuh di rekening kami.
 Mohon cantumkan NOMOR INVOICE pada keterangan/berita transfer.
