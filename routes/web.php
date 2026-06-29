@@ -141,6 +141,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Invoice — dibuat & disetujui sales (alur 2 tahap: patokan → rincian → setujui)
         Route::post('/tours/{tour}/invoices',         [InvoiceController::class, 'store'])->name('invoices.store');
         Route::patch('/invoices/{invoice}/baseline',  [InvoiceController::class, 'lockBaseline'])->name('invoices.baseline');
+        Route::patch('/invoices/{invoice}/due-date',  [InvoiceController::class, 'updateDueDate'])->name('invoices.due-date');
         Route::post('/invoices/{invoice}/approve',    [InvoiceController::class, 'approve'])->name('invoices.approve');
         Route::delete('/invoices/{invoice}',          [InvoiceController::class, 'destroy'])->name('invoices.destroy');
         Route::post('/invoices/{invoice}/items',      [InvoiceItemController::class, 'store'])->name('invoice-items.store');

@@ -16,14 +16,19 @@ const invoices = computed(() => props.tour.invoices ?? [])
 
 // ── Form edit baris (keyed by item id, unik lintas invoice) ─────────────────────
 const itemForms = reactive({})
+// ── Jatuh tempo per invoice (keyed by invoice id) ───────────────────────────────
+const dueForms = reactive({})
 
 watch(
     () => props.tour.invoices,
     (list) => {
-        const ids = []
+        const itemIds = []
+        const invIds  = []
         ;(list ?? []).forEach(inv => {
-            (inv.items ?? []).forEach(item => {
-                ids.push(item.id)
+            invIds.push(inv.id)
+            dueForms[inv.id] = inv.due_date ? String(inv.due_date).slice(0, 10) : ''
+            ;(inv.items ?? []).forEach(item => {
+                itemIds.push(item.id)
                 itemForms[item.id] = {
                     qty:         item.qty,
                     nights:      item.nights,
@@ -34,7 +39,10 @@ watch(
             })
         })
         Object.keys(itemForms).forEach(id => {
-            if (!ids.includes(Number(id))) delete itemForms[id]
+            if (!itemIds.includes(Number(id))) delete itemForms[id]
+        })
+        Object.keys(dueForms).forEach(id => {
+            if (!invIds.includes(Number(id))) delete dueForms[id]
         })
     },
     { immediate: true, deep: true }
@@ -80,6 +88,10 @@ function createInvoice() {
 function lockBaseline(inv) {
     errorMsg.value = ''
     router.patch(route('invoices.baseline', inv.id), {}, reload)
+}
+function saveDueDate(invId) {
+    errorMsg.value = ''
+    router.patch(route('invoices.due-date', invId), { due_date: dueForms[invId] || null }, reload)
 }
 async function approve(inv) {
     if (await confirm({
@@ -185,6 +197,12 @@ function addProduct(product) {
                             {{ STAGE_BADGE[stage(inv)].label }}
                         </span>
                         <span v-if="inv.pax" class="text-xs text-muted-foreground">{{ inv.pax }} pax</span>
+                        <span class="text-xs text-muted-foreground flex items-center gap-1.5">
+                            <span>Jatuh tempo:</span>
+                            <input v-if="!isApproved(inv)" type="date" v-model="dueForms[inv.id]" @change="saveDueDate(inv.id)"
+                                class="border rounded px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+                            <span v-else class="font-medium text-foreground">{{ dueForms[inv.id] || '—' }}</span>
+                        </span>
                     </div>
                     <div class="flex items-center gap-2">
                         <a :href="route('invoices.preview', inv.id)" target="_blank">

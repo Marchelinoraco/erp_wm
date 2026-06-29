@@ -35,6 +35,20 @@ class InvoiceController extends Controller
         return redirect()->back();
     }
 
+    /** Sales/admin atur jatuh tempo invoice — hanya selama belum disetujui. */
+    public function updateDueDate(Request $request, Invoice $invoice)
+    {
+        $this->ensureNotApproved($invoice);
+
+        $data = $request->validate([
+            'due_date' => 'nullable|date',
+        ]);
+
+        $invoice->update(['due_date' => $data['due_date'] ?? null]);
+
+        return redirect()->back();
+    }
+
     /**
      * Kunci "patokan" (Tahap 1 → Tahap 2): baseline_total = jumlah jual baris saat ini.
      * Dipakai juga untuk "naikkan patokan" selama invoice belum disetujui.
