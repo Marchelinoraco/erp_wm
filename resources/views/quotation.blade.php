@@ -398,17 +398,20 @@
 </div>
 @endif
 
-{{-- ── INCLUDED / EXCLUDED ── --}}
+{{-- ── INCLUDED / EXCLUDED (hanya jika diisi) ── --}}
+@php $incLines = $toLines($included); $excLines = $toLines($excluded); @endphp
+@if($incLines->count() || $excLines->count())
 <table width="100%" style="border-collapse:collapse;margin-bottom:16px;">
     <tr>
-        <td style="width:49%;vertical-align:top;padding-right:6px;">
+        @if($incLines->count())
+        <td style="width:{{ $excLines->count() ? '49%' : '100%' }};vertical-align:top;padding-right:{{ $excLines->count() ? '6px' : '0' }};">
             <table width="100%" style="border-collapse:collapse;border:1.5px solid #86efac;">
                 <tr>
                     <td colspan="2" style="background:#16a34a;color:#ffffff;font-size:8pt;font-weight:bold;padding:7px 12px;letter-spacing:1px;">
                         &#10004; HARGA SUDAH TERMASUK
                     </td>
                 </tr>
-                @foreach($toLines($included) as $line)
+                @foreach($incLines as $line)
                 <tr>
                     <td style="background:#f0fdf4;padding:4px 5px 4px 10px;vertical-align:top;width:16px;color:#16a34a;font-weight:bold;font-size:9pt;text-align:center;">&#10003;</td>
                     <td style="background:#f0fdf4;padding:4px 10px 4px 4px;font-size:8pt;color:#374151;vertical-align:top;line-height:1.4;">{{ $line }}</td>
@@ -416,15 +419,19 @@
                 @endforeach
             </table>
         </td>
+        @endif
+        @if($incLines->count() && $excLines->count())
         <td style="width:2%;vertical-align:top;"></td>
-        <td style="width:49%;vertical-align:top;">
+        @endif
+        @if($excLines->count())
+        <td style="width:{{ $incLines->count() ? '49%' : '100%' }};vertical-align:top;">
             <table width="100%" style="border-collapse:collapse;border:1.5px solid #fca5a5;">
                 <tr>
                     <td colspan="2" style="background:#dc2626;color:#ffffff;font-size:8pt;font-weight:bold;padding:7px 12px;letter-spacing:1px;">
                         &#10008; HARGA BELUM TERMASUK
                     </td>
                 </tr>
-                @foreach($toLines($excluded) as $line)
+                @foreach($excLines as $line)
                 <tr>
                     <td style="background:#fff5f5;padding:4px 5px 4px 10px;vertical-align:top;width:16px;color:#dc2626;font-weight:bold;font-size:9pt;text-align:center;">&#10007;</td>
                     <td style="background:#fff5f5;padding:4px 10px 4px 4px;font-size:8pt;color:#374151;vertical-align:top;line-height:1.4;">{{ $line }}</td>
@@ -432,8 +439,10 @@
                 @endforeach
             </table>
         </td>
+        @endif
     </tr>
 </table>
+@endif
 
 {{-- ── CHILD POLICY ── --}}
 @if($toLines($childPolicy)->count())

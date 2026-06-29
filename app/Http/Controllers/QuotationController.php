@@ -108,11 +108,13 @@ class QuotationController extends Controller
             'tour'    => $tour,
             'company' => config('quotation.company'),
             'logo'    => $this->logoDataUri(),
-            // Untuk non-tour: tidak fallback ke config default (agar tidak tampil jika dikosongkan)
-            'included'     => $isTour ? ($tour->included ?: config('quotation.included')) : ($tour->included ?: ''),
-            'excluded'     => $isTour ? ($tour->excluded ?: config('quotation.excluded')) : ($tour->excluded ?: ''),
-            'childPolicy'  => $isTour ? ($tour->child_policy ?: config('quotation.child_policy')) : '',
-            'terms'        => $tour->terms ?: config('quotation.terms'),
+            // null = belum pernah diisi → pakai teks default perusahaan.
+            // '' (string kosong) = sengaja dikosongkan user → hormati, jangan tampil.
+            // (Pakai ?? bukan ?: agar string kosong tidak jatuh balik ke default.)
+            'included'     => $isTour ? ($tour->included ?? config('quotation.included')) : ($tour->included ?? ''),
+            'excluded'     => $isTour ? ($tour->excluded ?? config('quotation.excluded')) : ($tour->excluded ?? ''),
+            'childPolicy'  => $isTour ? ($tour->child_policy ?? config('quotation.child_policy')) : '',
+            'terms'        => $tour->terms ?? config('quotation.terms'),
             'detailLabels' => Tour::DETAIL_LABELS[$tour->type] ?? [],
             'qItems'       => $isTour ? collect() : ($tour->quotationItems ?? collect()),
         ])->render();
