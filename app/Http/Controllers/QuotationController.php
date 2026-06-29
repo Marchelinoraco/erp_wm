@@ -26,14 +26,23 @@ class QuotationController extends Controller
     {
         $html = $this->renderHtml($tour);
 
-        // Buang konstruksi khusus mPDF yang tak dikenal Word (footer/header halaman).
-        $html = preg_replace('#<htmlpagefooter.*?</htmlpagefooter>#is', '', $html);
-        $html = preg_replace('#<htmlpageheader.*?</htmlpageheader>#is', '', $html);
+        // Buang elemen footer/header khusus mPDF. WAJIB ada atribut (\s+[^>]*) agar
+        // tidak ikut mencocokkan teks "<htmlpagefooter>" di dalam komentar CSS —
+        // jika kena, blok <body> ikut terhapus dan Word jadi kosong.
+        $html = preg_replace('#<htmlpagefooter\s+[^>]*>.*?</htmlpagefooter>#is', '', $html);
+        $html = preg_replace('#<htmlpageheader\s+[^>]*>.*?</htmlpageheader>#is', '', $html);
 
-        // Pastikan ada deklarasi charset agar simbol (Rp, dsb.) terbaca benar di Word.
-        if (! str_contains($html, 'charset')) {
-            $html = preg_replace('/<head>/i', '<head><meta charset="utf-8">', $html, 1);
-        }
+        // Namespace Office + page setup A4 agar Word merender HTML sebagai dokumen.
+        $html = preg_replace(
+            '/<html[^>]*>/i',
+            '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">',
+            $html,
+            1
+        );
+        $msoHead = '<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View>'
+                 . '<w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument></xml><![endif]-->'
+                 . '<style>@page{size:21cm 29.7cm;margin:1.2cm 1cm;}</style>';
+        $html = preg_replace('#</head>#i', $msoHead . '</head>', $html, 1);
 
         $filename = $tour->code . '-quotation.doc';
 
