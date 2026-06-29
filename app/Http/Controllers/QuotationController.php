@@ -18,6 +18,31 @@ class QuotationController extends Controller
         return $this->respond($tour, Destination::INLINE);
     }
 
+    /**
+     * Ekspor Word (.doc) — HTML quotation yang sama dengan PDF, dibuka & bisa
+     * diedit di Microsoft Word. Tanpa library tambahan; tag khusus mPDF dibuang.
+     */
+    public function word(Tour $tour)
+    {
+        $html = $this->renderHtml($tour);
+
+        // Buang konstruksi khusus mPDF yang tak dikenal Word (footer/header halaman).
+        $html = preg_replace('#<htmlpagefooter.*?</htmlpagefooter>#is', '', $html);
+        $html = preg_replace('#<htmlpageheader.*?</htmlpageheader>#is', '', $html);
+
+        // Pastikan ada deklarasi charset agar simbol (Rp, dsb.) terbaca benar di Word.
+        if (! str_contains($html, 'charset')) {
+            $html = preg_replace('/<head>/i', '<head><meta charset="utf-8">', $html, 1);
+        }
+
+        $filename = $tour->code . '-quotation.doc';
+
+        return response($html, 200, [
+            'Content-Type'        => 'application/msword; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
     private function respond(Tour $tour, string $destination)
     {
         $pdf      = $this->build($tour);
@@ -32,14 +57,6 @@ class QuotationController extends Controller
 
     private function build(Tour $tour): Mpdf
     {
-        $isTour = ($tour->type ?? 'tour') === 'tour';
-
-        $tour->load(['customer', 'items.product', 'itineraryDays', 'itineraryHours']);
-        if (! $isTour) {
-            $tour->load('quotationItems');
-        }
-        $tour->append(['total_cost', 'total_sell', 'profit', 'margin', 'type_label']);
-
         $tmp = storage_path('app/mpdf');
         if (! is_dir($tmp)) {
             mkdir($tmp, 0775, true);
@@ -60,10 +77,25 @@ class QuotationController extends Controller
         ]);
 
         $mpdf->SetTitle('Quotation ' . $tour->code);
+        $mpdf->WriteHTML($this->renderHtml($tour));
+
+        return $mpdf;
+    }
+
+    /** Render HTML quotation (dipakai bersama oleh ekspor PDF & Word). */
+    private function renderHtml(Tour $tour): string
+    {
+        $isTour = ($tour->type ?? 'tour') === 'tour';
+
+        $tour->load(['customer', 'items.product', 'itineraryDays', 'itineraryHours']);
+        if (! $isTour) {
+            $tour->load('quotationItems');
+        }
+        $tour->append(['total_cost', 'total_sell', 'profit', 'margin', 'type_label']);
 
         $viewName = $isTour ? 'quotation' : 'quotation_service';
 
-        $html = view($viewName, [
+        return view($viewName, [
             'tour'    => $tour,
             'company' => config('quotation.company'),
             'logo'    => $this->logoDataUri(),
@@ -75,10 +107,6 @@ class QuotationController extends Controller
             'detailLabels' => Tour::DETAIL_LABELS[$tour->type] ?? [],
             'qItems'       => $isTour ? collect() : ($tour->quotationItems ?? collect()),
         ])->render();
-
-        $mpdf->WriteHTML($html);
-
-        return $mpdf;
     }
 
     /** Logo di-embed sebagai data URI agar pasti tampil. */

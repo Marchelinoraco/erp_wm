@@ -149,6 +149,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('/tours/{tour}/quotation/download', [QuotationController::class, 'download'])->name('quotation.download');
         Route::get('/tours/{tour}/quotation/preview',  [QuotationController::class, 'preview'])->name('quotation.preview');
+        Route::get('/tours/{tour}/quotation/word',     [QuotationController::class, 'word'])->name('quotation.word');
 
         Route::post('/tours/{tour}/quotation-items',          [QuotationItemController::class, 'store'])->name('quotation-items.store');
         Route::patch('/quotation-items/{quotationItem}',      [QuotationItemController::class, 'update'])->name('quotation-items.update');

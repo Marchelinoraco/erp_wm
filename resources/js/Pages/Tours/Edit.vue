@@ -81,6 +81,9 @@ function sendEmail() {
                     <a :href="route('quotation.preview', tour.id)" target="_blank">
                         <Button variant="outline" size="sm">Preview PDF</Button>
                     </a>
+                    <a :href="route('quotation.word', tour.id)">
+                        <Button variant="outline" size="sm">⬇ Word</Button>
+                    </a>
                     <a :href="route('quotation.download', tour.id)">
                         <Button size="sm">⬇ Download Quotation</Button>
                     </a>
