@@ -6,43 +6,109 @@ use App\Models\BankAccount;
 use App\Models\Invoice;
 use App\Models\Tour;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Mpdf\Mpdf;
 use Mpdf\Output\Destination;
 
 class InvoiceController extends Controller
 {
+    // ── Alur sales ──────────────────────────────────────────────────────────────
+
+    /** Sales membuat invoice baru untuk tour (Tahap 1 dimulai dari sini). */
     public function store(Request $request, Tour $tour)
     {
         $data = $request->validate([
-            'date'     => 'required|date',
+            'pax'      => 'nullable|integer|min:1',
+            'date'     => 'nullable|date',
             'due_date' => 'nullable|date',
-            'total'    => 'required|numeric|min:0',
             'notes'    => 'nullable|string',
         ]);
 
-        $tour->invoices()->create($data);
+        $tour->invoices()->create([
+            'pax'      => $data['pax'] ?? $tour->pax,
+            'date'     => $data['date'] ?? now()->toDateString(),
+            'due_date' => $data['due_date'] ?? ($tour->start_date?->toDateString() ?? now()->addDays(7)->toDateString()),
+            'notes'    => $data['notes'] ?? null,
+            'status'   => 'draft',
+        ]);
 
         return redirect()->back();
     }
 
+    /**
+     * Kunci "patokan" (Tahap 1 → Tahap 2): baseline_total = jumlah jual baris saat ini.
+     * Dipakai juga untuk "naikkan patokan" selama invoice belum disetujui.
+     */
+    public function lockBaseline(Invoice $invoice)
+    {
+        $this->ensureNotApproved($invoice);
+
+        $sum = (float) $invoice->items()->sum('line_sell');
+
+        if ($sum <= 0) {
+            throw ValidationException::withMessages([
+                'invoice' => 'Tambahkan minimal satu item sebelum mengunci patokan.',
+            ]);
+        }
+
+        $invoice->update(['baseline_total' => $sum, 'total' => $sum]);
+
+        return redirect()->back();
+    }
+
+    /**
+     * Setujui invoice → gerbang ke Keuangan. Rincian (Tahap 2) wajib = patokan.
+     */
+    public function approve(Invoice $invoice)
+    {
+        $this->ensureNotApproved($invoice);
+
+        if ($invoice->baseline_total <= 0) {
+            throw ValidationException::withMessages([
+                'invoice' => 'Kunci patokan terlebih dahulu sebelum menyetujui.',
+            ]);
+        }
+
+        $total = (float) $invoice->items()->sum('line_sell');
+
+        if ($total <= 0) {
+            throw ValidationException::withMessages([
+                'invoice' => 'Invoice belum punya rincian item.',
+            ]);
+        }
+
+        if (abs($total - (float) $invoice->baseline_total) >= 0.01) {
+            throw ValidationException::withMessages([
+                'invoice' => 'Total rincian belum sama dengan patokan. Samakan dulu atau ubah patokan.',
+            ]);
+        }
+
+        $invoice->update([
+            'total'       => $total,
+            'status'      => 'sent',
+            'approved_at' => now(),
+            'approved_by' => auth()->id(),
+        ]);
+
+        $invoice->tour?->histories()->create([
+            'type'            => 'note',
+            'status_snapshot' => $invoice->tour->status,
+            'description'     => 'Invoice ' . $invoice->number . ' disetujui & dikirim ke Keuangan (IDR ' . number_format($total, 0, ',', '.') . ').',
+            'created_by'      => auth()->user()?->name ?? 'Sistem',
+        ]);
+
+        return redirect()->back();
+    }
+
+    /** Update terbatas oleh akuntan: kelola tanggal/status/catatan pada invoice approved. */
     public function update(Request $request, Invoice $invoice)
     {
         $data = $request->validate([
             'date'     => 'required|date',
             'due_date' => 'nullable|date',
-            'total'    => 'nullable|numeric|min:0',
-            'status'   => 'required|in:draft,sent,partial,paid',
+            'status'   => 'required|in:sent,partial,paid',
             'notes'    => 'nullable|string',
         ]);
-
-        // Draft → total selalu mengikuti jumlah item (auto-sync).
-        // Saat keluar dari draft → kunci snapshot = jumlah item saat ini.
-        // Sudah terkunci (non-draft) → pakai input akuntan (koreksi/diskon manual).
-        if ($invoice->status === 'draft') {
-            $data['total'] = (float) ($invoice->tour?->items()->sum('line_sell') ?? 0);
-        } else {
-            $data['total'] = $data['total'] ?? $invoice->total;
-        }
 
         $invoice->update($data);
 
@@ -51,9 +117,24 @@ class InvoiceController extends Controller
 
     public function destroy(Invoice $invoice)
     {
+        if ($invoice->is_approved) {
+            throw ValidationException::withMessages([
+                'invoice' => 'Invoice sudah disetujui dan masuk Keuangan, tidak bisa dihapus.',
+            ]);
+        }
+
         $invoice->delete();
 
         return redirect()->back();
+    }
+
+    private function ensureNotApproved(Invoice $invoice): void
+    {
+        if ($invoice->is_approved) {
+            throw ValidationException::withMessages([
+                'invoice' => 'Invoice sudah disetujui, tidak bisa diubah lagi.',
+            ]);
+        }
     }
 
     // ── PDF ──────────────────────────────────────────────────────────────────
@@ -82,7 +163,7 @@ class InvoiceController extends Controller
 
     private function build(Invoice $invoice): Mpdf
     {
-        $invoice->load(['tour.customer', 'tour.items.product', 'tour.quotationItems', 'payments']);
+        $invoice->load(['tour.customer', 'items.product', 'payments']);
 
         $tmp = storage_path('app/mpdf');
         if (! is_dir($tmp)) {
@@ -129,40 +210,19 @@ class InvoiceController extends Controller
     }
 
     /**
-     * Rincian item invoice. Prioritas:
-     * 1) tour_items (item disetujui customer yang dikonversi saat tour confirmed)
-     * 2) quotation_items yang tidak ditolak (bila tour belum punya tour_items)
+     * Rincian item invoice — diambil dari invoice_items (dibuat & disetujui sales).
+     * Tahap 1 = 1 baris ringkas; Tahap 2 = banyak baris detail. PDF ikut isi terkini.
      * Mengembalikan koleksi [desc, qty, nights, unit, line].
      */
     private function lineItems(Invoice $invoice): \Illuminate\Support\Collection
     {
-        $tour = $invoice->tour;
-
-        if (! $tour) {
-            return collect();
-        }
-
-        $items = $tour->items->map(fn ($it) => [
+        return $invoice->items->map(fn ($it) => [
             'desc'   => $it->description ?: ($it->product?->name ?? 'Item'),
             'qty'    => (int) $it->qty,
             'nights' => (int) $it->nights,
             'unit'   => (float) $it->unit_sell,
             'line'   => (float) $it->line_sell,
         ])->values();
-
-        if ($items->isEmpty()) {
-            $items = $tour->quotationItems
-                ->where('status', '!=', 'rejected')
-                ->map(fn ($qi) => [
-                    'desc'   => $qi->label,
-                    'qty'    => (int) $qi->qty,
-                    'nights' => (int) $qi->nights,
-                    'unit'   => (float) $qi->unit_sell,
-                    'line'   => (float) $qi->line_sell,
-                ])->values();
-        }
-
-        return $items;
     }
 
     /** Rekening aktif dari DB (dikelola akuntan); fallback ke config bila kosong. */

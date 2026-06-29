@@ -125,14 +125,10 @@ class Tour extends Model
         return $this->hasMany(Invoice::class);
     }
 
-    /**
-     * Samakan total invoice berstatus draft dengan jumlah jual item terkini.
-     * Invoice 'draft' selalu mengikuti item; begitu 'sent'/'partial'/'paid' nilainya terkunci.
-     */
-    public function syncDraftInvoiceTotals(): void
+    /** Hanya invoice yang sudah disetujui sales — yang dipakai di Keuangan. */
+    public function approvedInvoices()
     {
-        $sum = (float) $this->items()->sum('line_sell');
-        $this->invoices()->where('status', 'draft')->update(['total' => $sum]);
+        return $this->invoices()->whereNotNull('approved_at');
     }
 
     public function bookings()
@@ -188,12 +184,15 @@ class Tour extends Model
 
     public function getReceivedAttribute(): float
     {
-        return (float) $this->invoices->flatMap->payments->sum('amount');
+        // Hanya invoice yang sudah disetujui sales yang dihitung di Keuangan.
+        return (float) $this->invoices
+            ->whereNotNull('approved_at')
+            ->flatMap->payments->sum('amount');
     }
 
     public function getReceivableAttribute(): float
     {
-        return (float) $this->invoices->sum('total') - $this->received;
+        return (float) $this->invoices->whereNotNull('approved_at')->sum('total') - $this->received;
     }
 
     protected static function boot()

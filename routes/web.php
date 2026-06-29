@@ -18,6 +18,7 @@ use App\Http\Controllers\AssignmentController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\InvoiceItemController;
 use App\Http\Controllers\InvoicePaymentController;
 use App\Http\Controllers\ManifestController;
 use App\Http\Controllers\MyJobsController;
@@ -137,6 +138,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/tour-items/{tourItem}',  [TourItemController::class, 'update'])->name('tour-items.update');
         Route::delete('/tour-items/{tourItem}', [TourItemController::class, 'destroy'])->name('tour-items.destroy');
 
+        // Invoice — dibuat & disetujui sales (alur 2 tahap: patokan → rincian → setujui)
+        Route::post('/tours/{tour}/invoices',         [InvoiceController::class, 'store'])->name('invoices.store');
+        Route::patch('/invoices/{invoice}/baseline',  [InvoiceController::class, 'lockBaseline'])->name('invoices.baseline');
+        Route::post('/invoices/{invoice}/approve',    [InvoiceController::class, 'approve'])->name('invoices.approve');
+        Route::delete('/invoices/{invoice}',          [InvoiceController::class, 'destroy'])->name('invoices.destroy');
+        Route::post('/invoices/{invoice}/items',      [InvoiceItemController::class, 'store'])->name('invoice-items.store');
+        Route::patch('/invoice-items/{invoiceItem}',  [InvoiceItemController::class, 'update'])->name('invoice-items.update');
+        Route::delete('/invoice-items/{invoiceItem}', [InvoiceItemController::class, 'destroy'])->name('invoice-items.destroy');
+
         Route::get('/tours/{tour}/quotation/download', [QuotationController::class, 'download'])->name('quotation.download');
         Route::get('/tours/{tour}/quotation/preview',  [QuotationController::class, 'preview'])->name('quotation.preview');
 
@@ -177,6 +187,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('role:guide,driver,tour_leader')->group(function () {
         Route::get('/my-jobs',        [MyJobsController::class, 'index'])->name('my-jobs');
         Route::get('/my-jobs/{tour}', [MyJobsController::class, 'show'])->name('my-jobs.show');
+    });
+
+    // PDF invoice — bisa diunduh sales (pembuat) maupun akuntan
+    Route::middleware('role:admin,sales,accountant')->group(function () {
+        Route::get('/invoices/{invoice}/preview',  [InvoiceController::class, 'preview'])->name('invoices.preview');
+        Route::get('/invoices/{invoice}/download', [InvoiceController::class, 'download'])->name('invoices.download');
     });
 
     // Finance — admin + accountant
@@ -238,12 +254,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('/finance/{tour}',      [FinanceController::class, 'tour'])->name('finance.tour');
 
-        // AR
-        Route::post('/finance/{tour}/invoices',           [InvoiceController::class, 'store'])->name('invoices.store');
-        Route::patch('/finance/invoices/{invoice}',       [InvoiceController::class, 'update'])->name('invoices.update');
-        Route::delete('/finance/invoices/{invoice}',      [InvoiceController::class, 'destroy'])->name('invoices.destroy');
-        Route::get('/finance/invoices/{invoice}/preview',  [InvoiceController::class, 'preview'])->name('invoices.preview');
-        Route::get('/finance/invoices/{invoice}/download', [InvoiceController::class, 'download'])->name('invoices.download');
+        // AR — akuntan hanya kelola status/tanggal & pembayaran (invoice dibuat & disetujui sales)
+        Route::patch('/finance/invoices/{invoice}',                  [InvoiceController::class, 'update'])->name('invoices.update');
         Route::post('/finance/invoices/{invoice}/payments',          [InvoicePaymentController::class, 'store'])->name('invoice-payments.store');
         Route::delete('/finance/invoice-payments/{invoicePayment}',  [InvoicePaymentController::class, 'destroy'])->name('invoice-payments.destroy');
 

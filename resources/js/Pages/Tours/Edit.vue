@@ -11,6 +11,7 @@ import { typeLabel } from '@/lib/inquiryTypes'
 import { STATUS_CONFIG } from '@/lib/tourConstants'
 import HeaderPanel      from '@/Components/Tours/HeaderPanel.vue'
 import ItemsPanel       from '@/Components/Tours/ItemsPanel.vue'
+import InvoicesPanel    from '@/Components/Tours/InvoicesPanel.vue'
 import OperasionalPanel from '@/Components/Tours/OperasionalPanel.vue'
 import ItineraryPanel   from '@/Components/Tours/ItineraryPanel.vue'
 import QuotationPanel   from '@/Components/Tours/QuotationPanel.vue'
@@ -94,6 +95,7 @@ function sendEmail() {
                     <div class="lg:col-span-2 space-y-6">
                         <HeaderPanel :tour="tour" :customers="customers" />
                         <ItemsPanel :tour="tour" :products="products" />
+                        <InvoicesPanel v-if="tour.status === 'confirmed'" :tour="tour" :products="products" />
                         <OperasionalPanel :tour="tour" :field-users="fieldUsers" :manifest-url="manifestUrl" />
                         <ItineraryPanel v-if="isTour" :tour="tour" />
                         <QuotationPanel :tour="tour" :quotation-defaults="quotationDefaults" :is-tour="isTour" />

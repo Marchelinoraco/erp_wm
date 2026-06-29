@@ -14,14 +14,16 @@ class FinanceController extends Controller
 {
     public function index()
     {
-        $arTotal    = Invoice::sum('total');
-        $arReceived = InvoicePayment::sum('amount');
+        // Hanya invoice yang sudah disetujui sales yang masuk ke Keuangan.
+        $arTotal    = Invoice::approved()->sum('total');
+        $arReceived = InvoicePayment::whereHas('invoice', fn ($q) => $q->approved())->sum('amount');
 
         $apTotal = Bill::sum('amount');
         $apPaid  = BillPayment::sum('amount');
 
-        $outstandingInvoices = Invoice::with(['tour:id,code,customer_id', 'tour.customer:id,name', 'payments'])
-            ->whereIn('status', ['draft', 'sent', 'partial'])
+        $outstandingInvoices = Invoice::approved()
+            ->with(['tour:id,code,customer_id', 'tour.customer:id,name', 'payments'])
+            ->whereIn('status', ['sent', 'partial'])
             ->latest('date')
             ->get();
 
@@ -35,9 +37,9 @@ class FinanceController extends Controller
             ->with('customer:id,name')
             ->withSum('items as est_sell', 'line_sell')
             ->withSum('items as est_cost', 'line_cost')
-            ->withSum('invoices as invoiced_total', 'total')
+            ->withSum(['invoices as invoiced_total' => fn ($q) => $q->approved()], 'total')
             ->withSum('bills as billed_total', 'amount')
-            ->withCount(['invoices', 'bills'])
+            ->withCount(['invoices as invoices_count' => fn ($q) => $q->approved(), 'bills'])
             ->latest()
             ->get()
             ->map(fn ($t) => [
@@ -70,7 +72,8 @@ class FinanceController extends Controller
         $tour->load([
             'customer:id,name',
             'items',
-            'invoices.payments',
+            // Hanya invoice yang sudah disetujui sales yang dikelola di Keuangan.
+            'invoices' => fn ($q) => $q->approved()->with('payments'),
             'bills.payments',
             'bills.supplier:id,name',
         ]);

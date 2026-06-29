@@ -41,39 +41,23 @@ const editingInvoice = ref(null)
 const invForm = useForm({
     date:     today(),
     due_date: '',
-    total:    '',
-    status:   'draft',
+    status:   'sent',
     notes:    '',
 })
 
-function openAddInvoice() {
-    editingInvoice.value = null
-    invForm.reset()
-    invForm.date   = today()
-    invForm.status = 'draft'
-    invDialogOpen.value = true
-}
 function openEditInvoice(inv) {
     editingInvoice.value = inv
     invForm.date     = inv.date?.slice(0, 10) ?? today()
     invForm.due_date = inv.due_date?.slice(0, 10) ?? ''
-    invForm.total    = inv.total
     invForm.status   = inv.status
     invForm.notes    = inv.notes ?? ''
     invDialogOpen.value = true
 }
 function submitInvoice() {
-    if (editingInvoice.value) {
-        invForm.patch(route('invoices.update', editingInvoice.value.id), {
-            preserveScroll: true, only: ['tour'],
-            onSuccess: () => { invDialogOpen.value = false },
-        })
-    } else {
-        invForm.post(route('invoices.store', props.tour.id), {
-            preserveScroll: true, only: ['tour'],
-            onSuccess: () => { invDialogOpen.value = false; invForm.reset() },
-        })
-    }
+    invForm.patch(route('invoices.update', editingInvoice.value.id), {
+        preserveScroll: true, only: ['tour'],
+        onSuccess: () => { invDialogOpen.value = false },
+    })
 }
 async function deleteInvoice(id) {
     if (await confirm({ title: 'Hapus invoice ini?', confirmLabel: 'Hapus' })) {
@@ -282,11 +266,11 @@ const CAT_LABEL = {
             <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
                 <div class="px-5 py-4 border-b flex items-center justify-between">
                     <h2 class="text-sm font-semibold text-gray-800">AR — Invoice ke Customer</h2>
-                    <Button size="sm" @click="openAddInvoice">+ Invoice</Button>
+                    <span class="text-xs text-gray-400">Dibuat & disetujui sales</span>
                 </div>
 
                 <div v-if="!tour.invoices?.length" class="px-5 py-6 text-sm text-gray-400 text-center">
-                    Belum ada invoice.
+                    Belum ada invoice yang disetujui sales.
                 </div>
 
                 <div v-else class="divide-y">
@@ -404,7 +388,7 @@ const CAT_LABEL = {
         <Dialog v-model:open="invDialogOpen">
             <DialogContent class="max-w-sm">
                 <DialogHeader>
-                    <DialogTitle>{{ editingInvoice ? 'Edit Invoice' : 'Invoice Baru' }}</DialogTitle>
+                    <DialogTitle>Edit Invoice</DialogTitle>
                 </DialogHeader>
                 <form @submit.prevent="submitInvoice" class="space-y-3 mt-2">
                     <div class="grid grid-cols-2 gap-3">
@@ -417,21 +401,14 @@ const CAT_LABEL = {
                             <Input type="date" v-model="invForm.due_date" />
                         </div>
                     </div>
+                    <p class="text-xs text-gray-500">
+                        Nilai invoice mengikuti rincian item yang disetujui sales dan tidak bisa diubah di sini.
+                    </p>
                     <div class="space-y-1.5">
-                        <Label>Total (IDR)</Label>
-                        <Input type="number" v-model="invForm.total" min="0" step="any"
-                            :disabled="editingInvoice && editingInvoice.status === 'draft'"
-                            :required="!editingInvoice || editingInvoice.status !== 'draft'" />
-                        <p v-if="editingInvoice && editingInvoice.status === 'draft'" class="text-xs text-gray-500">
-                            Total otomatis mengikuti item tour selama status <b>Draft</b>. Ubah status ke <b>Dikirim</b> untuk mengunci nilainya.
-                        </p>
-                    </div>
-                    <div v-if="editingInvoice" class="space-y-1.5">
                         <Label>Status</Label>
                         <Select v-model="invForm.status">
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="draft">Draft</SelectItem>
                                 <SelectItem value="sent">Dikirim</SelectItem>
                                 <SelectItem value="partial">Partial</SelectItem>
                                 <SelectItem value="paid">Lunas</SelectItem>
@@ -444,9 +421,7 @@ const CAT_LABEL = {
                     </div>
                     <div class="flex justify-end gap-2 pt-1">
                         <Button type="button" variant="outline" @click="invDialogOpen = false">Batal</Button>
-                        <Button type="submit" :disabled="invForm.processing">
-                            {{ editingInvoice ? 'Simpan' : 'Buat' }}
-                        </Button>
+                        <Button type="submit" :disabled="invForm.processing">Simpan</Button>
                     </div>
                 </form>
             </DialogContent>

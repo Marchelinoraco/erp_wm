@@ -94,7 +94,7 @@ class TourController extends Controller
 
     public function edit(Tour $tour)
     {
-        $tour->load(['customer', 'items.product', 'quotationItems.product', 'assignments', 'itineraryDays', 'itineraryHours', 'histories', 'invoices']);
+        $tour->load(['customer', 'items.product', 'quotationItems.product', 'assignments', 'itineraryDays', 'itineraryHours', 'histories', 'invoices.items.product']);
         $tour->append(['total_cost', 'total_sell', 'profit', 'margin', 'itinerary_pdf_url']);
 
         return Inertia::render('Tours/Edit', [
@@ -175,11 +175,8 @@ class TourController extends Controller
                 $this->convertApprovedQuotationItems($tour);
             }
 
-            // Auto-buat invoice DRAFT saat tour dikonfirmasi (anti-duplikat).
-            // Nominal = total jual (snapshot item); akuntan finalisasi & kirim.
-            if ($data['status'] === 'confirmed' && $tour->invoices()->count() === 0) {
-                $this->createDraftInvoice($tour);
-            }
+            // Invoice TIDAK lagi dibuat otomatis — dibuat & disetujui sales (alur 2 tahap)
+            // di panel Invoice halaman Tour, lalu masuk Keuangan setelah disetujui.
 
             // Auto-buat tugas booking per supplier saat confirmed (anti-duplikat).
             // Operation eksekusi di menu Booking → jadi tagihan AP di Keuangan.
@@ -247,28 +244,6 @@ class TourController extends Controller
             'status_snapshot' => 'confirmed',
             'description'     => $approved->count() . ' item quotation yang disetujui customer berhasil ditambahkan ke Item Produk tour.',
             'created_by'      => auth()->user()?->name ?? 'Sistem',
-        ]);
-    }
-
-    /**
-     * Buat invoice DRAFT otomatis untuk tour yang baru dikonfirmasi.
-     * Nominal diambil dari total jual (snapshot item); akuntan finalisasi.
-     */
-    private function createDraftInvoice(Tour $tour): void
-    {
-        $tour->invoices()->create([
-            'date'     => now()->toDateString(),
-            'due_date' => $tour->start_date?->toDateString() ?? now()->addDays(7)->toDateString(),
-            'total'    => $tour->total_sell,
-            'status'   => 'draft',
-            'notes'    => 'Dibuat otomatis saat tour dikonfirmasi.',
-        ]);
-
-        $tour->histories()->create([
-            'type'            => 'note',
-            'status_snapshot' => $tour->status,
-            'description'     => 'Invoice draft otomatis dibuat (IDR ' . number_format($tour->total_sell, 0, ',', '.') . '). Silakan finalisasi di menu Keuangan.',
-            'created_by'      => auth()->user()->name,
         ]);
     }
 
