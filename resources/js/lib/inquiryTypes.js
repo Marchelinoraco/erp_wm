@@ -8,6 +8,7 @@ export const INQUIRY_TYPES = {
     document:  { label: 'Visa/Paspor',       build: 'Pengurusan Dokumen Baru',  noun: 'dokumen' },
     ticketing: { label: 'Ticketing',         build: 'Ticketing Baru',           noun: 'tiket' },
     mice:      { label: 'MICE / Event',      build: 'Event Baru',               noun: 'event' },
+    hotel:     { label: 'Hotel',             build: 'Reservasi Hotel Baru',     noun: 'hotel' },
 }
 
 // Warna badge per tipe (Tailwind).
@@ -18,6 +19,7 @@ export const TYPE_BADGE = {
     document:  'bg-violet-100 text-violet-700',
     ticketing: 'bg-rose-100 text-rose-700',
     mice:      'bg-pink-100 text-pink-700',
+    hotel:     'bg-cyan-100 text-cyan-700',
 }
 
 // Field khusus per tipe → dirender ke tours.details (JSON).
@@ -58,6 +60,15 @@ export const TYPE_FIELDS = {
         { key: 'venue_name', label: 'Nama Venue',     type: 'text', placeholder: 'mis. Ballroom Hotel Aryaduta Manado' },
         { key: 'duration',   label: 'Durasi Acara',   type: 'text', placeholder: 'mis. 1 hari / Half-day / 2 hari' },
         { key: 'note',       label: 'Catatan Tambahan', type: 'textarea' },
+    ],
+    hotel: [
+        { key: 'hotel_name',  label: 'Nama Hotel',     type: 'text', placeholder: 'mis. Hotel Aryaduta Manado' },
+        { key: 'room_type',   label: 'Tipe Kamar',     type: 'text', placeholder: 'mis. Deluxe / Suite' },
+        { key: 'room_count',  label: 'Jumlah Kamar',   type: 'text', placeholder: 'mis. 5 kamar' },
+        { key: 'check_in',    label: 'Tgl Check-in',   type: 'date' },
+        { key: 'check_out',   label: 'Tgl Check-out',  type: 'date' },
+        { key: 'guest_count', label: 'Jumlah Tamu',    type: 'text' },
+        { key: 'note',        label: 'Catatan Tambahan', type: 'textarea' },
     ],
 }
 

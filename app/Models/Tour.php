@@ -26,6 +26,19 @@ class Tour extends Model
         'document'  => 'Visa/Paspor',
         'ticketing' => 'Ticketing',
         'mice'      => 'MICE / Event',
+        'hotel'     => 'Hotel',
+    ];
+
+    /** Kode angka per tipe untuk penomoran kode tour: WM-<tahun>-<kode>-<urut>.
+     *  Tipe `tour` khusus: inbound => 11, outbound => 12 (lihat resolveTypeCode). */
+    public const TYPE_CODES = [
+        'tour'      => '11',
+        'rental'    => '13',
+        'guide'     => '14',
+        'mice'      => '15',
+        'hotel'     => '16',
+        'document'  => '17',
+        'ticketing' => '18',
     ];
 
     /** Label field `details` per tipe — dipakai untuk render di PDF quotation.
@@ -66,11 +79,30 @@ class Tour extends Model
             'duration'    => 'Durasi Acara',
             'note'        => 'Catatan Tambahan',
         ],
+        'hotel' => [
+            'hotel_name'  => 'Nama Hotel',
+            'room_type'   => 'Tipe Kamar',
+            'room_count'  => 'Jumlah Kamar',
+            'check_in'    => 'Tgl Check-in',
+            'check_out'   => 'Tgl Check-out',
+            'guest_count' => 'Jumlah Tamu',
+            'note'        => 'Catatan Tambahan',
+        ],
     ];
 
     public function getTypeLabelAttribute(): string
     {
         return self::TYPES[$this->type] ?? 'Tour';
+    }
+
+    /** Kode angka tipe untuk penomoran kode tour. Tour dibedakan per arah. */
+    public function resolveTypeCode(): string
+    {
+        if ($this->type === 'tour') {
+            return $this->tour_direction === 'outbound' ? '12' : '11';
+        }
+
+        return self::TYPE_CODES[$this->type] ?? '11';
     }
 
     public function customer()
@@ -201,8 +233,8 @@ class Tour extends Model
 
         static::creating(function ($tour) {
             if (empty($tour->code)) {
-                $year  = now()->year;
-                $prefix = 'WM-' . $year . '-';
+                $year   = now()->year;
+                $prefix = 'WM-' . $year . '-' . $tour->resolveTypeCode() . '-';
                 $latest = static::where('code', 'like', $prefix . '%')
                     ->orderByDesc('code')
                     ->value('code');

@@ -24,6 +24,7 @@ const heading   = computed(() => INQUIRY_TYPES[props.type]?.build ?? 'Buat Tour 
 
 const form = useForm({
     type:           props.type,
+    tour_direction: 'inbound',
     inquiry_source: props.type === 'tour' ? 'website' : 'external',
     package_id:     null,
     customer_id:    'none',
@@ -160,6 +161,40 @@ function submit() {
                                     </svg>
                                     <span>External</span>
                                     <span class="text-xs opacity-70">WA / Telepon / Walk-in</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- DIRECTION PICKER (tour saja — menentukan kode Inbound/Outbound) -->
+                        <div v-if="isTour" class="space-y-1.5">
+                            <Label>Arah Tour</Label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button
+                                    type="button"
+                                    :class="[
+                                        'flex flex-col items-center gap-1 rounded-lg border-2 px-3 py-3 text-sm transition-colors',
+                                        form.tour_direction === 'inbound'
+                                            ? 'border-primary bg-primary/5 text-primary font-medium'
+                                            : 'border-border text-muted-foreground hover:border-muted-foreground/60',
+                                    ]"
+                                    @click="form.tour_direction = 'inbound'"
+                                >
+                                    <span>Inbound</span>
+                                    <span class="text-xs opacity-70">Tamu ke Manado</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    :class="[
+                                        'flex flex-col items-center gap-1 rounded-lg border-2 px-3 py-3 text-sm transition-colors',
+                                        form.tour_direction === 'outbound'
+                                            ? 'border-primary bg-primary/5 text-primary font-medium'
+                                            : 'border-border text-muted-foreground hover:border-muted-foreground/60',
+                                    ]"
+                                    @click="form.tour_direction = 'outbound'"
+                                >
+                                    <span>Outbound</span>
+                                    <span class="text-xs opacity-70">Tamu ke luar Manado</span>
                                 </button>
                             </div>
                         </div>
