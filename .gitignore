@@ -13,6 +13,7 @@
 /.vscode
 /.zed
 /auth.json
+/LAPORAN-KERJA.md
 /node_modules
 /public/build
 /public/fonts-manifest.dev.json
