@@ -215,7 +215,7 @@
                     <td class="dcell">
                         <table class="kv">
                             <tr>
-                                <td class="k" style="width:auto;">Harga</td>
+                                <td class="k" style="width:auto;">Price</td>
                                 <td class="s">:</td>
                                 <td>
                                     @if($unitPrice > 0)

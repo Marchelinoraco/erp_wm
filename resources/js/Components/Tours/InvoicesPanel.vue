@@ -355,12 +355,12 @@ function addProduct(product) {
                         </div>
                     </div>
                     <div class="text-sm">
-                        Harga:
+                        Price:
                         <span class="font-mono">{{ fmtCur(inv.unit_price, inv.currency) }}</span>
                         × {{ tourPax || 1 }} pax =
                         <span class="font-mono font-semibold">{{ fmtCur(inv.total, inv.currency) }}</span>
                         <span v-if="(inv.currency || 'IDR') !== 'IDR'" class="text-xs text-muted-foreground">
-                            (≈ {{ fmtRp(inv.total_idr) }}, kurs {{ fmtNum(inv.exchange_rate) }})
+                            (≈ {{ fmtRp(inv.total_idr) }}, rate {{ fmtNum(inv.exchange_rate) }})
                         </span>
                     </div>
                 </template>
