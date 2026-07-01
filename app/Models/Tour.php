@@ -216,15 +216,15 @@ class Tour extends Model
 
     public function getReceivedAttribute(): float
     {
-        // Hanya invoice yang sudah disetujui sales yang dihitung di Keuangan.
+        // Hanya invoice yang sudah disetujui sales yang dihitung di Keuangan (IDR).
         return (float) $this->invoices
             ->whereNotNull('approved_at')
-            ->flatMap->payments->sum('amount');
+            ->flatMap->payments->sum('amount_idr');
     }
 
     public function getReceivableAttribute(): float
     {
-        return (float) $this->invoices->whereNotNull('approved_at')->sum('total') - $this->received;
+        return (float) $this->invoices->whereNotNull('approved_at')->sum('total_idr') - $this->received;
     }
 
     protected static function boot()

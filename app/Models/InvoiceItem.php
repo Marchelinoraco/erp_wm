@@ -17,15 +17,10 @@ class InvoiceItem extends Model
     ];
 
     /**
-     * Setiap perubahan baris → samakan total invoice induk dengan jumlah jual terkini.
-     * (Berbeda dari tour_items: invoice TIDAK menyentuh costing tour.)
+     * Item invoice hanya untuk pantauan profit internal (cost vs sell, IDR) dan
+     * TIDAK lagi menentukan total invoice — total berasal dari proforma
+     * (unit_price × pax). Karena itu tak ada sinkronisasi total di sini.
      */
-    protected static function booted(): void
-    {
-        static::saved(fn (self $item) => $item->invoice?->recalcTotal());
-        static::deleted(fn (self $item) => $item->invoice?->recalcTotal());
-    }
-
     public function invoice()
     {
         return $this->belongsTo(Invoice::class);

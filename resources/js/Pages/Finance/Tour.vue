@@ -3,7 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Head, Link, useForm, router } from '@inertiajs/vue3'
 import { ref } from 'vue'
 import { confirm } from '@/lib/confirm'
-import { fmtRp } from '@/lib/fmt'
+import { fmtRp, fmtCur } from '@/lib/fmt'
 import { Button } from '@/Components/ui/button'
 import { Input } from '@/Components/ui/input'
 import { Label } from '@/Components/ui/label'
@@ -183,6 +183,12 @@ async function deleteBillPayment(id) {
 function invPaid(inv) {
     return inv.payments?.reduce((s, p) => s + Number(p.amount), 0) ?? 0
 }
+function invPaidIdr(inv) {
+    return inv.payments?.reduce((s, p) => s + Number(p.amount_idr ?? p.amount), 0) ?? 0
+}
+function isNonIdr(inv) {
+    return inv.currency && inv.currency !== 'IDR'
+}
 function billPaid(bill) {
     return bill.payments?.reduce((s, p) => s + Number(p.amount), 0) ?? 0
 }
@@ -290,8 +296,10 @@ const CAT_LABEL = {
                                 </p>
                             </div>
                             <div class="text-right shrink-0">
-                                <p class="font-bold text-gray-800">{{ fmtRp(inv.total) }}</p>
-                                <p class="text-xs text-orange-600">Sisa: {{ fmtRp(inv.total - invPaid(inv)) }}</p>
+                                <p class="font-bold text-gray-800">{{ fmtCur(inv.total, inv.currency) }}</p>
+                                <p v-if="isNonIdr(inv)" class="text-xs text-gray-400">≈ {{ fmtRp(inv.total_idr) }}</p>
+                                <p class="text-xs text-orange-600">Sisa: {{ fmtCur(inv.total - invPaid(inv), inv.currency) }}</p>
+                                <p v-if="isNonIdr(inv)" class="text-xs text-orange-400">≈ {{ fmtRp(inv.total_idr - invPaidIdr(inv)) }}</p>
                             </div>
                         </div>
 
@@ -299,7 +307,10 @@ const CAT_LABEL = {
                         <div v-if="inv.payments?.length" class="mt-3 ml-2 space-y-1">
                             <div v-for="p in inv.payments" :key="p.id"
                                 class="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 rounded px-3 py-1.5">
-                                <span class="text-green-600 font-medium">+{{ fmtRp(p.amount) }}</span>
+                                <span class="text-green-600 font-medium">+{{ fmtCur(p.amount, inv.currency) }}</span>
+                                <template v-if="isNonIdr(inv)">
+                                    <span class="text-gray-400 text-xs">≈ {{ fmtRp(p.amount_idr) }}</span>
+                                </template>
                                 <span class="text-gray-400">{{ fmtDate(p.date) }} · {{ p.method }}</span>
                                 <span v-if="p.notes" class="text-gray-400 truncate">· {{ p.notes }}</span>
                                 <button @click="deleteInvPayment(p.id)"

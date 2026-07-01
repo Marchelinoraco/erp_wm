@@ -9,9 +9,13 @@ class Invoice extends Model
 {
     protected $guarded = [];
     protected $casts   = [
-        'date'        => 'date',
-        'due_date'    => 'date',
-        'approved_at' => 'datetime',
+        'date'              => 'date',
+        'due_date'          => 'date',
+        'approved_at'       => 'datetime',
+        'description_lines' => 'array',
+        'exchange_rate'     => 'decimal:6',
+        'unit_price'        => 'decimal:2',
+        'total_idr'         => 'decimal:2',
     ];
 
     public function tour()
@@ -89,10 +93,23 @@ class Invoice extends Model
         return $this->total - $this->paid;
     }
 
-    /** Samakan kolom `total` dengan jumlah jual baris terkini. */
-    public function recalcTotal(): void
+    /**
+     * Hitung ulang total proforma (mata uang invoice). total = unit_price × pax.
+     * total_idr hanya di-set untuk IDR (kurs 1); untuk mata uang lain nilai IDR
+     * ditetapkan saat disetujui (approve) agar laporan IDR tak terdistorsi kurs
+     * placeholder sebelum kurs pasti diinput.
+     */
+    public function syncProformaTotal(): void
     {
-        $this->update(['total' => (float) $this->items()->sum('line_sell')]);
+        $pax   = (int) ($this->tour?->pax ?? $this->pax ?? 1);
+        $total = (float) $this->unit_price * max($pax, 1);
+
+        $updates = ['total' => $total];
+        if (($this->currency ?: 'IDR') === 'IDR') {
+            $updates['total_idr'] = $total;
+        }
+
+        $this->update($updates);
     }
 
     protected static function booted(): void

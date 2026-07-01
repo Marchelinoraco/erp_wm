@@ -15,8 +15,9 @@ class FinanceController extends Controller
     public function index()
     {
         // Hanya invoice yang sudah disetujui sales yang masuk ke Keuangan.
-        $arTotal    = Invoice::approved()->sum('total');
-        $arReceived = InvoicePayment::whereHas('invoice', fn ($q) => $q->approved())->sum('amount');
+        // Keuangan berbasis IDR → pakai nilai ekuivalen IDR (total_idr/amount_idr).
+        $arTotal    = Invoice::approved()->sum('total_idr');
+        $arReceived = InvoicePayment::whereHas('invoice', fn ($q) => $q->approved())->sum('amount_idr');
 
         $apTotal = Bill::sum('amount');
         $apPaid  = BillPayment::sum('amount');
@@ -37,7 +38,7 @@ class FinanceController extends Controller
             ->with('customer:id,name')
             ->withSum('items as est_sell', 'line_sell')
             ->withSum('items as est_cost', 'line_cost')
-            ->withSum(['invoices as invoiced_total' => fn ($q) => $q->approved()], 'total')
+            ->withSum(['invoices as invoiced_total' => fn ($q) => $q->approved()], 'total_idr')
             ->withSum('bills as billed_total', 'amount')
             ->withCount(['invoices as invoices_count' => fn ($q) => $q->approved(), 'bills'])
             ->latest()

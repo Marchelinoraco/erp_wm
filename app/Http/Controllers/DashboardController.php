@@ -45,13 +45,13 @@ class DashboardController extends Controller
         $realProfit = $confirmedSell - $actualCost;
 
         // ── Arus kas & outstanding ──
-        $arOutstanding = (float) Invoice::sum('total') - (float) InvoicePayment::sum('amount');
+        $arOutstanding = (float) Invoice::sum('total_idr') - (float) InvoicePayment::sum('amount_idr');
         $apOutstanding = (float) Bill::sum('amount') - (float) BillPayment::sum('amount');
 
         // Uang masuk bulan ini (pakai tanggal pembayaran — andal, bukan updated_at)
         $cashInMonth = (float) InvoicePayment::whereMonth('date', now()->month)
             ->whereYear('date', now()->year)
-            ->sum('amount');
+            ->sum('amount_idr');
 
         // 10 tour terbaru (semua status)
         $recentTours = Tour::with('customer')

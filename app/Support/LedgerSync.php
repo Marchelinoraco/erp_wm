@@ -43,7 +43,11 @@ class LedgerSync
                 'direction'       => $direction,
                 'fin_category_id' => $category->id,
                 'cash_account_id' => $account->id,
-                'amount'          => $payment->amount,
+                // Invoice bisa multi-currency → pakai ekuivalen IDR (amount_idr).
+                // Buku besar selalu IDR.
+                'amount'          => ($source === 'invoice' && (float) ($payment->amount_idr ?? 0) > 0)
+                    ? (float) $payment->amount_idr
+                    : (float) $payment->amount,
                 'description'     => $label . ($payment->notes ? ' — ' . $payment->notes : ''),
                 'created_by'      => 'Sistem (auto)',
             ]

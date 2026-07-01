@@ -432,7 +432,7 @@ class FinanceLedgerController extends Controller
         return [
             'accounts'  => $accounts,
             'cashTotal' => (float) $accounts->sum('saldo'),
-            'ar'        => (float) Invoice::sum('total') - (float) InvoicePayment::sum('amount'),
+            'ar'        => (float) Invoice::sum('total_idr') - (float) InvoicePayment::sum('amount_idr'),
             'ap'        => (float) Bill::sum('amount') - (float) BillPayment::sum('amount'),
         ];
     }
@@ -465,8 +465,8 @@ class FinanceLedgerController extends Controller
         $cashTotal = (float) $cashAccounts->sum('balance');
 
         // Piutang (AR) & Hutang (AP) — outstanding s/d akhir tahun
-        $ar = (float) Invoice::where('date', '<=', $endDate)->sum('total')
-            - (float) InvoicePayment::where('date', '<=', $endDate)->sum('amount');
+        $ar = (float) Invoice::where('date', '<=', $endDate)->sum('total_idr')
+            - (float) InvoicePayment::where('date', '<=', $endDate)->sum('amount_idr');
         $ap = (float) Bill::where('date', '<=', $endDate)->sum('amount')
             - (float) BillPayment::where('date', '<=', $endDate)->sum('amount');
 
@@ -513,7 +513,7 @@ class FinanceLedgerController extends Controller
 
         // EKUITAS — modal disetor (setting) + laba ditahan (akrual, s/d akhir tahun)
         $modal         = FinanceSetting::get('modal_disetor');
-        $invoicedRev   = (float) Invoice::where('date', '<=', $endDate)->sum('total');
+        $invoicedRev   = (float) Invoice::where('date', '<=', $endDate)->sum('total_idr');
         $billedCost    = (float) Bill::where('date', '<=', $endDate)->sum('amount');
         $manualIncome  = (float) FinTransaction::where('source', 'manual')->where('direction', 'in')->where('date', '<=', $endDate)->sum('amount');
         $manualExpense = (float) FinTransaction::where('source', 'manual')->where('direction', 'out')->where('date', '<=', $endDate)->sum('amount');
@@ -586,7 +586,7 @@ class FinanceLedgerController extends Controller
 
         $lines = [];
         foreach (self::BUSINESS_LINES as $key => $label) {
-            $rev  = (float) $invoices->filter(fn ($inv)  => $this->businessLine($inv->tour)  === $key)->sum('total');
+            $rev  = (float) $invoices->filter(fn ($inv)  => $this->businessLine($inv->tour)  === $key)->sum('total_idr');
             $cogs = (float) $bills->filter(fn ($bill) => $this->businessLine($bill->tour) === $key)->sum('amount');
             if ($rev > 0 || $cogs > 0) {
                 $gross   = $rev - $cogs;

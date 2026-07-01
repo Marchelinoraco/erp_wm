@@ -10,10 +10,11 @@ import subprocess
 from collections import OrderedDict
 from datetime import date
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(REPO, "LAPORAN-KERJA.md")
+REPO       = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUT        = os.path.join(REPO, "LAPORAN-KERJA.md")
+GITHUB_URL = "https://github.com/Marchelinoraco/erp_wm"
 
-HARI = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]  # %u: 1=Senin
+HARI  = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
 BULAN = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
          "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
@@ -28,9 +29,9 @@ PREFIX = {
 
 
 def git_log():
-    """Kembalikan list baris 'YYYY-MM-DD<TAB>u<TAB>subject' (terbaru dulu)."""
+    """Kembalikan list baris 'YYYY-MM-DD<SPACE>u<TAB>hash<TAB>subject'."""
     out = subprocess.check_output(
-        ["git", "log", "--no-merges", "--pretty=%ad\t%s", "--date=format:%Y-%m-%d %u"],
+        ["git", "log", "--no-merges", "--pretty=%ad\t%h\t%s", "--date=format:%Y-%m-%d %u"],
         cwd=REPO, text=True,
     )
     return [ln for ln in out.splitlines() if "\t" in ln]
@@ -52,14 +53,14 @@ def id_date(ymd, u):
 
 
 def build():
-    groups = OrderedDict()  # ymd -> {"u": u, "items": [...]}  (terbaru dulu)
+    groups = OrderedDict()  # ymd -> {"u": u, "items": [(hash, label)]}
     for ln in git_log():
-        datepart, subject = ln.split("\t", 1)
+        datepart, hash_, subject = ln.split("\t", 2)
         ymd, u = datepart.split(" ")
         g = groups.setdefault(ymd, {"u": u, "items": []})
-        g["items"].append(pretty_subject(subject))
+        g["items"].append((hash_, pretty_subject(subject)))
 
-    today = date.today()
+    today    = date.today()
     hari_ini = f"{int(today.strftime('%d'))} {BULAN[today.month]} {today.year}"
 
     out = [
@@ -71,9 +72,9 @@ def build():
     for ymd, g in groups.items():
         out.append(f"## {id_date(ymd, g['u'])}")
         out.append("")
-        # tampilkan urut kronologis (yang paling awal di atas)
-        for item in reversed(g["items"]):
-            out.append(f"- {item}")
+        for hash_, item in reversed(g["items"]):
+            link = f"{GITHUB_URL}/commit/{hash_}"
+            out.append(f"- {item} — [lihat bukti pengerjaan]({link})")
         out.append("")
 
     with open(OUT, "w", encoding="utf-8") as f:

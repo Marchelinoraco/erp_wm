@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Head, Link } from '@inertiajs/vue3'
-import { fmtRp } from '@/lib/fmt'
+import { fmtRp, fmtCur } from '@/lib/fmt'
 
 const props = defineProps({
     ar_total:             Number,
@@ -163,9 +163,17 @@ const BILL_STATUS = {
                                 <td class="px-4 py-3 font-mono text-xs text-gray-600">{{ inv.tour?.code ?? '—' }}</td>
                                 <td class="px-4 py-3 text-gray-700">{{ inv.tour?.customer?.name ?? '—' }}</td>
                                 <td class="px-4 py-3 text-gray-500 text-xs">{{ fmtDate(inv.date) }}</td>
-                                <td class="px-4 py-3 text-right font-medium text-gray-800">{{ fmtRp(inv.total) }}</td>
+                                <td class="px-4 py-3 text-right font-medium text-gray-800">
+                                    {{ fmtCur(inv.total, inv.currency) }}
+                                    <span v-if="inv.currency && inv.currency !== 'IDR'" class="block text-xs text-gray-400">
+                                        ≈ {{ fmtRp(inv.total_idr) }}
+                                    </span>
+                                </td>
                                 <td class="px-4 py-3 text-right font-semibold text-orange-600">
-                                    {{ fmtRp(inv.total - inv.payments.reduce((s, p) => s + Number(p.amount), 0)) }}
+                                    {{ fmtCur(inv.total - inv.payments.reduce((s, p) => s + Number(p.amount), 0), inv.currency) }}
+                                    <span v-if="inv.currency && inv.currency !== 'IDR'" class="block text-xs text-orange-400">
+                                        ≈ {{ fmtRp(inv.total_idr - inv.payments.reduce((s, p) => s + Number(p.amount_idr ?? p.amount), 0)) }}
+                                    </span>
                                 </td>
                                 <td class="px-4 py-3 text-center">
                                     <span class="text-xs px-2 py-0.5 rounded-full font-medium"

@@ -12,6 +12,9 @@ use Mpdf\Output\Destination;
 
 class InvoiceController extends Controller
 {
+    /** Mata uang yang didukung untuk tagihan proforma ke customer. */
+    public const CURRENCIES = ['IDR', 'USD', 'EUR', 'SGD', 'AUD', 'MYR'];
+
     // ── Alur sales ──────────────────────────────────────────────────────────────
 
     /** Sales membuat invoice baru untuk tour (Tahap 1 dimulai dari sini). */
@@ -50,64 +53,102 @@ class InvoiceController extends Controller
     }
 
     /**
-     * Kunci "patokan" (Tahap 1 → Tahap 2): baseline_total = jumlah jual baris saat ini.
-     * Dipakai juga untuk "naikkan patokan" selama invoice belum disetujui.
+     * Sales isi proforma Tahap 1: mata uang, harga/pax, dan baris deskripsi
+     * terstruktur (Hotel/Transport dll). Total = unit_price × pax (dari tour).
      */
-    public function lockBaseline(Invoice $invoice)
+    public function updateProforma(Request $request, Invoice $invoice)
     {
         $this->ensureNotApproved($invoice);
 
-        $sum = (float) $invoice->items()->sum('line_sell');
+        $data = $request->validate([
+            'currency'                   => 'required|string|in:' . implode(',', self::CURRENCIES),
+            'unit_price'                 => 'required|numeric|min:0',
+            'description_lines'          => 'nullable|array',
+            'description_lines.*.label'  => 'nullable|string|max:255',
+            'description_lines.*.date'   => 'nullable|string|max:255',
+            'description_lines.*.detail' => 'nullable|string|max:1000',
+            'notes'                      => 'nullable|string',
+        ]);
 
-        if ($sum <= 0) {
-            throw ValidationException::withMessages([
-                'invoice' => 'Tambahkan minimal satu item sebelum mengunci patokan.',
-            ]);
+        $invoice->fill([
+            'currency'          => $data['currency'],
+            'unit_price'        => $data['unit_price'],
+            'description_lines' => array_values($data['description_lines'] ?? []),
+            'notes'             => $data['notes'] ?? $invoice->notes,
+        ]);
+
+        // IDR selalu kurs 1; non-IDR menunggu kurs saat disetujui.
+        if ($data['currency'] === 'IDR') {
+            $invoice->exchange_rate = 1;
         }
+        $invoice->save();
 
-        $invoice->update(['baseline_total' => $sum, 'total' => $sum]);
+        $invoice->syncProformaTotal();
 
         return redirect()->back();
     }
 
     /**
-     * Setujui invoice → gerbang ke Keuangan. Rincian (Tahap 2) wajib = patokan.
+     * Kunci "patokan": baseline_total = total proforma (unit_price × pax) saat ini.
+     * Dipakai juga untuk "samakan patokan" selama invoice belum disetujui.
      */
-    public function approve(Invoice $invoice)
+    public function lockBaseline(Invoice $invoice)
     {
         $this->ensureNotApproved($invoice);
 
-        if ($invoice->baseline_total <= 0) {
+        $invoice->syncProformaTotal();
+
+        if ((float) $invoice->total <= 0) {
+            throw ValidationException::withMessages([
+                'invoice' => 'Isi harga proforma terlebih dahulu sebelum mengunci patokan.',
+            ]);
+        }
+
+        $invoice->update(['baseline_total' => $invoice->total]);
+
+        return redirect()->back();
+    }
+
+    /**
+     * Setujui invoice → gerbang ke Keuangan. Wajib patokan terkunci; untuk mata
+     * uang non-IDR wajib input kurs → simpan ekuivalen IDR (total_idr).
+     */
+    public function approve(Request $request, Invoice $invoice)
+    {
+        $this->ensureNotApproved($invoice);
+
+        $invoice->syncProformaTotal();
+
+        if ((float) $invoice->baseline_total <= 0) {
             throw ValidationException::withMessages([
                 'invoice' => 'Kunci patokan terlebih dahulu sebelum menyetujui.',
             ]);
         }
 
-        $total = (float) $invoice->items()->sum('line_sell');
+        $isIdr = ($invoice->currency ?: 'IDR') === 'IDR';
 
-        if ($total <= 0) {
-            throw ValidationException::withMessages([
-                'invoice' => 'Invoice belum punya rincian item.',
-            ]);
-        }
+        $data = $request->validate([
+            'exchange_rate' => ($isIdr ? 'nullable' : 'required') . '|numeric|gt:0',
+        ]);
 
-        if (abs($total - (float) $invoice->baseline_total) >= 0.01) {
-            throw ValidationException::withMessages([
-                'invoice' => 'Total rincian belum sama dengan patokan. Samakan dulu atau ubah patokan.',
-            ]);
-        }
+        $rate     = $isIdr ? 1.0 : (float) $data['exchange_rate'];
+        $totalIdr = (float) $invoice->total * $rate;
 
         $invoice->update([
-            'total'       => $total,
-            'status'      => 'sent',
-            'approved_at' => now(),
-            'approved_by' => auth()->id(),
+            'exchange_rate' => $rate,
+            'total_idr'     => $totalIdr,
+            'status'        => 'sent',
+            'approved_at'   => now(),
+            'approved_by'   => auth()->id(),
         ]);
+
+        $money = ($invoice->currency ?: 'IDR') . ' ' . number_format((float) $invoice->total, 0, ',', '.');
+        $idrEq = $isIdr ? '' : ' (≈ IDR ' . number_format($totalIdr, 0, ',', '.') . ')';
 
         $invoice->tour?->histories()->create([
             'type'            => 'note',
             'status_snapshot' => $invoice->tour->status,
-            'description'     => 'Invoice ' . $invoice->number . ' disetujui & dikirim ke Keuangan (IDR ' . number_format($total, 0, ',', '.') . ').',
+            'description'     => 'Invoice ' . $invoice->number . ' disetujui & dikirim ke Keuangan (' . $money . $idrEq . ').',
             'created_by'      => auth()->user()?->name ?? 'Sistem',
         ]);
 
@@ -198,11 +239,8 @@ class InvoiceController extends Controller
 
         $mpdf->SetTitle('Invoice ' . $invoice->number);
 
-        $items       = $this->lineItems($invoice);
-        $itemsTotal  = $items->sum('line');
         $paid        = (float) $invoice->payments->sum('amount');
         $outstanding = (float) $invoice->total - $paid;
-        $adjustment  = (float) $invoice->total - $itemsTotal; // selisih item vs nilai tagihan
 
         $html = view('invoice', [
             'invoice'      => $invoice,
@@ -210,33 +248,16 @@ class InvoiceController extends Controller
             'bank'         => $this->bankAccounts(),
             'paymentTerms' => config('quotation.payment_terms', ''),
             'logo'         => $this->logoDataUri(),
-            'items'        => $items,
-            'itemsTotal'   => $itemsTotal,
-            'adjustment'   => $adjustment,
+            'lines'        => $invoice->description_lines ?? [],
+            'unitPrice'    => (float) $invoice->unit_price,
+            'pax'          => (int) ($invoice->tour?->pax ?? $invoice->pax ?? 0),
             'paid'         => $paid,
             'outstanding'  => $outstanding,
-            'amountWords'  => ucwords($this->terbilang($invoice->total)) . ' Rupiah',
         ])->render();
 
         $mpdf->WriteHTML($html);
 
         return $mpdf;
-    }
-
-    /**
-     * Rincian item invoice — diambil dari invoice_items (dibuat & disetujui sales).
-     * Tahap 1 = 1 baris ringkas; Tahap 2 = banyak baris detail. PDF ikut isi terkini.
-     * Mengembalikan koleksi [desc, qty, nights, unit, line].
-     */
-    private function lineItems(Invoice $invoice): \Illuminate\Support\Collection
-    {
-        return $invoice->items->map(fn ($it) => [
-            'desc'   => $it->description ?: ($it->product?->name ?? 'Item'),
-            'qty'    => (int) $it->qty,
-            'nights' => (int) $it->nights,
-            'unit'   => (float) $it->unit_sell,
-            'line'   => (float) $it->line_sell,
-        ])->values();
     }
 
     /** Rekening aktif dari DB (dikelola akuntan); fallback ke config bila kosong. */

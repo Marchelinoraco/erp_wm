@@ -91,7 +91,8 @@
 <body>
 
 @php
-    $fmt  = fn ($v) => 'IDR ' . number_format((float) $v, 0, ',', '.');
+    $cur  = $invoice->currency ?: 'IDR';
+    $fmt  = fn ($v) => $cur . ' ' . number_format((float) $v, 0, ',', '.');
     $tour = $invoice->tour;
 
     $custName = $tour?->customer?->name ?? 'Valued Guest';
@@ -171,7 +172,7 @@
                 </tr>
             </thead>
             <tbody>
-                {{-- Info block --}}
+                {{-- Info block + baris deskripsi proforma terstruktur --}}
                 <tr class="lead">
                     <td class="dcell">
                         <table class="kv">
@@ -184,42 +185,48 @@
                             @if($tour?->pax)
                             <tr><td class="k">Total Pax</td><td class="s">:</td><td>{{ $tour->pax }} pax</td></tr>
                             @endif
+
+                            @foreach($lines as $ln)
+                            @php $lbl = trim($ln['label'] ?? ''); $dt = trim($ln['date'] ?? ''); $det = trim($ln['detail'] ?? ''); @endphp
+                            @if($lbl !== '' || $dt !== '' || $det !== '')
+                            <tr>
+                                <td class="k">{{ $lbl }}</td>
+                                <td class="s">{{ $lbl !== '' ? ':' : '' }}</td>
+                                <td>
+                                    <table style="width:100%; border-collapse:collapse;">
+                                        <tr>
+                                            <td style="width:130px; vertical-align:top; padding:0;">{{ $dt }}</td>
+                                            <td style="vertical-align:top; padding:0;">{{ $det }}</td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                            @endif
+                            @endforeach
+
                             <tr class="gap"><td colspan="3"></td></tr>
                         </table>
                     </td>
                     <td class="acell"></td>
                 </tr>
 
-                {{-- Priced lines --}}
-                @forelse($items as $it)
+                {{-- Baris harga proforma --}}
                 <tr>
                     <td class="dcell">
                         <table class="kv">
                             <tr>
-                                <td class="k" style="width:auto;">{{ $it['desc'] }}</td>
-                                <td class="s">:</td>
-                                <td>{{ $fmt($it['unit']) }} &times; {{ $it['qty'] }}{{ $it['nights'] > 1 ? ' &times; '.$it['nights'].' night' : '' }}</td>
-                            </tr>
-                        </table>
-                    </td>
-                    <td class="acell">{{ $fmt($it['line']) }}</td>
-                </tr>
-                @empty
-                <tr>
-                    <td class="dcell">
-                        <table class="kv">
-                            <tr>
-                                <td class="k" style="width:auto;">Price</td>
+                                <td class="k" style="width:auto;">Harga</td>
                                 <td class="s">:</td>
                                 <td>
-                                    {{ $fmt(($tour?->pax ?? 0) > 0 ? $invoice->total / $tour->pax : $invoice->total) }}@if(($tour?->pax ?? 0) > 0) &times; {{ $tour->pax }} pax @endif
+                                    @if($unitPrice > 0)
+                                        {{ $fmt($unitPrice) }}@if($pax > 0) &times; {{ $pax }} pax @endif
+                                    @endif
                                 </td>
                             </tr>
                         </table>
                     </td>
                     <td class="acell">{{ $fmt($invoice->total) }}</td>
                 </tr>
-                @endforelse
 
                 {{-- Filler for height --}}
                 <tr class="tail rowend"><td class="dcell">&nbsp;</td><td class="acell"></td></tr>

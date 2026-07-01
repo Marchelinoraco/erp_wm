@@ -140,6 +140,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Invoice — dibuat & disetujui sales (alur 2 tahap: patokan → rincian → setujui)
         Route::post('/tours/{tour}/invoices',         [InvoiceController::class, 'store'])->name('invoices.store');
+        Route::patch('/invoices/{invoice}/proforma',  [InvoiceController::class, 'updateProforma'])->name('invoices.proforma');
         Route::patch('/invoices/{invoice}/baseline',  [InvoiceController::class, 'lockBaseline'])->name('invoices.baseline');
         Route::patch('/invoices/{invoice}/due-date',  [InvoiceController::class, 'updateDueDate'])->name('invoices.due-date');
         Route::post('/invoices/{invoice}/approve',    [InvoiceController::class, 'approve'])->name('invoices.approve');
