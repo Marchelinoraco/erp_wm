@@ -242,6 +242,14 @@ class InvoiceController extends Controller
         $paid        = (float) $invoice->payments->sum('amount');
         $outstanding = (float) $invoice->total - $paid;
 
+        // Watermark berdasarkan status pembayaran
+        if ($paid > 0) {
+            $watermarkText  = $outstanding <= 0.005 ? 'PAID IN FULL' : 'DEPOSIT RECEIVED';
+            $mpdf->SetWatermarkText($watermarkText);
+            $mpdf->showWatermarkText  = true;
+            $mpdf->watermarkTextAlpha = 0.07;
+        }
+
         $html = view('invoice', [
             'invoice'      => $invoice,
             'company'      => config('quotation.company'),

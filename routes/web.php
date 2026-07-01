@@ -149,6 +149,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/invoice-items/{invoiceItem}',  [InvoiceItemController::class, 'update'])->name('invoice-items.update');
         Route::delete('/invoice-items/{invoiceItem}', [InvoiceItemController::class, 'destroy'])->name('invoice-items.destroy');
 
+        // Sales bisa catat pembayaran / DP langsung dari panel tour
+        Route::post('/invoices/{invoice}/deposits',          [InvoicePaymentController::class, 'store'])->name('invoice-deposits.store');
+        Route::delete('/invoice-deposits/{invoicePayment}',  [InvoicePaymentController::class, 'destroy'])->name('invoice-deposits.destroy');
+
         Route::get('/tours/{tour}/quotation/download', [QuotationController::class, 'download'])->name('quotation.download');
         Route::get('/tours/{tour}/quotation/preview',  [QuotationController::class, 'preview'])->name('quotation.preview');
         Route::get('/tours/{tour}/quotation/word',     [QuotationController::class, 'word'])->name('quotation.word');

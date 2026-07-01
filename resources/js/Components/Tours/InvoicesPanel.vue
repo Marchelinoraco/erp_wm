@@ -78,6 +78,10 @@ function onError(errors) {
 }
 const reload = { preserveScroll: true, only: ['tour'], onError }
 
+function todayStr() {
+    return new Date().toISOString().slice(0, 10)
+}
+
 // ── Helpers status ──────────────────────────────────────────────────────────────
 function isApproved(inv) { return !!inv.approved_at }
 function stage(inv) {
@@ -183,6 +187,43 @@ async function deleteItem(itemId) {
     if (await confirm({ title: 'Hapus item ini?', confirmLabel: 'Hapus' })) {
         errorMsg.value = ''
         router.delete(route('invoice-items.destroy', itemId), reload)
+    }
+}
+
+// ── Pembayaran / DP (sales dapat input langsung) ────────────────────────────────
+const payForms = reactive({})  // { amount, date, method, notes } per invoice id
+
+watch(
+    () => props.tour.invoices,
+    (list) => {
+        ;(list ?? []).forEach(inv => {
+            if (!(inv.id in payForms)) {
+                payForms[inv.id] = { amount: '', date: todayStr(), method: 'transfer', notes: '' }
+            }
+        })
+    },
+    { immediate: true }
+)
+
+function invPaid(inv) {
+    return (inv.payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
+}
+function invOutstanding(inv) {
+    return Math.max(Number(inv.total) - invPaid(inv), 0)
+}
+function savePayment(invId) {
+    errorMsg.value = ''
+    router.post(route('invoice-deposits.store', invId), payForms[invId], {
+        ...reload,
+        onSuccess: () => {
+            payForms[invId] = { amount: '', date: todayStr(), method: 'transfer', notes: '' }
+        },
+    })
+}
+async function deletePayment(payId) {
+    if (await confirm({ title: 'Delete this payment?', confirmLabel: 'Delete' })) {
+        errorMsg.value = ''
+        router.delete(route('invoice-deposits.destroy', payId), reload)
     }
 }
 
@@ -488,6 +529,67 @@ function addProduct(product) {
                         ✓ Disetujui — dikelola di Keuangan
                     </div>
                 </div>
+
+                <!-- ── Payments / Deposit ── -->
+                <div v-if="isApproved(inv)" class="rounded-md border overflow-hidden">
+                    <div class="flex items-center justify-between px-3 py-2 bg-muted/30 border-b">
+                        <span class="text-xs font-semibold uppercase text-muted-foreground">Payments</span>
+                        <span class="text-xs space-x-3">
+                            <span>Paid: <span class="font-mono font-medium text-green-700">{{ fmtCur(invPaid(inv), inv.currency) }}</span></span>
+                            <span>Outstanding: <span class="font-mono font-medium" :class="invOutstanding(inv) > 0 ? 'text-orange-600' : 'text-green-700'">{{ fmtCur(invOutstanding(inv), inv.currency) }}</span></span>
+                        </span>
+                    </div>
+
+                    <!-- Daftar pembayaran -->
+                    <div v-if="(inv.payments ?? []).length" class="divide-y">
+                        <div v-for="p in inv.payments" :key="p.id"
+                            class="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-2 text-sm">
+                            <span class="font-mono font-medium text-green-700">+{{ fmtCur(p.amount, inv.currency) }}</span>
+                            <span v-if="inv.currency && inv.currency !== 'IDR'" class="text-xs text-muted-foreground">≈ {{ fmtRp(p.amount_idr) }}</span>
+                            <span class="text-xs text-muted-foreground">{{ p.date?.slice(0, 10) }} · {{ p.method }}</span>
+                            <span v-if="p.notes" class="text-xs text-muted-foreground truncate">· {{ p.notes }}</span>
+                            <button type="button" @click="deletePayment(p.id)"
+                                class="ml-auto text-muted-foreground hover:text-destructive transition-colors text-base leading-none">×</button>
+                        </div>
+                    </div>
+                    <div v-else class="px-3 py-3 text-xs text-center text-muted-foreground">No payments recorded yet.</div>
+
+                    <!-- Form tambah pembayaran -->
+                    <div class="border-t px-3 py-3 bg-muted/10">
+                        <p class="text-xs font-medium text-muted-foreground mb-2">Record Payment / Deposit</p>
+                        <div class="flex flex-wrap gap-2 items-end">
+                            <div class="space-y-1">
+                                <label class="text-xs text-muted-foreground">Amount ({{ inv.currency || 'IDR' }})</label>
+                                <input type="number" v-model="payForms[inv.id].amount" min="0.01" step="0.01"
+                                    :placeholder="`${inv.currency || 'IDR'} amount`"
+                                    class="w-36 border rounded px-2 py-1 text-sm text-right font-mono focus:outline-none focus:ring-1 focus:ring-primary" />
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-xs text-muted-foreground">Date</label>
+                                <input type="date" v-model="payForms[inv.id].date"
+                                    class="border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-xs text-muted-foreground">Method</label>
+                                <select v-model="payForms[inv.id].method"
+                                    class="border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary">
+                                    <option value="transfer">Transfer</option>
+                                    <option value="cash">Cash</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                            <div class="space-y-1 flex-1 min-w-[8rem]">
+                                <label class="text-xs text-muted-foreground">Notes (optional)</label>
+                                <input type="text" v-model="payForms[inv.id].notes" placeholder="e.g. DP 50%"
+                                    class="w-full border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                            </div>
+                            <Button size="sm" :disabled="!(Number(payForms[inv.id]?.amount) > 0)" @click="savePayment(inv.id)">
+                                + Save
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 
