@@ -202,8 +202,12 @@ class Tour extends Model
         static::creating(function ($tour) {
             if (empty($tour->code)) {
                 $year  = now()->year;
-                $count = static::whereYear('created_at', $year)->count() + 1;
-                $tour->code = 'WM-' . $year . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
+                $prefix = 'WM-' . $year . '-';
+                $latest = static::where('code', 'like', $prefix . '%')
+                    ->orderByDesc('code')
+                    ->value('code');
+                $next = $latest ? ((int) substr($latest, strlen($prefix))) + 1 : 1;
+                $tour->code = $prefix . str_pad($next, 4, '0', STR_PAD_LEFT);
             }
         });
     }
