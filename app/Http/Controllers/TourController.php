@@ -94,7 +94,7 @@ class TourController extends Controller
 
     public function edit(Tour $tour)
     {
-        $tour->load(['customer', 'items.product', 'quotationItems.product', 'assignments', 'itineraryDays', 'itineraryHours', 'histories', 'invoices.items.product']);
+        $tour->load(['customer', 'items.product', 'quotationItems.product', 'assignments', 'itineraryDays', 'itineraryHours', 'histories', 'invoices.items.product', 'invoices.payments']);
         $tour->append(['total_cost', 'total_sell', 'profit', 'margin', 'itinerary_pdf_url']);
 
         return Inertia::render('Tours/Edit', [
