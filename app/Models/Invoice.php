@@ -116,9 +116,14 @@ class Invoice extends Model
     {
         static::creating(function (Invoice $inv) {
             if (! $inv->number) {
-                $year = now()->year;
-                $seq  = static::whereYear('created_at', $year)->count() + 1;
-                $inv->number = sprintf('INV-%d-%04d', $year, $seq);
+                $year   = now()->year;
+                $prefix = 'INV-' . $year . '-';
+                $latest = static::whereYear('created_at', $year)
+                    ->where('number', 'like', $prefix . '%')
+                    ->orderByDesc('number')
+                    ->value('number');
+                $next        = $latest ? ((int) substr($latest, strlen($prefix))) + 1 : 1;
+                $inv->number = $prefix . str_pad($next, 4, '0', STR_PAD_LEFT);
             }
         });
     }
