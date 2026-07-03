@@ -146,6 +146,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/invoices/{invoice}/approve',    [InvoiceController::class, 'approve'])->name('invoices.approve');
         Route::delete('/invoices/{invoice}',          [InvoiceController::class, 'destroy'])->name('invoices.destroy');
         Route::post('/invoices/{invoice}/items',      [InvoiceItemController::class, 'store'])->name('invoice-items.store');
+        Route::post('/invoices/{invoice}/items/bulk', [InvoiceItemController::class, 'bulkStore'])->name('invoice-items.bulk');
         Route::patch('/invoice-items/{invoiceItem}',  [InvoiceItemController::class, 'update'])->name('invoice-items.update');
         Route::delete('/invoice-items/{invoiceItem}', [InvoiceItemController::class, 'destroy'])->name('invoice-items.destroy');
 
@@ -202,6 +203,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/invoices/{invoice}/download', [InvoiceController::class, 'download'])->name('invoices.download');
     });
 
+    // Rekening pembayaran (tampil di invoice) — sales & akuntan bisa kelola
+    Route::middleware('role:admin,sales,accountant')->group(function () {
+        Route::get('/finance/bank-accounts',                   [BankAccountController::class, 'index'])->name('bank-accounts.index');
+        Route::post('/finance/bank-accounts',                  [BankAccountController::class, 'store'])->name('bank-accounts.store');
+        Route::patch('/finance/bank-accounts/{bankAccount}',   [BankAccountController::class, 'update'])->name('bank-accounts.update');
+        Route::delete('/finance/bank-accounts/{bankAccount}',  [BankAccountController::class, 'destroy'])->name('bank-accounts.destroy');
+    });
+
     // Finance — admin + accountant
     Route::middleware('role:admin,accountant')->group(function () {
         Route::get('/finance',             [FinanceController::class, 'index'])->name('finance.index');
@@ -252,12 +261,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/finance/cash-accounts', [FinanceLedgerController::class, 'storeCashAccount'])->name('finance.cash-accounts.store');
         Route::patch('/finance/cash-accounts/{cashAccount}',  [FinanceLedgerController::class, 'updateCashAccount'])->name('finance.cash-accounts.update');
         Route::delete('/finance/cash-accounts/{cashAccount}', [FinanceLedgerController::class, 'destroyCashAccount'])->name('finance.cash-accounts.destroy');
-
-        // Rekening pembayaran (tampil di invoice) — dikelola akuntan
-        Route::get('/finance/bank-accounts',                   [BankAccountController::class, 'index'])->name('bank-accounts.index');
-        Route::post('/finance/bank-accounts',                  [BankAccountController::class, 'store'])->name('bank-accounts.store');
-        Route::patch('/finance/bank-accounts/{bankAccount}',   [BankAccountController::class, 'update'])->name('bank-accounts.update');
-        Route::delete('/finance/bank-accounts/{bankAccount}',  [BankAccountController::class, 'destroy'])->name('bank-accounts.destroy');
 
         Route::get('/finance/{tour}',      [FinanceController::class, 'tour'])->name('finance.tour');
 

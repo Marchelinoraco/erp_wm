@@ -101,6 +101,7 @@ const navGroups = computed(() => {
             { label: 'Produk',          route: 'products.index',        match: 'products.*',        icon: ICON.products },
             { label: 'Suppliers',       route: 'suppliers.index',       match: 'suppliers.*',       icon: ICON.suppliers },
             { label: 'Channel Manager', route: 'channel-manager.index', match: 'channel-manager.*', icon: ICON.channel },
+            { label: 'Rekening',        route: 'bank-accounts.index',   match: 'bank-accounts.*',   icon: ICON.finance },
         ]
         groups.push({ label: 'Data Master', items: dataItems })
     }

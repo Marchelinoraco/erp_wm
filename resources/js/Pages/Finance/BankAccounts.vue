@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
-import { Head, Link, useForm, router } from '@inertiajs/vue3'
-import { ref } from 'vue'
+import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3'
+import { ref, computed } from 'vue'
 import { confirm } from '@/lib/confirm'
 import { Button } from '@/Components/ui/button'
 import { Input } from '@/Components/ui/input'
@@ -13,6 +13,8 @@ import {
 defineProps({
     accounts: Array,
 })
+
+const canSeeFinance = computed(() => ['admin', 'accountant'].includes(usePage().props.auth.user?.role))
 
 const dialogOpen = ref(false)
 const editing = ref(null)
@@ -78,7 +80,8 @@ async function remove(acc) {
         <template #header>
             <div class="flex items-center justify-between">
                 <h1 class="text-base font-semibold text-gray-800">Rekening Pembayaran</h1>
-                <Link :href="route('finance.index')" class="text-sm text-gray-500 hover:text-gray-700">← Keuangan</Link>
+                <Link v-if="canSeeFinance" :href="route('finance.index')" class="text-sm text-gray-500 hover:text-gray-700">← Keuangan</Link>
+                <Link v-else :href="route('dashboard')" class="text-sm text-gray-500 hover:text-gray-700">← Dashboard</Link>
             </div>
         </template>
 

@@ -49,6 +49,7 @@ watch(
             proformaForms[inv.id] = {
                 currency:          inv.currency || 'IDR',
                 unit_price:        Number(inv.unit_price) || 0,
+                guest_name:        inv.guest_name || '',
                 description_lines: Array.isArray(inv.description_lines)
                     ? inv.description_lines.map(l => ({ label: l.label ?? '', date: l.date ?? '', detail: l.detail ?? '' }))
                     : [],
@@ -102,6 +103,116 @@ function proformaTotal(invId) {
 }
 function invProfit(inv) {
     return (inv.items ?? []).reduce((s, i) => s + (Number(i.line_sell) - Number(i.line_cost)), 0)
+}
+
+// ── Salin rincian profit ke clipboard (tab-separated → rapi di Excel/Sheets) ──
+const copiedProfit = ref(null)
+async function copyProfitTable(inv) {
+    const rows = [['Deskripsi', 'Tipe', 'Qty', 'Mlm', 'Cost/unit', 'Sell/unit', 'Total Cost', 'Total Jual']]
+    ;(inv.items ?? []).forEach(item => {
+        const f = itemForms[item.id] ?? item
+        const qty    = Number(f.qty) || 0
+        const nights = Number(f.nights) || 0
+        const cost   = Number(f.unit_cost) || 0
+        const sell   = Number(f.unit_sell) || 0
+        rows.push([
+            f.description || item.product?.name || '',
+            TYPE_LABELS[item.product_type] ?? item.product_type ?? '',
+            qty, nights, cost, sell,
+            qty * nights * cost,
+            qty * nights * sell,
+        ])
+    })
+    const totalCost = (inv.items ?? []).reduce((s, i) => s + Number(i.line_cost), 0)
+    const totalSell = (inv.items ?? []).reduce((s, i) => s + Number(i.line_sell), 0)
+    rows.push([])
+    rows.push(['Total', '', '', '', '', '', totalCost, totalSell])
+    rows.push(['Profit', '', '', '', '', '', '', totalSell - totalCost])
+    rows.push(['Margin', '', '', '', '', '', '', `${invMargin(inv)}%`])
+
+    const text = rows.map(r => r.join('\t')).join('\n')
+    try {
+        await navigator.clipboard.writeText(text)
+    } catch {
+        // Fallback untuk browser tanpa izin clipboard API
+        const ta = document.createElement('textarea')
+        ta.value = text
+        document.body.appendChild(ta)
+        ta.select()
+        document.execCommand('copy')
+        document.body.removeChild(ta)
+    }
+    copiedProfit.value = inv.id
+    setTimeout(() => { if (copiedProfit.value === inv.id) copiedProfit.value = null }, 2000)
+}
+
+// ── Tempel rincian profit dari clipboard (kebalikan tombol Salin) ───────────────
+const pasteDialogOpen = ref(false)
+const pasteTarget     = ref(null)   // invoice id tujuan
+const pasteText       = ref('')
+
+const LABEL_TO_TYPE = Object.fromEntries(
+    Object.entries(TYPE_LABELS).map(([k, v]) => [v.toLowerCase(), k])
+)
+
+function openPasteDialog(inv) {
+    pasteTarget.value = inv.id
+    pasteText.value = ''
+    pasteDialogOpen.value = true
+}
+
+// "25000,00" / "25.000" / "Rp 25.000,50" / "25,000.00" → angka
+function parseNum(s) {
+    s = String(s ?? '').replace(/[^\d.,-]/g, '')
+    if (!s) return 0
+    const lastDot = s.lastIndexOf('.'), lastComma = s.lastIndexOf(',')
+    if (lastDot !== -1 && lastComma !== -1) {
+        // Pemisah desimal = yang paling belakang; sisanya pemisah ribuan
+        s = lastComma > lastDot
+            ? s.replace(/\./g, '').replace(',', '.')
+            : s.replace(/,/g, '')
+    } else if (lastComma !== -1) {
+        const dec = s.length - lastComma - 1
+        s = dec <= 2 ? s.replace(',', '.') : s.replace(/,/g, '')
+    } else if (lastDot !== -1) {
+        const dec = s.length - lastDot - 1
+        if (dec === 3) s = s.replace(/\./g, '')   // 25.000 → ribuan gaya Indonesia
+    }
+    return Number(s) || 0
+}
+
+const parsedPasteRows = computed(() => {
+    const rows = []
+    for (const line of pasteText.value.split(/\r?\n/)) {
+        const cells = line.split('\t').map(c => c.trim())
+        if (cells.every(c => c === '')) continue
+        const first = (cells[0] ?? '').toLowerCase()
+        // Lewati header & baris ringkasan hasil tombol Salin
+        if (['deskripsi', 'description', 'total', 'profit', 'margin'].includes(first)) continue
+        if (cells.length < 2) continue
+
+        // Kolom "Tipe" opsional: ada bila sel ke-2 bukan angka
+        const hasType = cells.length >= 6 && cells[1] !== '' && !/^[\d.,-]+$/.test(cells[1])
+        const o = hasType ? 1 : 0
+        rows.push({
+            description:  cells[0],
+            product_type: hasType ? (LABEL_TO_TYPE[cells[1].toLowerCase()] ?? null) : null,
+            qty:          Math.max(Math.round(parseNum(cells[1 + o])) || 1, 1),
+            nights:       Math.max(Math.round(parseNum(cells[2 + o])) || 1, 1),
+            unit_cost:    parseNum(cells[3 + o]),
+            unit_sell:    parseNum(cells[4 + o]),
+        })
+    }
+    return rows
+})
+
+function submitPaste() {
+    if (!parsedPasteRows.value.length) return
+    errorMsg.value = ''
+    router.post(route('invoice-items.bulk', pasteTarget.value), { items: parsedPasteRows.value }, {
+        ...reload,
+        onSuccess: () => { pasteDialogOpen.value = false },
+    })
 }
 function invMargin(inv) {
     const sell = (inv.items ?? []).reduce((s, i) => s + Number(i.line_sell), 0)
@@ -322,7 +433,7 @@ function addProduct(product) {
 
                 <!-- Header proforma (read-only dari Tour) -->
                 <div class="grid sm:grid-cols-2 gap-x-6 gap-y-1 rounded-md bg-muted/20 px-4 py-3 text-sm">
-                    <div><span class="text-muted-foreground">Guest Name:</span> <span class="font-medium">{{ guestName }}</span></div>
+                    <div><span class="text-muted-foreground">Guest Name:</span> <span class="font-medium">{{ inv.guest_name || guestName }}</span></div>
                     <div><span class="text-muted-foreground">Reservation:</span> <span class="font-medium">{{ reservationLabel }}</span></div>
                     <div><span class="text-muted-foreground">Date:</span> <span class="font-medium">{{ dateLabel }}</span></div>
                     <div><span class="text-muted-foreground">Total Pax:</span> <span class="font-medium">{{ tourPax || '—' }} pax</span></div>
@@ -330,6 +441,14 @@ function addProduct(product) {
 
                 <!-- ── EDITOR PROFORMA (belum disetujui) ── -->
                 <template v-if="!isApproved(inv) && proformaForms[inv.id]">
+                    <!-- Guest Name (override tampilan PDF, tidak mengubah data Customer) -->
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-muted-foreground">Guest Name (tampil di PDF)</label>
+                        <input type="text" v-model="proformaForms[inv.id].guest_name" @blur="saveProforma(inv.id)"
+                            :placeholder="guestName"
+                            class="block w-full max-w-sm border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+
                     <!-- Mata uang + kurs -->
                     <div class="flex flex-wrap items-end gap-3">
                         <div class="space-y-1">
@@ -358,13 +477,14 @@ function addProduct(product) {
                         </div>
                         <div v-else class="divide-y">
                             <div v-for="(ln, idx) in proformaForms[inv.id].description_lines" :key="idx"
-                                class="flex flex-wrap items-center gap-2 px-3 py-2">
+                                class="flex flex-wrap items-start gap-2 px-3 py-2">
                                 <input type="text" v-model="ln.label" @blur="saveProforma(inv.id)" placeholder="Label (mis. Hotel)"
                                     class="w-32 border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
                                 <input type="text" v-model="ln.date" @blur="saveProforma(inv.id)" placeholder="Tanggal (mis. 13-15 Aug 2026)"
                                     class="w-44 border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
-                                <input type="text" v-model="ln.detail" @blur="saveProforma(inv.id)" placeholder="Deskripsi"
-                                    class="flex-1 min-w-[12rem] border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                                <textarea v-model="ln.detail" @blur="saveProforma(inv.id)" placeholder="Deskripsi (Enter untuk baris baru, mis. nama hotel lalu tipe kamar)"
+                                    rows="2"
+                                    class="flex-1 min-w-[12rem] border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"></textarea>
                                 <button type="button" @click="removeLine(inv.id, idx)"
                                     class="text-muted-foreground hover:text-destructive transition-colors" title="Hapus baris">✕</button>
                             </div>
@@ -390,9 +510,9 @@ function addProduct(product) {
                 <template v-else-if="isApproved(inv)">
                     <div v-if="(inv.description_lines ?? []).length" class="rounded-md border divide-y text-sm">
                         <div v-for="(ln, idx) in inv.description_lines" :key="idx" class="flex gap-2 px-3 py-1.5">
-                            <span class="w-28 font-medium">{{ ln.label }}</span>
+                            <span class="w-28 font-medium">{{ idx === 0 || ln.label !== inv.description_lines[idx - 1].label ? ln.label : '' }}</span>
                             <span class="w-40 text-muted-foreground">{{ ln.date }}</span>
-                            <span class="flex-1">{{ ln.detail }}</span>
+                            <span class="flex-1 whitespace-pre-line">{{ ln.detail }}</span>
                         </div>
                     </div>
                     <div class="text-sm">
@@ -420,9 +540,17 @@ function addProduct(product) {
                     </button>
 
                     <div v-if="profitOpen[inv.id]" class="border-t p-3 space-y-2">
-                        <p class="text-[11px] text-muted-foreground">
-                            Tidak muncul di PDF customer. Hanya untuk memantau modal vs jual (IDR). Tidak wajib untuk menyetujui.
-                        </p>
+                        <div class="flex items-center justify-between gap-3">
+                            <p class="text-[11px] text-muted-foreground">
+                                Tidak muncul di PDF customer. Hanya untuk memantau modal vs jual (IDR). Tidak wajib untuk menyetujui.
+                            </p>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <Button v-if="!isApproved(inv)" size="sm" variant="outline" @click="openPasteDialog(inv)">📥 Tempel</Button>
+                                <Button v-if="(inv.items ?? []).length" size="sm" variant="outline" @click="copyProfitTable(inv)">
+                                    {{ copiedProfit === inv.id ? '✓ Tersalin' : '📋 Salin' }}
+                                </Button>
+                            </div>
+                        </div>
                         <div class="overflow-x-auto rounded-md border">
                             <table class="w-full text-sm">
                                 <thead>
@@ -653,6 +781,57 @@ function addProduct(product) {
                         Produk tidak ditemukan.
                     </p>
                 </div>
+            </DialogContent>
+        </Dialog>
+
+        <!-- ── Dialog tempel rincian profit ── -->
+        <Dialog v-model:open="pasteDialogOpen">
+            <DialogContent class="max-w-3xl max-h-[85vh] flex flex-col">
+                <DialogHeader>
+                    <DialogTitle>Tempel Rincian Profit</DialogTitle>
+                </DialogHeader>
+                <p class="text-xs text-muted-foreground">
+                    Tempel (Ctrl+V / Cmd+V) data dari Excel, Google Sheets, atau hasil tombol "Salin".
+                    Urutan kolom: <b>Deskripsi · [Tipe] · Qty · Mlm · Cost/unit · Sell/unit</b> — kolom Tipe dan kolom setelah Sell/unit boleh ada/tidak.
+                </p>
+                <textarea v-model="pasteText" rows="8" autofocus
+                    placeholder="Tempel data di sini..."
+                    class="w-full border rounded px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"></textarea>
+
+                <div v-if="parsedPasteRows.length" class="overflow-auto max-h-60 rounded-md border">
+                    <table class="w-full text-xs">
+                        <thead>
+                            <tr class="border-b bg-muted/30 text-muted-foreground uppercase">
+                                <th class="px-2 py-1.5 text-left">Deskripsi</th>
+                                <th class="px-2 py-1.5 text-left">Tipe</th>
+                                <th class="px-2 py-1.5 text-center">Qty</th>
+                                <th class="px-2 py-1.5 text-center">Mlm</th>
+                                <th class="px-2 py-1.5 text-right">Cost/unit</th>
+                                <th class="px-2 py-1.5 text-right">Sell/unit</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(r, i) in parsedPasteRows" :key="i" class="border-b last:border-0">
+                                <td class="px-2 py-1">{{ r.description }}</td>
+                                <td class="px-2 py-1">{{ r.product_type ? (TYPE_LABELS[r.product_type] ?? r.product_type) : '—' }}</td>
+                                <td class="px-2 py-1 text-center">{{ r.qty }}</td>
+                                <td class="px-2 py-1 text-center">{{ r.nights }}</td>
+                                <td class="px-2 py-1 text-right font-mono">{{ fmtNum(r.unit_cost) }}</td>
+                                <td class="px-2 py-1 text-right font-mono">{{ fmtNum(r.unit_sell) }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p v-else-if="pasteText.trim()" class="text-xs text-amber-600">
+                    Tidak ada baris yang bisa dibaca — pastikan data dipisah tab (hasil copy dari Excel/Sheets).
+                </p>
+
+                <DialogFooter>
+                    <Button variant="outline" @click="pasteDialogOpen = false">Batal</Button>
+                    <Button :disabled="!parsedPasteRows.length" @click="submitPaste">
+                        Tambahkan {{ parsedPasteRows.length }} item
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     </div>
