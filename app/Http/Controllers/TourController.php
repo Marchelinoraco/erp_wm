@@ -39,13 +39,36 @@ class TourController extends Controller
             $query->where('status', $request->status);
         }
 
+        // Cari bebas: kode, judul, atau nama customer
+        if ($request->filled('q')) {
+            $q = $request->q;
+            $query->where(fn ($w) => $w
+                ->where('code', 'like', "%{$q}%")
+                ->orWhere('title', 'like', "%{$q}%")
+                ->orWhereHas('customer', fn ($c) => $c->where('name', 'like', "%{$q}%")));
+        }
+
+        // Rentang tanggal keberangkatan
+        if ($request->filled('date_from')) {
+            $query->whereDate('start_date', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('start_date', '<=', $request->date_to);
+        }
+
+        if ($request->filled('sales')) {
+            $query->where('sales_person', $request->sales);
+        }
+
         $tours = $query->paginate(25)->withQueryString();
 
         return Inertia::render('Tours/Index', [
-            'tours'   => $tours,
-            'filters' => $request->only('status'),
-            'type'    => $type,
-            'types'   => Tour::TYPES,
+            'tours'       => $tours,
+            'filters'     => $request->only('status', 'q', 'date_from', 'date_to', 'sales'),
+            'type'        => $type,
+            'types'       => Tour::TYPES,
+            'salesPeople' => Tour::whereNotNull('sales_person')->where('sales_person', '!=', '')
+                ->distinct()->orderBy('sales_person')->pluck('sales_person'),
         ]);
     }
 
