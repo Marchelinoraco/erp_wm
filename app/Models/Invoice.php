@@ -116,14 +116,10 @@ class Invoice extends Model
     {
         static::creating(function (Invoice $inv) {
             if (! $inv->number) {
-                $year   = now()->year;
-                $prefix = 'INV-' . $year . '-';
-                $latest = static::whereYear('created_at', $year)
-                    ->where('number', 'like', $prefix . '%')
-                    ->orderByDesc('number')
-                    ->value('number');
-                $next        = $latest ? ((int) substr($latest, strlen($prefix))) + 1 : 1;
-                $inv->number = $prefix . str_pad($next, 4, '0', STR_PAD_LEFT);
+                // Nomor invoice mengikuti kode tour, awalan WM- diganti INV-
+                // (WM-2026-11-0001 → INV-2026-11-0001). Satu tour = satu invoice.
+                $code        = (string) $inv->tour?->code;
+                $inv->number = preg_replace('/^WM-/', 'INV-', $code);
             }
         });
     }

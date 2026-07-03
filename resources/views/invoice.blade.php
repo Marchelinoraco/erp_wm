@@ -12,15 +12,15 @@
     .pad { padding: 12px 18px; }
     .head-table { width: 100%; }
     .head-table td { vertical-align: middle; }
-    .logo-cell { width: 110px; text-align: center; }
-    .logo-cell img { width: 92px; height: 92px; }
+    .logo-cell { width: 130px; text-align: center; }
+    .logo-cell img { width: 118px; height: 118px; }
     .co-name { font-size: 14pt; font-weight: bold; letter-spacing: .5px; }
-    .co-meta { font-size: 9pt; line-height: 1.5; margin-top: 2px; }
+    .co-meta { font-size: 8pt; line-height: 1.5; margin-top: 2px; }
     .co-meta a { color: #000; text-decoration: none; }
 
     .services {
         border-top: 1.2px solid #000; border-bottom: 1.2px solid #000;
-        padding: 6px 18px; text-align: center; font-weight: bold; font-size: 9.5pt;
+        padding: 6px 18px; text-align: center; font-weight: bold; font-size: 8pt;
     }
 
     /* ── Invoice title row ── */
@@ -51,7 +51,7 @@
         font-weight: bold; text-align: center; padding: 6px 10px;
     }
     .main .dcell { border-left: 1px solid #000; padding: 3px 12px; vertical-align: top; }
-    .main .acell { border-left: 1px solid #000; border-right: 1px solid #000; padding: 3px 12px; text-align: right; white-space: nowrap; vertical-align: top; }
+    .main .acell { border-left: 1px solid #000; border-right: 1px solid #000; padding: 3px 12px 3px 4px; text-align: right; white-space: nowrap; vertical-align: top; }
     .main .lead td { padding-top: 9px; }
     .main .tail td { padding-bottom: 9px; }
     .kv { width: 100%; border-collapse: collapse; }
@@ -96,7 +96,9 @@
     $tour = $invoice->tour;
 
     $custName = $tour?->customer?->name ?? 'Valued Guest';
-    $party    = ($tour?->pax ?? 0) > 1 ? $custName . ' & Party' : $custName;
+    $party    = trim((string) $invoice->guest_name) !== ''
+        ? $invoice->guest_name
+        : (($tour?->pax ?? 0) > 1 ? $custName . ' & Party' : $custName);
 
     $resvDate = $tour?->start_date
         ? \Carbon\Carbon::parse($tour->start_date)->format('d F Y')
@@ -117,7 +119,7 @@
         <table class="head-table">
             <tr>
                 @if($logo)
-                <td class="logo-cell"><img src="{{ $logo }}" width="85" height="85" style="width:85px;height:85px;" alt=""></td>
+                <td class="logo-cell"><img src="{{ $logo }}" width="118" height="118" style="width:118px;height:118px;" alt=""></td>
                 @endif
                 <td style="text-align:center;">
                     <div class="co-name">{{ $company['legal_name'] }}</div>
@@ -142,6 +144,9 @@
                 <td style="text-align:right;">
                     <div class="issued-box">
                         Date of Issued: <span class="hot">{{ \Carbon\Carbon::parse($invoice->date)->format('d F Y') }}</span>, No: <span class="hot">{{ $invoice->number }}</span>
+                        @if($invoice->due_date)
+                        <div style="font-size:10pt; margin-top:3px;">Payment Due: <span class="hot">{{ \Carbon\Carbon::parse($invoice->due_date)->format('d F Y') }}</span></div>
+                        @endif
                     </div>
                 </td>
             </tr>
@@ -167,8 +172,8 @@
         <table class="main">
             <thead>
                 <tr>
-                    <td style="width:72%;">DESCRIPTION</td>
-                    <td style="width:28%;">AMOUNT</td>
+                    <td style="width:78%;">DESCRIPTION</td>
+                    <td style="width:22%;">AMOUNT</td>
                 </tr>
             </thead>
             <tbody>
@@ -186,17 +191,29 @@
                             <tr><td class="k">Total Pax</td><td class="s">:</td><td>{{ $tour->pax }} pax</td></tr>
                             @endif
 
+                            @php $prevLbl = null; @endphp
                             @foreach($lines as $ln)
-                            @php $lbl = trim($ln['label'] ?? ''); $dt = trim($ln['date'] ?? ''); $det = trim($ln['detail'] ?? ''); @endphp
+                            @php
+                                $lbl = trim($ln['label'] ?? '');
+                                $dt  = trim($ln['date'] ?? '');
+                                $det = trim($ln['detail'] ?? '');
+                                $showLbl = $lbl !== '' && $lbl !== $prevLbl;
+                                if ($lbl !== '') { $prevLbl = $lbl; }
+                            @endphp
                             @if($lbl !== '' || $dt !== '' || $det !== '')
                             <tr>
-                                <td class="k">{{ $lbl }}</td>
-                                <td class="s">{{ $lbl !== '' ? ':' : '' }}</td>
+                                <td class="k">{{ $showLbl ? $lbl : '' }}</td>
+                                <td class="s">{{ $showLbl ? ':' : '' }}</td>
                                 <td>
                                     <table style="width:100%; border-collapse:collapse;">
                                         <tr>
+                                            @if($dt !== '')
                                             <td style="width:130px; vertical-align:top; padding:0;">{{ $dt }}</td>
-                                            <td style="vertical-align:top; padding:0;">{{ $det }}</td>
+                                            <td style="vertical-align:top; padding:0;">{!! nl2br(e($det)) !!}</td>
+                                            @else
+                                            {{-- Tanpa tanggal: deskripsi langsung setelah titik dua --}}
+                                            <td style="vertical-align:top; padding:0;">{!! nl2br(e($det)) !!}</td>
+                                            @endif
                                         </tr>
                                     </table>
                                 </td>
@@ -215,7 +232,7 @@
                     <td class="dcell">
                         <table class="kv">
                             <tr>
-                                <td class="k" style="width:auto;">Price</td>
+                                <td class="k">Price</td>
                                 <td class="s">:</td>
                                 <td>
                                     @if($unitPrice > 0)
@@ -283,7 +300,7 @@
         @endif
 
         {{-- ── PROFORMA LINE ── --}}
-        <div class="proforma">THIS PROFORMA INVOICE IS SENT TO CONFIRM YOUR RESERVATION</div>
+        <div class="proforma">THIS PROFORMA INVOICE IS ISSUED TO CONFIRM YOUR RESERVATION</div>
 
     </div>
 </div>

@@ -20,6 +20,12 @@ class InvoiceController extends Controller
     /** Sales membuat invoice baru untuk tour (Tahap 1 dimulai dari sini). */
     public function store(Request $request, Tour $tour)
     {
+        if ($tour->invoices()->exists()) {
+            throw ValidationException::withMessages([
+                'invoice' => 'Tour ini sudah punya invoice. Nomor invoice mengikuti kode tour, jadi satu tour hanya boleh satu invoice.',
+            ]);
+        }
+
         $data = $request->validate([
             'pax'      => 'nullable|integer|min:1',
             'date'     => 'nullable|date',
@@ -63,6 +69,7 @@ class InvoiceController extends Controller
         $data = $request->validate([
             'currency'                   => 'required|string|in:' . implode(',', self::CURRENCIES),
             'unit_price'                 => 'required|numeric|min:0',
+            'guest_name'                 => 'nullable|string|max:255',
             'description_lines'          => 'nullable|array',
             'description_lines.*.label'  => 'nullable|string|max:255',
             'description_lines.*.date'   => 'nullable|string|max:255',
@@ -73,6 +80,7 @@ class InvoiceController extends Controller
         $invoice->fill([
             'currency'          => $data['currency'],
             'unit_price'        => $data['unit_price'],
+            'guest_name'        => $data['guest_name'] ?? null,
             'description_lines' => array_values($data['description_lines'] ?? []),
             'notes'             => $data['notes'] ?? $invoice->notes,
         ]);
@@ -281,10 +289,13 @@ class InvoiceController extends Controller
         return $accounts ?: config('quotation.bank', []);
     }
 
-    /** Logo di-embed sebagai data URI agar pasti tampil. */
+    /** Logo di-embed sebagai data URI agar pasti tampil. Invoice pakai logo bulat sendiri. */
     private function logoDataUri(): ?string
     {
-        $path = public_path('logo.png');
+        $path = public_path('logo-inv1.png');
+        if (! is_file($path)) {
+            $path = public_path('logo.png');
+        }
 
         if (! is_file($path)) {
             return null;
