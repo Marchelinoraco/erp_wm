@@ -1,9 +1,16 @@
 <script setup>
+import { computed } from 'vue'
 import { router } from '@inertiajs/vue3'
 import { fmtRp } from '@/lib/fmt'
 import { STATUS_CONFIG } from '@/lib/tourConstants'
 
 const props = defineProps({ tour: Object })
+
+// Tipe tour dengan invoice approved: angka berasal dari invoice
+// (sell = tagihan customer, cost = item rincian profit invoice).
+const fromInvoice = computed(() =>
+    props.tour.type === 'tour' && (props.tour.invoices ?? []).some(i => i.approved_at)
+)
 
 function changeStatus(status) {
     router.patch(route('tours.update', props.tour.id), { status }, {
@@ -19,11 +26,11 @@ function changeStatus(status) {
             <h3 class="font-semibold mb-4">Ringkasan Biaya</h3>
             <div class="space-y-3">
                 <div class="flex justify-between text-sm">
-                    <span class="text-muted-foreground">Total Cost (Modal)</span>
+                    <span class="text-muted-foreground">{{ fromInvoice ? 'Total Cost (Item Invoice)' : 'Total Cost (Modal)' }}</span>
                     <span class="font-mono">{{ fmtRp(tour.total_cost) }}</span>
                 </div>
                 <div class="flex justify-between text-sm">
-                    <span class="text-muted-foreground">Total Sell (Jual)</span>
+                    <span class="text-muted-foreground">{{ fromInvoice ? 'Total Tagihan (Invoice)' : 'Total Sell (Jual)' }}</span>
                     <span class="font-mono font-medium">{{ fmtRp(tour.total_sell) }}</span>
                 </div>
                 <div class="border-t pt-3">

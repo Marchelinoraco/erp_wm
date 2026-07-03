@@ -174,14 +174,32 @@ class Tour extends Model
     }
 
     // --- PERKIRAAN (snapshot tour_items) ---
+    // Khusus tipe "tour" (inbound/outbound) yang invoicenya sudah disetujui:
+    // sell = tagihan customer (total_idr invoice), cost = item invoice (rincian
+    // profit) — sesuai rumus Profit = tagihan − cost, bukan sell/unit per item.
+
+    /** Tipe tour dengan invoice approved → profit berbasis tagihan invoice. */
+    private function usesInvoiceProfit(): bool
+    {
+        return $this->type === 'tour'
+            && $this->invoices->whereNotNull('approved_at')->isNotEmpty();
+    }
 
     public function getTotalCostAttribute(): float
     {
+        if ($this->usesInvoiceProfit()) {
+            return (float) $this->invoices->flatMap->items->sum('line_cost');
+        }
+
         return (float) $this->items->sum('line_cost');
     }
 
     public function getTotalSellAttribute(): float
     {
+        if ($this->usesInvoiceProfit()) {
+            return (float) $this->invoices->whereNotNull('approved_at')->sum('total_idr');
+        }
+
         return (float) $this->items->sum('line_sell');
     }
 
