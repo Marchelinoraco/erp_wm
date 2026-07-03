@@ -101,7 +101,26 @@ function proformaTotal(invId) {
     if (!f) return 0
     return (Number(f.unit_price) || 0) * Math.max(tourPax.value, 1)
 }
+// Tipe "tour" (inbound/outbound): profit = tagihan customer (harga/pax × pax,
+// IDR) − total cost item. Tipe lain: profit per item (sell − cost).
+const isTourType = computed(() => props.tour.type === 'tour')
+
+// Nilai tagihan dalam IDR; null bila kurs non-IDR belum diketahui.
+function invRevenueIdr(inv) {
+    if (isApproved(inv)) return Number(inv.total_idr) || 0
+    const cur   = proformaForms[inv.id]?.currency || inv.currency || 'IDR'
+    const total = proformaTotal(inv.id)
+    if (cur === 'IDR') return total
+    const rate = Number(exchangeForms[inv.id]) || Number(inv.exchange_rate) || 0
+    return rate > 1 ? total * rate : null
+}
+
 function invProfit(inv) {
+    const totalCost = (inv.items ?? []).reduce((s, i) => s + Number(i.line_cost), 0)
+    if (isTourType.value) {
+        const rev = invRevenueIdr(inv)
+        return rev === null ? null : rev - totalCost
+    }
     return (inv.items ?? []).reduce((s, i) => s + (Number(i.line_sell) - Number(i.line_cost)), 0)
 }
 
@@ -127,7 +146,10 @@ async function copyProfitTable(inv) {
     const totalSell = (inv.items ?? []).reduce((s, i) => s + Number(i.line_sell), 0)
     rows.push([])
     rows.push(['Total', '', '', '', '', '', totalCost, totalSell])
-    rows.push(['Profit', '', '', '', '', '', '', totalSell - totalCost])
+    if (isTourType.value) {
+        rows.push(['Total Tagihan (IDR)', '', '', '', '', '', '', invRevenueIdr(inv) ?? 'kurs belum diisi'])
+    }
+    rows.push(['Profit', '', '', '', '', '', '', invProfit(inv) ?? 'kurs belum diisi'])
     rows.push(['Margin', '', '', '', '', '', '', `${invMargin(inv)}%`])
 
     const text = rows.map(r => r.join('\t')).join('\n')
@@ -215,8 +237,12 @@ function submitPaste() {
     })
 }
 function invMargin(inv) {
-    const sell = (inv.items ?? []).reduce((s, i) => s + Number(i.line_sell), 0)
-    return sell > 0 ? Math.round((invProfit(inv) / sell) * 1000) / 10 : 0
+    const profit = invProfit(inv)
+    if (profit === null) return 0
+    const base = isTourType.value
+        ? (invRevenueIdr(inv) ?? 0)
+        : (inv.items ?? []).reduce((s, i) => s + Number(i.line_sell), 0)
+    return base > 0 ? Math.round((profit / base) * 1000) / 10 : 0
 }
 function baselineMatched(inv) {
     return Math.abs(proformaTotal(inv.id) - Number(inv.baseline_total)) < 0.01
@@ -532,8 +558,8 @@ function addProduct(product) {
                         class="w-full flex items-center justify-between px-3 py-2 text-left text-xs font-semibold uppercase text-muted-foreground hover:bg-muted/30">
                         <span>Rincian Profit (internal · IDR) — opsional</span>
                         <span class="flex items-center gap-2">
-                            <span class="font-mono normal-case text-[11px]" :class="invProfit(inv) >= 0 ? 'text-green-700' : 'text-red-600'">
-                                {{ fmtRp(invProfit(inv)) }} ({{ invMargin(inv) }}%)
+                            <span class="font-mono normal-case text-[11px]" :class="(invProfit(inv) ?? 0) >= 0 ? 'text-green-700' : 'text-red-600'">
+                                {{ invProfit(inv) === null ? 'isi kurs dulu' : `${fmtRp(invProfit(inv))} (${invMargin(inv)}%)` }}
                             </span>
                             <span>{{ profitOpen[inv.id] ? '▾' : '▸' }}</span>
                         </span>
@@ -543,6 +569,7 @@ function addProduct(product) {
                         <div class="flex items-center justify-between gap-3">
                             <p class="text-[11px] text-muted-foreground">
                                 Tidak muncul di PDF customer. Hanya untuk memantau modal vs jual (IDR). Tidak wajib untuk menyetujui.
+                                <span v-if="isTourType" class="block">Profit tour = Total tagihan (harga/pax × pax) − total cost item.</span>
                             </p>
                             <div class="flex items-center gap-2 shrink-0">
                                 <Button v-if="!isApproved(inv)" size="sm" variant="outline" @click="openPasteDialog(inv)">📥 Tempel</Button>
