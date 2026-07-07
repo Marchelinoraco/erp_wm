@@ -64,6 +64,8 @@ watch(
                     description: item.description ?? '',
                     unit_cost:   item.unit_cost,
                     unit_sell:   item.unit_sell,
+                    start_date:  item.start_date ? String(item.start_date).slice(0, 10) : '',
+                    end_date:    item.end_date ? String(item.end_date).slice(0, 10) : '',
                 }
             })
         })
@@ -370,9 +372,24 @@ const addTargetInvoice = ref(null)
 const productSearch    = ref('')
 const addingProductId  = ref(null)
 
+// Hotel/transport/guide wajib diberi tanggal mulai & selesai — jadwal ini
+// tampil ke tim lapangan (guide/supir/tour leader) di MyJobs.
+const DATED_TYPES = ['hotel', 'transport', 'guide']
+const isDated = (t) => DATED_TYPES.includes(t)
+const pendingProduct = ref(null)   // produk berjadwal menunggu input tanggal
+const addDates = reactive({ start: '', end: '' })
+
+function fmtDateID(d) {
+    if (!d) return ''
+    return new Date(String(d).slice(0, 10)).toLocaleDateString('id-ID', {
+        day: 'numeric', month: 'short', year: 'numeric',
+    })
+}
+
 function openAddDialog(inv) {
     addTargetInvoice.value = inv
     productSearch.value    = ''
+    pendingProduct.value   = null
     addDialogOpen.value    = true
 }
 const filteredProducts = computed(() => {
@@ -390,9 +407,34 @@ const productsByType = computed(() => {
     })
     return groups
 })
-function addProduct(product) {
+function pickProduct(product) {
+    if (isDated(product.type)) {
+        pendingProduct.value = product
+        addDates.start = props.tour.start_date ? String(props.tour.start_date).slice(0, 10) : ''
+        addDates.end   = ''
+        return
+    }
+    addProduct(product)
+}
+
+watch(() => addDates.start, (s) => {
+    if (s && (!addDates.end || addDates.end < s)) addDates.end = s
+})
+
+function confirmAddDated() {
+    if (!addDates.start || !addDates.end) return
+    const extra = { start_date: addDates.start, end_date: addDates.end }
+    // Hotel: jumlah malam otomatis dari rentang check-in → check-out
+    if (pendingProduct.value.type === 'hotel') {
+        const nights = Math.round((new Date(addDates.end) - new Date(addDates.start)) / 86400000)
+        extra.nights = Math.max(nights, 1)
+    }
+    addProduct(pendingProduct.value, extra)
+}
+
+function addProduct(product, extra = {}) {
     addingProductId.value = product.id
-    router.post(route('invoice-items.store', addTargetInvoice.value.id), { product_id: product.id }, {
+    router.post(route('invoice-items.store', addTargetInvoice.value.id), { product_id: product.id, ...extra }, {
         preserveScroll: true,
         only: ['tour'],
         onError,
@@ -400,6 +442,7 @@ function addProduct(product) {
             addingProductId.value = null
             addDialogOpen.value   = false
             productSearch.value   = ''
+            pendingProduct.value  = null
         },
         onFinish: () => { addingProductId.value = null },
     })
@@ -601,7 +644,12 @@ function addProduct(product) {
                                         <tr v-for="item in inv.items" :key="item.id" class="border-b last:border-0">
                                             <td class="px-3 py-1.5">
                                                 {{ item.description || item.product?.name }}
-                                                <span class="block text-xs text-muted-foreground">{{ TYPE_LABELS[item.product_type] ?? item.product_type }}</span>
+                                                <span class="block text-xs text-muted-foreground">
+                                                    {{ TYPE_LABELS[item.product_type] ?? item.product_type }}
+                                                    <template v-if="item.start_date">
+                                                        · 📅 {{ fmtDateID(item.start_date) }}<template v-if="item.end_date && item.end_date !== item.start_date"> – {{ fmtDateID(item.end_date) }}</template>
+                                                    </template>
+                                                </span>
                                             </td>
                                             <td class="px-3 py-1.5 text-center">{{ item.qty }}</td>
                                             <td class="px-3 py-1.5 text-center">{{ item.nights }}</td>
@@ -616,6 +664,15 @@ function addProduct(product) {
                                                 <input type="text" v-model="itemForms[item.id].description" @blur="saveItem(item.id)"
                                                     class="border rounded px-2 py-0.5 text-sm w-full focus:outline-none focus:ring-1 focus:ring-primary" />
                                                 <span class="text-xs text-muted-foreground">{{ TYPE_LABELS[item.product_type] ?? item.product_type }}</span>
+                                                <div v-if="isDated(item.product_type)" class="flex items-center gap-1.5 mt-1">
+                                                    <span class="text-xs">📅</span>
+                                                    <input type="date" v-model="itemForms[item.id].start_date" @change="saveItem(item.id)"
+                                                        class="border rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+                                                    <span class="text-xs text-muted-foreground">–</span>
+                                                    <input type="date" v-model="itemForms[item.id].end_date" @change="saveItem(item.id)"
+                                                        :min="itemForms[item.id].start_date"
+                                                        class="border rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+                                                </div>
                                             </td>
                                             <td class="px-3 py-1.5">
                                                 <input type="number" v-model="itemForms[item.id].qty" @change="saveItem(item.id)" min="1"
@@ -782,6 +839,42 @@ function addProduct(product) {
                 <DialogHeader>
                     <DialogTitle>Pilih Produk</DialogTitle>
                 </DialogHeader>
+                <!-- Langkah 2: produk berjadwal (hotel/transport/guide) — isi tanggal dulu -->
+                <div v-if="pendingProduct" class="space-y-3">
+                    <div class="rounded-md border bg-muted/20 px-3 py-2">
+                        <p class="font-medium text-sm">{{ pendingProduct.name }}</p>
+                        <p class="text-xs text-muted-foreground">{{ TYPE_LABELS[pendingProduct.type] ?? pendingProduct.type }}</p>
+                    </div>
+                    <p class="text-xs text-muted-foreground">
+                        Produk tipe <b>{{ TYPE_LABELS[pendingProduct.type] ?? pendingProduct.type }}</b> perlu tanggal mulai & selesai —
+                        jadwal ini tampil ke tim lapangan di MyJobs.
+                        <span v-if="pendingProduct.type === 'hotel'" class="block">Jumlah malam dihitung otomatis dari check-in → check-out.</span>
+                    </p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="space-y-1">
+                            <label class="text-xs font-medium text-muted-foreground">
+                                {{ pendingProduct.type === 'hotel' ? 'Check-in' : 'Tanggal Mulai' }}
+                            </label>
+                            <Input type="date" v-model="addDates.start" autofocus />
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-xs font-medium text-muted-foreground">
+                                {{ pendingProduct.type === 'hotel' ? 'Check-out' : 'Tanggal Selesai' }}
+                            </label>
+                            <Input type="date" v-model="addDates.end" :min="addDates.start" />
+                        </div>
+                    </div>
+                    <div class="flex justify-between pt-1">
+                        <Button variant="outline" size="sm" @click="pendingProduct = null">← Kembali</Button>
+                        <Button size="sm" :disabled="!addDates.start || !addDates.end || addingProductId === pendingProduct.id"
+                            @click="confirmAddDated">
+                            + Tambah
+                        </Button>
+                    </div>
+                </div>
+
+                <!-- Langkah 1: cari & pilih produk -->
+                <template v-else>
                 <Input v-model="productSearch" placeholder="Cari produk..." class="mt-1" autofocus />
                 <div class="overflow-y-auto flex-1 mt-2 space-y-4 pr-1">
                     <div v-for="(items, type) in productsByType" :key="type">
@@ -794,10 +887,13 @@ function addProduct(product) {
                                 :key="p.id"
                                 type="button"
                                 :disabled="addingProductId === p.id"
-                                @click="addProduct(p)"
+                                @click="pickProduct(p)"
                                 class="w-full flex items-center justify-between px-3 py-2 rounded-md hover:bg-muted text-left text-sm transition-colors disabled:opacity-50"
                             >
-                                <span class="font-medium">{{ p.name }}</span>
+                                <span class="font-medium">
+                                    {{ p.name }}
+                                    <span v-if="isDated(p.type)" class="ml-1 text-xs text-muted-foreground font-normal">📅</span>
+                                </span>
                                 <span class="text-muted-foreground text-xs ml-4 shrink-0">
                                     Sell: {{ fmtNum(p.sell) }} {{ p.currency }} / {{ p.unit }}
                                 </span>
@@ -808,6 +904,7 @@ function addProduct(product) {
                         Produk tidak ditemukan.
                     </p>
                 </div>
+                </template>
             </DialogContent>
         </Dialog>
 

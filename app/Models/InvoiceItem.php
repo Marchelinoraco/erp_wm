@@ -10,11 +10,16 @@ class InvoiceItem extends Model
     protected $guarded = ['id', 'line_cost', 'line_sell'];
 
     protected $casts = [
-        'unit_cost' => 'decimal:2',
-        'unit_sell' => 'decimal:2',
-        'line_cost' => 'decimal:2',
-        'line_sell' => 'decimal:2',
+        'unit_cost'  => 'decimal:2',
+        'unit_sell'  => 'decimal:2',
+        'line_cost'  => 'decimal:2',
+        'line_sell'  => 'decimal:2',
+        'start_date' => 'date:Y-m-d',
+        'end_date'   => 'date:Y-m-d',
     ];
+
+    /** Tipe produk yang butuh tanggal mulai & selesai layanan. */
+    public const DATED_TYPES = ['hotel', 'transport', 'guide'];
 
     /**
      * Item invoice hanya untuk pantauan profit internal (cost vs sell, IDR) dan

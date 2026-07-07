@@ -18,14 +18,26 @@ class InvoiceItemController extends Controller
             'product_id' => 'required|exists:products,id',
             'qty'        => 'integer|min:1',
             'nights'     => 'integer|min:1',
+            'start_date' => 'nullable|date',
+            'end_date'   => 'nullable|date|after_or_equal:start_date',
         ]);
 
         $product = Product::findOrFail($request->product_id);
+
+        // Hotel/transport/guide wajib punya jadwal — tampil ke tim lapangan di MyJobs
+        if (in_array($product->type, InvoiceItem::DATED_TYPES, true)) {
+            $request->validate([
+                'start_date' => 'required|date',
+                'end_date'   => 'required|date|after_or_equal:start_date',
+            ]);
+        }
 
         $item = InvoiceItem::fromProduct($product, [
             'invoice_id' => $invoice->id,
             'qty'        => $request->input('qty', 1),
             'nights'     => $request->input('nights', 1),
+            'start_date' => $request->input('start_date'),
+            'end_date'   => $request->input('end_date'),
             'sort_order' => (int) $invoice->items()->max('sort_order') + 1,
         ]);
 
@@ -77,6 +89,8 @@ class InvoiceItemController extends Controller
             'unit_cost'   => 'sometimes|numeric|min:0',
             'unit_sell'   => 'sometimes|numeric|min:0',
             'sort_order'  => 'sometimes|integer|min:0',
+            'start_date'  => 'sometimes|nullable|date',
+            'end_date'    => 'sometimes|nullable|date|after_or_equal:start_date',
         ]);
 
         $invoiceItem->update($data);

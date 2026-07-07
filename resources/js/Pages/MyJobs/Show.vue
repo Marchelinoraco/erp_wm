@@ -4,7 +4,14 @@ import { Head, Link } from '@inertiajs/vue3'
 
 const props = defineProps({
     tour: Object,
+    schedule: Array,   // item invoice berjadwal (hotel/transport/guide) — tanpa harga
 })
+
+const TYPE_META = {
+    hotel:     { icon: '🏨', label: 'Hotel' },
+    transport: { icon: '🚐', label: 'Transport' },
+    guide:     { icon: '👤', label: 'Guide' },
+}
 
 const ROLE_LABELS = {
     guide:       'Tour Guide',
@@ -34,6 +41,17 @@ function itemsByDay(items) {
         groups[key].push(item)
     })
     return Object.entries(groups).sort(([a], [b]) => Number(a) - Number(b))
+}
+
+function hoursForDay(dayNumber) {
+    return (props.tour.itinerary_hours ?? []).filter(h => h.day_number === dayNumber)
+}
+
+function fmtTime(t) {
+    if (!t) return ''
+    // cast model "datetime:H:i" → "HH:mm"; antisipasi bila format lain ikut terkirim
+    const m = String(t).match(/\d{2}:\d{2}/)
+    return m ? m[0] : t
 }
 </script>
 
@@ -113,7 +131,34 @@ function itemsByDay(items) {
                     <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Program Tour</p>
                 </div>
 
-                <div v-if="!tour.items?.length" class="px-4 py-6 text-center text-gray-400 text-sm">
+                <!-- Itinerary (bila sudah disusun) -->
+                <div v-if="tour.itinerary_days?.length">
+                    <template v-for="day in tour.itinerary_days" :key="day.id">
+                        <div class="px-4 py-2 bg-blue-50 border-y border-blue-100 first:border-t-0">
+                            <p class="text-xs font-bold text-blue-700 uppercase tracking-wider">
+                                Hari {{ day.day_number }}<template v-if="day.title">: {{ day.title }}</template>
+                            </p>
+                        </div>
+                        <div class="px-4 py-3 border-b last:border-0">
+                            <p v-if="day.description" class="text-sm text-gray-700 whitespace-pre-line">{{ day.description }}</p>
+                            <div v-if="hoursForDay(day.day_number).length"
+                                :class="day.description ? 'mt-3 pt-3 border-t border-dashed' : ''"
+                                class="space-y-1.5">
+                                <div v-for="h in hoursForDay(day.day_number)" :key="h.id" class="flex items-start gap-2 text-sm">
+                                    <span class="font-mono text-xs font-semibold text-blue-700 bg-blue-50 rounded px-1.5 py-0.5 shrink-0 mt-0.5">
+                                        {{ fmtTime(h.start_time) }}<template v-if="h.end_time">–{{ fmtTime(h.end_time) }}</template>
+                                    </span>
+                                    <span class="text-gray-800">
+                                        {{ h.activity }}
+                                        <span v-if="h.notes" class="text-gray-400 text-xs italic">({{ h.notes }})</span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <div v-else-if="!tour.items?.length" class="px-4 py-6 text-center text-gray-400 text-sm">
                     Program belum diisi.
                 </div>
 
@@ -143,6 +188,33 @@ function itemsByDay(items) {
                             </div>
                         </div>
                     </template>
+                </div>
+            </div>
+
+            <!-- Jadwal Layanan (hotel / transport / guide dari invoice) -->
+            <div v-if="schedule?.length" class="bg-white rounded-xl border shadow-sm overflow-hidden">
+                <div class="px-4 py-3 border-b bg-gray-50">
+                    <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Jadwal Layanan</p>
+                </div>
+                <div class="divide-y">
+                    <div v-for="s in schedule" :key="s.id" class="px-4 py-3 flex items-start gap-3">
+                        <span class="text-base mt-0.5 shrink-0">{{ TYPE_META[s.product_type]?.icon ?? '📌' }}</span>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-medium text-gray-900 text-sm">{{ s.description }}</p>
+                            <p class="text-xs text-gray-500 mt-0.5">
+                                {{ fmtDateShort(s.start_date) }}
+                                <template v-if="s.end_date && s.end_date !== s.start_date"> – {{ fmtDateShort(s.end_date) }}</template>
+                                <template v-if="s.product_type === 'hotel' && s.nights > 0"> · {{ s.nights }} malam</template>
+                                <template v-if="s.qty > 1"> · {{ s.qty }} unit</template>
+                            </p>
+                        </div>
+                        <span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0"
+                            :class="s.product_type === 'hotel' ? 'bg-purple-50 text-purple-700'
+                                  : s.product_type === 'transport' ? 'bg-green-50 text-green-700'
+                                  : 'bg-blue-50 text-blue-700'">
+                            {{ TYPE_META[s.product_type]?.label ?? s.product_type }}
+                        </span>
+                    </div>
                 </div>
             </div>
 
