@@ -241,7 +241,7 @@
         <td style="width:30%; padding-right:6px; vertical-align:top;">
             <table style="{{ $cardBase }} border-top:3px solid #0f3460; background:#f8fafc;">
                 <tr><td style="padding:8px 10px;">
-                    <div style="font-size:6pt;font-weight:bold;color:#64748b;letter-spacing:1px;margin-bottom:3px;">KEPADA / TO</div>
+                    <div style="font-size:6pt;font-weight:bold;color:#64748b;letter-spacing:1px;margin-bottom:3px;">TO</div>
                     <div style="font-size:9.5pt;font-weight:bold;color:#0f3460;">{{ $tour->customer?->name ?? 'Valued Guest' }}</div>
                     @if($tour->customer?->country)
                     <div style="font-size:7.5pt;color:#64748b;margin-top:2px;">{{ $tour->customer->country }}</div>
@@ -252,7 +252,7 @@
         <td style="width:30%; padding-right:6px; vertical-align:top;">
             <table style="{{ $cardBase }} border-top:3px solid #0f3460; background:#f8fafc;">
                 <tr><td style="padding:8px 10px;">
-                    <div style="font-size:6pt;font-weight:bold;color:#64748b;letter-spacing:1px;margin-bottom:3px;">{{ strtoupper($tour->type_label ?? 'Paket') }}</div>
+                    <div style="font-size:6pt;font-weight:bold;color:#64748b;letter-spacing:1px;margin-bottom:3px;">{{ strtoupper($typeLabelEn ?? 'Package') }}</div>
                     <div style="font-size:9.5pt;font-weight:bold;color:#0f3460;">{{ $tour->title ?? $tour->code }}</div>
                     <div style="font-size:7.5pt;color:#64748b;margin-top:2px;">{{ $tour->pax }} Pax</div>
                 </td></tr>
@@ -261,10 +261,10 @@
         <td style="width:20%; padding-right:6px; vertical-align:top;">
             <table style="{{ $cardBase }} border-top:3px solid #0f3460; background:#f8fafc;">
                 <tr><td style="padding:8px 10px;">
-                    <div style="font-size:6pt;font-weight:bold;color:#64748b;letter-spacing:1px;margin-bottom:3px;">TANGGAL</div>
+                    <div style="font-size:6pt;font-weight:bold;color:#64748b;letter-spacing:1px;margin-bottom:3px;">DATE</div>
                     @if($tour->start_date)
                     <div style="font-size:9.5pt;font-weight:bold;color:#0f3460;">{{ \Carbon\Carbon::parse($tour->start_date)->format('d M Y') }}</div>
-                    <div style="font-size:7.5pt;color:#64748b;margin-top:2px;">s/d {{ \Carbon\Carbon::parse($tour->end_date)->format('d M Y') }}</div>
+                    <div style="font-size:7.5pt;color:#64748b;margin-top:2px;">to {{ \Carbon\Carbon::parse($tour->end_date)->format('d M Y') }}</div>
                     @else
                     <div style="font-size:9.5pt;font-weight:bold;color:#0f3460;">TBD</div>
                     @endif
@@ -285,11 +285,11 @@
 
 {{-- ── PROGRAM TOUR ── --}}
 @if($tour->itineraryDays->count())
-    <div class="section-title"><span class="tick">|</span> PROGRAM TOUR</div>
+    <div class="section-title"><span class="tick">|</span> TOUR ITINERARY</div>
     @foreach($tour->itineraryDays as $day)
         @php $hours = $tour->itineraryHours->where('day_number', $day->day_number); @endphp
         <div class="day">
-            <div class="day-head">HARI {{ $day->day_number }}@if($day->title): {{ strtoupper($day->title) }}@endif</div>
+            <div class="day-head">DAY {{ $day->day_number }}@if($day->title): {{ strtoupper($day->title) }}@endif</div>
             <div class="day-body">
                 @if($day->description){{ $day->description }}@endif
                 @if($hours->count())
@@ -317,25 +317,25 @@
         ->values();
 @endphp
 @if($detailRows->count())
-<div class="section-title"><span class="tick">|</span> DETAIL {{ strtoupper($tour->type_label) }}</div>
+<div class="section-title"><span class="tick">|</span> {{ strtoupper($typeLabelEn ?? 'Service') }} DETAILS</div>
 <table width="100%" style="border-collapse:collapse;margin-bottom:14px;">
     @foreach($detailRows as $r)
     <tr>
         <td style="width:32%;padding:5px 10px;font-size:8pt;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;vertical-align:top;">{{ $r['label'] }}</td>
-        <td style="padding:5px 10px;font-size:8pt;color:#1f2937;border:1px solid #e2e8f0;vertical-align:top;">{{ $r['value'] === true ? 'Ya' : $r['value'] }}</td>
+        <td style="padding:5px 10px;font-size:8pt;color:#1f2937;border:1px solid #e2e8f0;vertical-align:top;">{{ $r['value'] === true ? 'Yes' : $r['value'] }}</td>
     </tr>
     @endforeach
 </table>
 @endif
 
 {{-- ── HARGA ── --}}
-<div class="section-title"><span class="tick">|</span> {{ ($tour->type ?? 'tour') === 'tour' ? 'HARGA PAKET' : 'HARGA' }}</div>
+<div class="section-title"><span class="tick">|</span> {{ ($tour->type ?? 'tour') === 'tour' ? 'PACKAGE PRICE' : 'PRICE' }}</div>
 
 @if($hasMatrix)
     <table class="matrix">
         <thead>
             <tr>
-                <td class="left">{{ count($hotels) ? 'Hotel / Paket' : 'Paket' }}</td>
+                <td class="left">{{ count($hotels) ? 'Hotel / Package' : 'Package' }}</td>
                 @foreach($tiers as $tier)
                 <td>{{ $tier['label'] ?? '—' }}@if(!empty($tier['note']))<br><span class="tier-note">{{ $tier['note'] }}</span>@endif</td>
                 @endforeach
@@ -347,7 +347,7 @@
             @if($baseEnabled)
             @php $ri++; @endphp
             <tr class="{{ $ri % 2 === 0 ? 'alt' : '' }}">
-                <td class="name"><b>{{ $base['label'] ?? 'Tanpa Hotel' }}</b></td>
+                <td class="name"><b>{{ $base['label'] ?? 'Without Hotel' }}</b></td>
                 @foreach($tiers as $tier)
                 <td>{{ isset($base['prices'][$tier['id']]) ? $fmt($base['prices'][$tier['id']]) : '—' }}</td>
                 @endforeach
@@ -366,17 +366,17 @@
             @endforeach
         </tbody>
     </table>
-    <p class="price-caption">Harga per pax dalam IDR. Sgl. Sup = tambahan untuk kamar single.@if($tour->price_validity) Harga berlaku s/d {{ \Carbon\Carbon::parse($tour->price_validity)->format('d F Y') }}.@endif</p>
+    <p class="price-caption">Price per pax in IDR. Sgl. Sup = single room supplement.@if($tour->price_validity) Prices valid until {{ \Carbon\Carbon::parse($tour->price_validity)->format('d F Y') }}.@endif</p>
 @else
     <table class="simple-price-box">
-        <tr><td class="sp-lbl">Total Paket ({{ $tour->pax }} pax)</td><td class="sp-amt">IDR {{ $fmt($tour->total_sell) }}</td></tr>
+        <tr><td class="sp-lbl">Package Total ({{ $tour->pax }} pax)</td><td class="sp-amt">IDR {{ $fmt($tour->total_sell) }}</td></tr>
         @if($tour->pax > 0)
-        <tr><td class="sp-lbl">Harga per Pax</td><td class="sp-amt">IDR {{ $fmt($tour->total_sell / $tour->pax) }}</td></tr>
+        <tr><td class="sp-lbl">Price per Pax</td><td class="sp-amt">IDR {{ $fmt($tour->total_sell / $tour->pax) }}</td></tr>
         @endif
         <tr class="grand"><td class="sp-lbl">TOTAL</td><td class="sp-amt">IDR {{ $fmt($tour->total_sell) }}</td></tr>
     </table>
     @if($tour->price_validity)
-    <p class="price-caption">Harga berlaku s/d {{ \Carbon\Carbon::parse($tour->price_validity)->format('d F Y') }}.</p>
+    <p class="price-caption">Prices valid until {{ \Carbon\Carbon::parse($tour->price_validity)->format('d F Y') }}.</p>
     @endif
 @endif
 
@@ -408,7 +408,7 @@
             <table width="100%" style="border-collapse:collapse;border:1.5px solid #86efac;">
                 <tr>
                     <td colspan="2" style="background:#16a34a;color:#ffffff;font-size:8pt;font-weight:bold;padding:7px 12px;letter-spacing:1px;">
-                        &#10004; HARGA SUDAH TERMASUK
+                        &#10004; PRICE INCLUDES
                     </td>
                 </tr>
                 @foreach($incLines as $line)
@@ -428,7 +428,7 @@
             <table width="100%" style="border-collapse:collapse;border:1.5px solid #fca5a5;">
                 <tr>
                     <td colspan="2" style="background:#dc2626;color:#ffffff;font-size:8pt;font-weight:bold;padding:7px 12px;letter-spacing:1px;">
-                        &#10008; HARGA BELUM TERMASUK
+                        &#10008; PRICE EXCLUDES
                     </td>
                 </tr>
                 @foreach($excLines as $line)
@@ -446,7 +446,7 @@
 
 {{-- ── CHILD POLICY ── --}}
 @if($toLines($childPolicy)->count())
-<div class="section-title"><span class="tick">|</span> KEBIJAKAN ANAK</div>
+<div class="section-title"><span class="tick">|</span> CHILD POLICY</div>
 <div class="policy-box">
     <table width="100%" style="border-collapse:collapse;">
         @foreach($toLines($childPolicy) as $line)
@@ -461,16 +461,16 @@
 
 {{-- ── TERMS ── --}}
 @if(trim((string) $terms) !== '')
-<div class="section-title"><span class="tick">|</span> SYARAT &amp; KETENTUAN</div>
+<div class="section-title"><span class="tick">|</span> TERMS &amp; CONDITIONS</div>
 <div class="terms-box">{!! nl2br(e($terms)) !!}</div>
 @endif
 
 @if($tour->notes)
-<div class="section-title"><span class="tick">|</span> CATATAN</div>
+<div class="section-title"><span class="tick">|</span> NOTES</div>
 <div class="terms-box note">{!! nl2br(e($tour->notes)) !!}</div>
 @endif
 
-{{-- ── SIGNATURE ── --}}
+<!-- {{-- ── SIGNATURE ── --}}
 <div class="sign-wrap">
 <table class="sign-table">
     <tr>
@@ -481,16 +481,16 @@
                 Hp. {{ $company['phone'] }}<br>
                 Email: {{ $company['email'] }}
             </div>
-            <div><span class="validity-badge">Quotation valid 14 hari</span></div>
+            <div><span class="validity-badge">Quotation valid for 14 days</span></div>
         </td>
         <td style="width:42%;">
             <div class="sign-line">&nbsp;</div>
-            <div class="sign-label">Hormat kami,</div>
+            <div class="sign-label">Best regards,</div>
             <div class="sign-name">{{ $tour->sales_person ?: $company['brand'] }}</div>
         </td>
     </tr>
 </table>
-</div>
+</div> -->
 
 </body>
 </html>

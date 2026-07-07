@@ -41,36 +41,36 @@ return [
 Mohon cantumkan NOMOR INVOICE pada keterangan/berita transfer.
 Bukti transfer dapat dikirimkan via email atau WhatsApp kami.",
 
-    'included' => "Transportasi Full AC sesuai jumlah peserta
-Private Boat ke Pulau Bunaken
-Hotel sesuai pilihan – sekamar berdua (dbl/twin)
-Guide & driver berpengalaman
-Tiket masuk objek wisata & biaya parkir
-Pelayanan makan sesuai program
-Pelayanan tour sesuai program
-Air mineral 1 botol/pax/hari
+    'included' => "Fully air-conditioned transportation according to group size
+Private boat to Bunaken Island
+Hotel as selected – twin sharing basis (dbl/twin)
+Experienced guide & driver
+Entrance fees to tourist attractions & parking fees
+Meals as per program
+Tour services as per program
+Mineral water 1 bottle/pax/day
 Handling service",
 
-    'excluded' => "Tiket pesawat PP
-Tips guide & driver
-Optional tour
-Biaya diluar paket (tambahan makan/minum, dll)
-Porter, airport tax & kelebihan bagasi
-Biaya pribadi (laundry, mini bar, layanan kamar, dll)
-Asuransi perjalanan
-Biaya-biaya lainnya diluar program tour",
+    'excluded' => "Round-trip airfare
+Tips for guide & driver
+Optional tours
+Expenses outside the package (additional food/drinks, etc.)
+Porter, airport tax & excess baggage
+Personal expenses (laundry, mini bar, room service, etc.)
+Travel insurance
+Other expenses outside the tour program",
 
-    'child_policy' => "Bayi berusia di bawah 2 tahun yang berbagi kamar dengan orang tuanya tidak dikenakan biaya.
-Anak berusia di bawah 12 tahun yang berbagi kamar yang sama dengan 1 Dewasa dikenakan biaya 100%.
-Anak berusia di bawah 12 tahun dengan tempat tidur tambahan dan berbagi kamar dengan orang tuanya dikenakan biaya sebesar 80%.
-Anak di bawah 12 tahun No extra bed & berbagi kamar dengan orang tuanya dikenakan biaya sebesar 65%.",
+    'child_policy' => "Infants under 2 years old sharing a room with their parents are free of charge.
+Children under 12 years old sharing a room with 1 adult are charged 100%.
+Children under 12 years old with an extra bed, sharing a room with their parents, are charged 80%.
+Children under 12 years old with no extra bed, sharing a room with their parents, are charged 65%.",
 
-    'terms' => "PEMBATALAN (sesuai hari diterimanya pemberitahuan resmi tertulis):
-- 21 hari sebelum kedatangan: 20% dari total harga tour (GIT)
-- 10-20 hari sebelum kedatangan: 50% dari total harga tour (FIT/GIT)
-- 7-10 hari sebelum kedatangan: 85% dari total harga tour (FIT/GIT)
-- Kurang dari 7 hari sebelum kedatangan / no-show: 100% dari total harga tour
+    'terms' => "CANCELLATION (based on the date written notice is received):
+- 21 days before arrival: 20% of total tour price (GIT)
+- 10-20 days before arrival: 50% of total tour price (FIT/GIT)
+- 7-10 days before arrival: 85% of total tour price (FIT/GIT)
+- Less than 7 days before arrival / no-show: 100% of total tour price
 
-Semua harga dalam Rupiah (IDR), Nett untuk Agen (Non Komisi). Harga dapat berubah dengan/tanpa pemberitahuan karena fluktuasi moneter, perubahan harga BBM & peraturan pemerintah.
-Penyimpangan kecil dalam program tour terkadang diperlukan, tergantung cuaca, kondisi jalan, jadwal penerbangan dan ketersediaan kamar.",
+All prices are in Indonesian Rupiah (IDR), nett for agents (non-commissionable). Prices are subject to change with/without prior notice due to monetary fluctuations, fuel price changes & government regulations.
+Minor deviations in the tour program may occasionally be necessary, depending on weather, road conditions, flight schedules and room availability.",
 ];

@@ -116,6 +116,7 @@ class QuotationController extends Controller
             'childPolicy'  => $isTour ? ($tour->child_policy ?? config('quotation.child_policy')) : '',
             'terms'        => $tour->terms ?? config('quotation.terms'),
             'detailLabels' => Tour::DETAIL_LABELS[$tour->type] ?? [],
+            'typeLabelEn'  => Tour::TYPES_EN[$tour->type] ?? 'Tour',
             'qItems'       => $isTour ? collect() : ($tour->quotationItems ?? collect()),
         ])->render();
     }

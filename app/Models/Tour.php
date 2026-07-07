@@ -41,52 +41,64 @@ class Tour extends Model
         'ticketing' => '18',
     ];
 
-    /** Label field `details` per tipe — dipakai untuk render di PDF quotation.
+    /** Label tipe versi Inggris — dipakai di PDF quotation (customer-facing). */
+    public const TYPES_EN = [
+        'tour'      => 'Tour',
+        'rental'    => 'Car/Boat Rental',
+        'guide'     => 'Tour Guide',
+        'document'  => 'Visa/Passport',
+        'ticketing' => 'Ticketing',
+        'mice'      => 'MICE / Event',
+        'hotel'     => 'Hotel',
+    ];
+
+    /** Label field `details` per tipe — dipakai untuk render di PDF quotation
+     *  (bahasa Inggris karena customer-facing).
      *  Selaras dengan resources/js/lib/inquiryTypes.js (TYPE_FIELDS). */
     public const DETAIL_LABELS = [
         'rental' => [
-            'vehicle'     => 'Kendaraan / Boat',
-            'with_driver' => 'Termasuk Sopir/Nahkoda',
-            'pickup'      => 'Titik Jemput',
-            'dropoff'     => 'Titik Antar',
-            'duration'    => 'Durasi Sewa',
+            'vehicle'     => 'Vehicle / Boat',
+            'with_driver' => 'Driver/Skipper Included',
+            'pickup'      => 'Pick-up Point',
+            'dropoff'     => 'Drop-off Point',
+            'duration'    => 'Rental Duration',
         ],
         'guide' => [
-            'language' => 'Bahasa',
-            'area'     => 'Area / Lokasi',
-            'days'     => 'Jumlah Hari',
-            'note'     => 'Catatan Tambahan',
+            'language' => 'Language',
+            'area'     => 'Area / Location',
+            'days'     => 'Number of Days',
+            'note'     => 'Additional Notes',
         ],
         'document' => [
-            'doc_type'    => 'Jenis Dokumen',
-            'destination' => 'Negara Tujuan',
-            'eta'         => 'Estimasi Selesai',
-            'requirement' => 'Syarat / Berkas',
+            'doc_type'    => 'Document Type',
+            'destination' => 'Destination Country',
+            'eta'         => 'Estimated Completion',
+            'requirement' => 'Requirements / Documents',
         ],
         'ticketing' => [
-            'route_from'  => 'Dari',
-            'route_to'    => 'Ke',
-            'airline'     => 'Maskapai',
-            'trip_type'   => 'Sekali Jalan / PP',
-            'depart_date' => 'Tgl Berangkat',
-            'return_date' => 'Tgl Pulang',
-            'pnr'         => 'Kode Booking / PNR',
+            'route_from'  => 'From',
+            'route_to'    => 'To',
+            'airline'     => 'Airline',
+            'trip_type'   => 'One Way / Round Trip',
+            'depart_date' => 'Departure Date',
+            'return_date' => 'Return Date',
+            'pnr'         => 'Booking Code / PNR',
         ],
         'mice' => [
-            'event_type'  => 'Jenis Acara',
-            'room_setup'  => 'Setup Ruangan',
-            'venue_name'  => 'Nama Venue',
-            'duration'    => 'Durasi Acara',
-            'note'        => 'Catatan Tambahan',
+            'event_type'  => 'Event Type',
+            'room_setup'  => 'Room Setup',
+            'venue_name'  => 'Venue Name',
+            'duration'    => 'Event Duration',
+            'note'        => 'Additional Notes',
         ],
         'hotel' => [
-            'hotel_name'  => 'Nama Hotel',
-            'room_type'   => 'Tipe Kamar',
-            'room_count'  => 'Jumlah Kamar',
-            'check_in'    => 'Tgl Check-in',
-            'check_out'   => 'Tgl Check-out',
-            'guest_count' => 'Jumlah Tamu',
-            'note'        => 'Catatan Tambahan',
+            'hotel_name'  => 'Hotel Name',
+            'room_type'   => 'Room Type',
+            'room_count'  => 'Number of Rooms',
+            'check_in'    => 'Check-in Date',
+            'check_out'   => 'Check-out Date',
+            'guest_count' => 'Number of Guests',
+            'note'        => 'Additional Notes',
         ],
     ];
 
