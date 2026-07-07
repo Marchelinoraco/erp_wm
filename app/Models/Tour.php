@@ -10,9 +10,11 @@ class Tour extends Model
     protected $guarded = [];
 
     protected $casts = [
-        'start_date'     => 'date',
-        'end_date'       => 'date',
-        'price_validity' => 'date',
+        // date:Y-m-d — agar terkirim ke frontend sebagai "2026-07-13" (bukan ISO
+        // panjang berjam) sehingga <input type="date"> bisa menampilkannya
+        'start_date'     => 'date:Y-m-d',
+        'end_date'       => 'date:Y-m-d',
+        'price_validity' => 'date:Y-m-d',
         'pricing'        => 'array',
         'details'        => 'array',
         'budget'         => 'decimal:2',
