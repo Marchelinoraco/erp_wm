@@ -49,9 +49,9 @@ function fmtDateRange(start, end) {
             <h1 class="text-base font-semibold text-gray-800">Jadwal Saya</h1>
         </template>
 
-        <div class="max-w-2xl mx-auto px-4 py-6 space-y-4">
+        <div class="max-w-2xl lg:max-w-5xl mx-auto px-4 py-6 space-y-4 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start">
 
-            <div v-if="!tours.length" class="bg-white rounded-xl border p-10 text-center text-gray-400">
+            <div v-if="!tours.length" class="bg-white rounded-xl border p-10 text-center text-gray-400 lg:col-span-2">
                 <p class="text-sm">Belum ada tour yang ditugaskan ke Anda.</p>
             </div>
 

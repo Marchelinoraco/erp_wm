@@ -70,7 +70,7 @@ function fmtTime(t) {
             </div>
         </template>
 
-        <div class="max-w-lg mx-auto px-4 py-5 space-y-5">
+        <div class="max-w-lg lg:max-w-5xl mx-auto px-4 py-5 space-y-5">
 
             <!-- Header info -->
             <div class="bg-white rounded-xl border shadow-sm p-4">
@@ -88,42 +88,11 @@ function fmtTime(t) {
                 </div>
             </div>
 
-            <!-- Tim Lapangan -->
-            <div v-if="tour.assignments?.length" class="bg-white rounded-xl border shadow-sm overflow-hidden">
-                <div class="px-4 py-3 border-b bg-gray-50">
-                    <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Tim Lapangan</p>
-                </div>
-                <div class="divide-y">
-                    <div v-for="a in tour.assignments" :key="a.id" class="px-4 py-4">
-                        <div class="flex items-start gap-3">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0"
-                                :style="a.role === 'guide' ? 'background:#dbeafe' : a.role === 'driver' ? 'background:#dcfce7' : 'background:#fef3c7'">
-                                {{ a.role === 'guide' ? '👤' : a.role === 'driver' ? '🚗' : '⭐' }}
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2 flex-wrap">
-                                    <span class="font-semibold text-gray-900">{{ a.person_name ?? 'TBD' }}</span>
-                                    <span class="text-xs px-2 py-0.5 rounded-full font-medium"
-                                        :class="a.role === 'guide' ? 'bg-blue-100 text-blue-700' : a.role === 'driver' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'">
-                                        {{ ROLE_LABELS[a.role] ?? a.role }}
-                                    </span>
-                                </div>
-                                <div class="mt-1.5 space-y-0.5 text-sm text-gray-600">
-                                    <p v-if="a.phone">
-                                        <a :href="`https://wa.me/${a.phone.replace(/[^0-9]/g, '')}`"
-                                            class="text-green-600 font-medium inline-flex items-center gap-1">
-                                            <span>📱</span> {{ a.phone }}
-                                        </a>
-                                    </p>
-                                    <p v-if="a.vehicle">🚐 {{ a.vehicle }}</p>
-                                    <p v-if="a.pickup_time">🕐 Pickup: <strong>{{ a.pickup_time }}</strong></p>
-                                    <p v-if="a.notes" class="text-gray-500 text-xs mt-1">{{ a.notes }}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <!-- Dua kolom di desktop: program kiri, kartu info kanan -->
+            <div class="lg:flex lg:gap-5 lg:items-start space-y-5 lg:space-y-0">
+
+            <!-- Kolom utama (kiri di desktop) -->
+            <div class="lg:flex-1 lg:min-w-0 space-y-5">
 
             <!-- Program Tour -->
             <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
@@ -191,6 +160,48 @@ function fmtTime(t) {
                 </div>
             </div>
 
+            </div><!-- /kolom utama -->
+
+            <!-- Sidebar (kanan di desktop) -->
+            <div class="lg:w-80 lg:shrink-0 space-y-5">
+
+            <!-- Tim Lapangan -->
+            <div v-if="tour.assignments?.length" class="bg-white rounded-xl border shadow-sm overflow-hidden">
+                <div class="px-4 py-3 border-b bg-gray-50">
+                    <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Tim Lapangan</p>
+                </div>
+                <div class="divide-y">
+                    <div v-for="a in tour.assignments" :key="a.id" class="px-4 py-4">
+                        <div class="flex items-start gap-3">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0"
+                                :style="a.role === 'guide' ? 'background:#dbeafe' : a.role === 'driver' ? 'background:#dcfce7' : 'background:#fef3c7'">
+                                {{ a.role === 'guide' ? '👤' : a.role === 'driver' ? '🚗' : '⭐' }}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="font-semibold text-gray-900">{{ a.person_name ?? 'TBD' }}</span>
+                                    <span class="text-xs px-2 py-0.5 rounded-full font-medium"
+                                        :class="a.role === 'guide' ? 'bg-blue-100 text-blue-700' : a.role === 'driver' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'">
+                                        {{ ROLE_LABELS[a.role] ?? a.role }}
+                                    </span>
+                                </div>
+                                <div class="mt-1.5 space-y-0.5 text-sm text-gray-600">
+                                    <p v-if="a.phone">
+                                        <a :href="`https://wa.me/${a.phone.replace(/[^0-9]/g, '')}`"
+                                            class="text-green-600 font-medium inline-flex items-center gap-1">
+                                            <span>📱</span> {{ a.phone }}
+                                        </a>
+                                    </p>
+                                    <p v-if="a.vehicle">🚐 {{ a.vehicle }}</p>
+                                    <p v-if="a.pickup_time">🕐 Pickup: <strong>{{ a.pickup_time }}</strong></p>
+                                    <p v-if="a.notes" class="text-gray-500 text-xs mt-1">{{ a.notes }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Jadwal Layanan (hotel / transport / guide dari invoice) -->
             <div v-if="schedule?.length" class="bg-white rounded-xl border shadow-sm overflow-hidden">
                 <div class="px-4 py-3 border-b bg-gray-50">
@@ -249,6 +260,9 @@ function fmtTime(t) {
                 <p class="text-xs font-semibold uppercase tracking-wider text-amber-600 mb-1">Catatan</p>
                 <p class="text-sm text-amber-900">{{ tour.notes }}</p>
             </div>
+
+            </div><!-- /sidebar -->
+            </div><!-- /dua kolom -->
 
         </div>
     </AuthenticatedLayout>

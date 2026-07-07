@@ -11,10 +11,11 @@ class ManifestController extends Controller
     {
         $tour->load(['customer', 'items' => function ($q) {
             $q->orderBy('day_number')->orderBy('sort_order');
-        }, 'assignments']);
+        }, 'assignments', 'itineraryDays', 'itineraryHours']);
 
         return Inertia::render('Manifest', [
-            'tour' => $tour,
+            'tour'     => $tour,
+            'schedule' => $tour->fieldSchedule(),
         ]);
     }
 }
