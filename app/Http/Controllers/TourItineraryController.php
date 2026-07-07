@@ -30,6 +30,46 @@ class TourItineraryController extends Controller
         return redirect()->back()->with('success', 'Itinerary berhasil disimpan.');
     }
 
+    /** Impor itinerary hasil tombol "Tempel": ganti seluruh hari + aktivitas jam sekaligus. */
+    public function import(Request $request, Tour $tour)
+    {
+        $data = $request->validate([
+            'days'                => 'required|array|min:1',
+            'days.*.day_number'   => 'required|integer|min:1',
+            'days.*.title'        => 'nullable|string|max:255',
+            'days.*.description'  => 'nullable|string',
+            'hours'               => 'array',
+            'hours.*.day_number'  => 'required|integer|min:1',
+            'hours.*.start_time'  => 'required|date_format:H:i',
+            'hours.*.end_time'    => 'nullable|date_format:H:i',
+            'hours.*.activity'    => 'required|string|max:255',
+            'hours.*.notes'       => 'nullable|string',
+        ]);
+
+        $tour->itineraryDays()->delete();
+        $tour->itineraryHours()->delete();
+
+        foreach ($data['days'] as $day) {
+            $tour->itineraryDays()->create([
+                'day_number'  => $day['day_number'],
+                'title'       => $day['title'] ?? null,
+                'description' => $day['description'] ?? null,
+            ]);
+        }
+
+        foreach ($data['hours'] ?? [] as $hour) {
+            $tour->itineraryHours()->create([
+                'day_number' => $hour['day_number'],
+                'start_time' => $hour['start_time'],
+                'end_time'   => $hour['end_time'] ?? null,
+                'activity'   => $hour['activity'],
+                'notes'      => $hour['notes'] ?? null,
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Itinerary berhasil ditempel.');
+    }
+
     public function uploadPdf(Request $request, Tour $tour)
     {
         $request->validate([

@@ -4,6 +4,9 @@ import { useForm, router } from '@inertiajs/vue3'
 import { Button } from '@/Components/ui/button'
 import { Input } from '@/Components/ui/input'
 import { Label } from '@/Components/ui/label'
+import {
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/Components/ui/dialog'
 import { confirm } from '@/lib/confirm'
 
 const props = defineProps({ tour: Object })
@@ -109,6 +112,115 @@ function cancelHourForm() {
     hourForm.reset()
 }
 
+// ── Salin itinerary ke clipboard (teks yang bisa ditempel kembali) ───────────
+const copied = ref(false)
+
+async function copyItinerary() {
+    const lines = []
+    itineraryDays.value.forEach(day => {
+        lines.push(`HARI ${day.day_number}${day.title ? ': ' + day.title : ''}`)
+        if (day.description) lines.push(day.description.trim())
+        ;(groupedHours.value[day.day_number] ?? []).forEach(h => {
+            let l = `- ${h.start_time}${h.end_time ? '–' + h.end_time : ''} | ${h.activity}`
+            if (h.notes) l += ` | ${h.notes}`
+            lines.push(l)
+        })
+        lines.push('')
+    })
+    const text = lines.join('\n').trim()
+    try {
+        await navigator.clipboard.writeText(text)
+    } catch {
+        // Fallback untuk browser tanpa izin clipboard API
+        const ta = document.createElement('textarea')
+        ta.value = text
+        document.body.appendChild(ta)
+        ta.select()
+        document.execCommand('copy')
+        document.body.removeChild(ta)
+    }
+    copied.value = true
+    setTimeout(() => { copied.value = false }, 2000)
+}
+
+// ── Tempel itinerary dari clipboard (kebalikan tombol Salin) ─────────────────
+const pasteDialogOpen = ref(false)
+const pasteText       = ref('')
+
+const DAY_RE  = /^(?:hari|day)\s*(?:ke[-\s]*)?(\d+)\s*[:.\-]?\s*(.*)$/i
+const HOUR_RE = /^[-•*]?\s*(\d{1,2})[:.](\d{2})\s*(?:[–—-]\s*(\d{1,2})[:.](\d{2}))?\s*(?:\|(.*))?$/
+
+const parsedPaste = computed(() => {
+    const days = []
+    const hours = []
+    let current = null
+
+    const ensureDay = () => {
+        if (!current) {
+            current = { day_number: 1, title: '', description: '' }
+            days.push(current)
+        }
+        return current
+    }
+
+    for (const raw of pasteText.value.split(/\r?\n/)) {
+        const line = raw.trim()
+        if (!line) continue
+
+        const dm = line.match(DAY_RE)
+        if (dm) {
+            current = { day_number: Number(dm[1]), title: dm[2].trim(), description: '' }
+            days.push(current)
+            continue
+        }
+
+        const hm = line.match(HOUR_RE)
+        if (hm && hm[5] !== undefined) {
+            const [activity, ...noteParts] = hm[5].split('|').map(s => s.trim())
+            if (activity) {
+                hours.push({
+                    day_number: ensureDay().day_number,
+                    start_time: `${hm[1].padStart(2, '0')}:${hm[2]}`,
+                    end_time:   hm[3] ? `${hm[3].padStart(2, '0')}:${hm[4]}` : null,
+                    activity,
+                    notes: noteParts.join(' | ') || null,
+                })
+                continue
+            }
+        }
+
+        const d = ensureDay()
+        d.description = d.description ? d.description + '\n' + line : line
+    }
+
+    return { days, hours }
+})
+
+function openPasteDialog() {
+    pasteText.value = ''
+    pasteDialogOpen.value = true
+}
+
+async function submitPaste() {
+    if (!parsedPaste.value.days.length) return
+    if (itineraryDays.value.length
+        && !(await confirm({ title: 'Timpa itinerary yang ada?', description: 'Semua hari & aktivitas jam saat ini akan diganti dengan hasil tempel.', confirmLabel: 'Timpa' }))) {
+        return
+    }
+    router.post(route('tours.itinerary.import', props.tour.id), parsedPaste.value, {
+        preserveScroll: true,
+        only: ['tour'],
+        onSuccess: () => {
+            pasteDialogOpen.value = false
+            itineraryDays.value = props.tour.itinerary_days?.map(d => ({ ...d })) ?? []
+        },
+    })
+}
+
+watch(() => props.tour.itinerary_days, (days) => {
+    itineraryDays.value = days?.map(d => ({ ...d })) ?? []
+})
+
 // ── PDF Upload ────────────────────────────────────────────────────────────────
 const pdfForm    = useForm({ pdf: null })
 const pdfFileRef = ref(null)
@@ -153,9 +265,15 @@ onMounted(() => nextTick(() => {
 
 <template>
     <div class="rounded-lg border bg-white shadow-sm overflow-hidden">
-        <div class="flex items-center justify-between px-5 py-4 border-b">
+        <div class="flex items-center justify-between gap-2 px-5 py-4 border-b">
             <h3 class="font-semibold">Itinerary</h3>
-            <Button type="button" size="sm" variant="outline" @click="addDay">+ Tambah Hari</Button>
+            <div class="flex items-center gap-2">
+                <Button type="button" size="sm" variant="outline" @click="openPasteDialog">📥 Tempel</Button>
+                <Button v-if="itineraryDays.length" type="button" size="sm" variant="outline" @click="copyItinerary">
+                    {{ copied ? '✓ Tersalin' : '📋 Salin' }}
+                </Button>
+                <Button type="button" size="sm" variant="outline" @click="addDay">+ Tambah Hari</Button>
+            </div>
         </div>
 
         <div v-if="!itineraryDays.length" class="px-5 py-8 text-center text-sm text-muted-foreground">
@@ -286,5 +404,42 @@ onMounted(() => nextTick(() => {
             <p v-if="pdfForm.errors.pdf" class="text-xs text-destructive">{{ pdfForm.errors.pdf }}</p>
             <p class="text-xs text-muted-foreground">Maks. 20 MB. PDF ini dapat diunduh oleh admin & sales.</p>
         </div>
+
+        <!-- ── Dialog tempel itinerary ── -->
+        <Dialog v-model:open="pasteDialogOpen">
+            <DialogContent class="max-w-2xl max-h-[85vh] flex flex-col">
+                <DialogHeader>
+                    <DialogTitle>Tempel Itinerary</DialogTitle>
+                </DialogHeader>
+                <p class="text-xs text-muted-foreground">
+                    Tempel (Ctrl+V / Cmd+V) hasil tombol "Salin" dari tour lain, atau ketik manual.
+                    Baris <b>HARI 1: Judul</b> memulai hari baru; baris <b>- 08:00–10:00 | Aktivitas | Catatan</b> menjadi jadwal jam; baris lain menjadi deskripsi hari.
+                </p>
+                <textarea v-model="pasteText" rows="10" autofocus
+                    placeholder="HARI 1: Arrival & City Tour&#10;Penjemputan di bandara, check-in hotel...&#10;- 08:00–10:00 | Breakfast | Hotel resto&#10;&#10;HARI 2: Bunaken Trip&#10;..."
+                    class="w-full border rounded px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"></textarea>
+
+                <div v-if="parsedPaste.days.length" class="overflow-auto max-h-60 rounded-md border divide-y">
+                    <div v-for="d in parsedPaste.days" :key="d.day_number" class="px-3 py-2 text-xs">
+                        <p class="font-semibold">Hari {{ d.day_number }}<template v-if="d.title">: {{ d.title }}</template></p>
+                        <p v-if="d.description" class="text-muted-foreground whitespace-pre-line mt-0.5">{{ d.description }}</p>
+                        <p v-for="(h, i) in parsedPaste.hours.filter(h => h.day_number === d.day_number)" :key="i"
+                            class="text-muted-foreground mt-0.5 font-mono">
+                            {{ h.start_time }}<template v-if="h.end_time">–{{ h.end_time }}</template> · {{ h.activity }}<template v-if="h.notes"> ({{ h.notes }})</template>
+                        </p>
+                    </div>
+                </div>
+                <p v-else-if="pasteText.trim()" class="text-xs text-amber-600">
+                    Tidak ada hari yang bisa dibaca — awali dengan baris "HARI 1: ...".
+                </p>
+
+                <DialogFooter>
+                    <Button variant="outline" @click="pasteDialogOpen = false">Batal</Button>
+                    <Button :disabled="!parsedPaste.days.length" @click="submitPaste">
+                        Tempel {{ parsedPaste.days.length }} hari<template v-if="parsedPaste.hours.length"> · {{ parsedPaste.hours.length }} aktivitas</template>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </div>
 </template>
