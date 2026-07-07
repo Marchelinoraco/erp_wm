@@ -15,8 +15,14 @@ const itineraryDays = ref(props.tour.itinerary_days?.map(d => ({ ...d })) ?? [])
 
 function addDay() {
     const next = (itineraryDays.value.at(-1)?.day_number ?? 0) + 1
-    itineraryDays.value.push({ day_number: next, title: '', description: '' })
+    itineraryDays.value.push({ day_number: next, title: '', title_ind: '', description: '', description_ind: '' })
 }
+
+// Toggle input versi Indonesia per hari — terbuka otomatis bila sudah terisi
+const indOpen = ref({})
+itineraryDays.value.forEach((d, i) => {
+    if (d.title_ind || d.description_ind) indOpen.value[i] = true
+})
 
 function removeDay(i) {
     itineraryDays.value.splice(i, 1)
@@ -295,6 +301,26 @@ onMounted(() => nextTick(() => {
                     placeholder="Aktivitas, jadwal, tempat yang dikunjungi..."
                     class="itinerary-desc ml-11 w-[calc(100%-2.75rem)] min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 />
+                <div class="ml-11">
+                    <button type="button" @click="indOpen[i] = !indOpen[i]"
+                        class="text-xs font-medium text-muted-foreground hover:text-foreground">
+                        {{ indOpen[i] ? '▾' : '▸' }} 🇮🇩 Versi Indonesia untuk tim lapangan
+                        <span v-if="day.title_ind || day.description_ind" class="text-green-600">· terisi</span>
+                        <span v-else class="text-muted-foreground/60">· opsional</span>
+                    </button>
+                    <div v-if="indOpen[i]" class="mt-2 space-y-2 rounded-md border border-dashed bg-muted/20 p-3">
+                        <p class="text-[11px] text-muted-foreground">
+                            Tampil di MyJobs & manifest untuk guide/sopir/tour leader. Quotation customer tetap memakai teks di atas.
+                        </p>
+                        <Input v-model="day.title_ind" placeholder="Judul hari (bahasa Indonesia)" class="bg-white" />
+                        <textarea
+                            v-model="day.description_ind"
+                            v-auto-resize
+                            placeholder="Deskripsi bahasa Indonesia untuk tim lapangan..."
+                            class="w-full min-h-[60px] rounded-md border border-input bg-white px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        />
+                    </div>
+                </div>
             </div>
         </div>
 

@@ -11,19 +11,23 @@ class TourItineraryController extends Controller
     public function updateDays(Request $request, Tour $tour)
     {
         $data = $request->validate([
-            'days'                => 'array',
-            'days.*.day_number'   => 'required|integer|min:1',
-            'days.*.title'        => 'nullable|string|max:255',
-            'days.*.description'  => 'nullable|string',
+            'days'                    => 'array',
+            'days.*.day_number'       => 'required|integer|min:1',
+            'days.*.title'            => 'nullable|string|max:255',
+            'days.*.title_ind'        => 'nullable|string|max:255',
+            'days.*.description'      => 'nullable|string',
+            'days.*.description_ind'  => 'nullable|string',
         ]);
 
         $tour->itineraryDays()->delete();
 
         foreach ($data['days'] ?? [] as $day) {
             $tour->itineraryDays()->create([
-                'day_number'  => $day['day_number'],
-                'title'       => $day['title'] ?? null,
-                'description' => $day['description'] ?? null,
+                'day_number'      => $day['day_number'],
+                'title'           => $day['title'] ?? null,
+                'title_ind'       => $day['title_ind'] ?? null,
+                'description'     => $day['description'] ?? null,
+                'description_ind' => $day['description_ind'] ?? null,
             ]);
         }
 

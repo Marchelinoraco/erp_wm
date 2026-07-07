@@ -127,13 +127,13 @@ function fmtTime(t) {
                     <template v-for="day in tour.itinerary_days" :key="day.id">
                         <div class="px-4 py-2 bg-blue-50 border-y border-blue-100 first:border-t-0">
                             <p class="text-xs font-bold text-blue-700 uppercase tracking-wider">
-                                Hari {{ day.day_number }}<template v-if="day.title">: {{ day.title }}</template>
+                                Hari {{ day.day_number }}<template v-if="day.title_ind || day.title">: {{ day.title_ind || day.title }}</template>
                             </p>
                         </div>
                         <div class="px-4 py-3 border-b last:border-0">
-                            <p v-if="day.description" class="text-sm text-gray-700 whitespace-pre-line">{{ day.description }}</p>
+                            <p v-if="day.description_ind || day.description" class="text-sm text-gray-700 whitespace-pre-line">{{ day.description_ind || day.description }}</p>
                             <div v-if="hoursForDay(day.day_number).length"
-                                :class="day.description ? 'mt-3 pt-3 border-t border-dashed' : ''"
+                                :class="(day.description_ind || day.description) ? 'mt-3 pt-3 border-t border-dashed' : ''"
                                 class="space-y-1.5">
                                 <div v-for="h in hoursForDay(day.day_number)" :key="h.id" class="flex items-start gap-2 text-sm">
                                     <span class="font-mono text-xs font-semibold text-blue-700 bg-blue-50 rounded px-1.5 py-0.5 shrink-0 mt-0.5">
