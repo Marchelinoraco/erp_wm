@@ -372,11 +372,12 @@ const addTargetInvoice = ref(null)
 const productSearch    = ref('')
 const addingProductId  = ref(null)
 
-// Hotel/transport/guide wajib diberi tanggal mulai & selesai — jadwal ini
-// tampil ke tim lapangan (guide/supir/tour leader) di MyJobs.
+// Semua produk bisa diberi tanggal mulai & selesai. Hotel/transport/guide
+// WAJIB bertanggal; tipe lain opsional. Item bertanggal tampil ke tim
+// lapangan (guide/supir/tour leader) di MyJobs & manifest.
 const DATED_TYPES = ['hotel', 'transport', 'guide']
 const isDated = (t) => DATED_TYPES.includes(t)
-const pendingProduct = ref(null)   // produk berjadwal menunggu input tanggal
+const pendingProduct = ref(null)   // produk menunggu input tanggal
 const addDates = reactive({ start: '', end: '' })
 
 function fmtDateID(d) {
@@ -408,13 +409,12 @@ const productsByType = computed(() => {
     return groups
 })
 function pickProduct(product) {
-    if (isDated(product.type)) {
-        pendingProduct.value = product
-        addDates.start = props.tour.start_date ? String(props.tour.start_date).slice(0, 10) : ''
-        addDates.end   = ''
-        return
-    }
-    addProduct(product)
+    pendingProduct.value = product
+    // Tipe wajib-tanggal diprefill dari tanggal mulai tour; tipe opsional
+    // dibiarkan kosong supaya tidak terisi tanggal tanpa sengaja.
+    addDates.start = isDated(product.type) && props.tour.start_date
+        ? String(props.tour.start_date).slice(0, 10) : ''
+    addDates.end = ''
 }
 
 watch(() => addDates.start, (s) => {
@@ -422,12 +422,16 @@ watch(() => addDates.start, (s) => {
 })
 
 function confirmAddDated() {
-    if (!addDates.start || !addDates.end) return
-    const extra = { start_date: addDates.start, end_date: addDates.end }
-    // Hotel: jumlah malam otomatis dari rentang check-in → check-out
-    if (pendingProduct.value.type === 'hotel') {
-        const nights = Math.round((new Date(addDates.end) - new Date(addDates.start)) / 86400000)
-        extra.nights = Math.max(nights, 1)
+    if (isDated(pendingProduct.value.type) && (!addDates.start || !addDates.end)) return
+    const extra = {}
+    if (addDates.start) {
+        extra.start_date = addDates.start
+        extra.end_date   = addDates.end || addDates.start
+        // Hotel: jumlah malam otomatis dari rentang check-in → check-out
+        if (pendingProduct.value.type === 'hotel') {
+            const nights = Math.round((new Date(extra.end_date) - new Date(addDates.start)) / 86400000)
+            extra.nights = Math.max(nights, 1)
+        }
     }
     addProduct(pendingProduct.value, extra)
 }
@@ -664,7 +668,7 @@ function addProduct(product, extra = {}) {
                                                 <input type="text" v-model="itemForms[item.id].description" @blur="saveItem(item.id)"
                                                     class="border rounded px-2 py-0.5 text-sm w-full focus:outline-none focus:ring-1 focus:ring-primary" />
                                                 <span class="text-xs text-muted-foreground">{{ TYPE_LABELS[item.product_type] ?? item.product_type }}</span>
-                                                <div v-if="isDated(item.product_type)" class="flex items-center gap-1.5 mt-1">
+                                                <div class="flex items-center gap-1.5 mt-1">
                                                     <span class="text-xs">📅</span>
                                                     <input type="date" v-model="itemForms[item.id].start_date" @change="saveItem(item.id)"
                                                         class="border rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
@@ -839,15 +843,21 @@ function addProduct(product, extra = {}) {
                 <DialogHeader>
                     <DialogTitle>Pilih Produk</DialogTitle>
                 </DialogHeader>
-                <!-- Langkah 2: produk berjadwal (hotel/transport/guide) — isi tanggal dulu -->
+                <!-- Langkah 2: isi tanggal (wajib utk hotel/transport/guide, opsional lainnya) -->
                 <div v-if="pendingProduct" class="space-y-3">
                     <div class="rounded-md border bg-muted/20 px-3 py-2">
                         <p class="font-medium text-sm">{{ pendingProduct.name }}</p>
                         <p class="text-xs text-muted-foreground">{{ TYPE_LABELS[pendingProduct.type] ?? pendingProduct.type }}</p>
                     </div>
                     <p class="text-xs text-muted-foreground">
-                        Produk tipe <b>{{ TYPE_LABELS[pendingProduct.type] ?? pendingProduct.type }}</b> perlu tanggal mulai & selesai —
-                        jadwal ini tampil ke tim lapangan di MyJobs.
+                        <template v-if="isDated(pendingProduct.type)">
+                            Produk tipe <b>{{ TYPE_LABELS[pendingProduct.type] ?? pendingProduct.type }}</b> perlu tanggal mulai & selesai —
+                            jadwal ini tampil ke tim lapangan di MyJobs.
+                        </template>
+                        <template v-else>
+                            Tanggal <b>opsional</b> untuk tipe {{ TYPE_LABELS[pendingProduct.type] ?? pendingProduct.type }} —
+                            kosongkan bila tidak perlu. Item bertanggal ikut tampil di jadwal tim lapangan (MyJobs & manifest).
+                        </template>
                         <span v-if="pendingProduct.type === 'hotel'" class="block">Jumlah malam dihitung otomatis dari check-in → check-out.</span>
                     </p>
                     <div class="grid grid-cols-2 gap-3">
@@ -866,9 +876,10 @@ function addProduct(product, extra = {}) {
                     </div>
                     <div class="flex justify-between pt-1">
                         <Button variant="outline" size="sm" @click="pendingProduct = null">← Kembali</Button>
-                        <Button size="sm" :disabled="!addDates.start || !addDates.end || addingProductId === pendingProduct.id"
+                        <Button size="sm"
+                            :disabled="(isDated(pendingProduct.type) && (!addDates.start || !addDates.end)) || addingProductId === pendingProduct.id"
                             @click="confirmAddDated">
-                            + Tambah
+                            + Tambah{{ !isDated(pendingProduct.type) && !addDates.start ? ' tanpa tanggal' : '' }}
                         </Button>
                     </div>
                 </div>

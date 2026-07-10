@@ -171,13 +171,13 @@ class Tour extends Model
         return $this->hasMany(Invoice::class);
     }
 
-    /** Jadwal layanan berjadwal (hotel/transport/guide) dari item invoice untuk
+    /** Jadwal layanan dari item invoice bertanggal (tipe apa pun) untuk
      *  tim lapangan (MyJobs & manifest publik) — hanya field aman, TANPA harga. */
     public function fieldSchedule()
     {
         return $this->invoices()->with('items')->get()
             ->flatMap(fn ($inv) => $inv->items)
-            ->filter(fn ($i) => in_array($i->product_type, InvoiceItem::DATED_TYPES, true) && $i->start_date)
+            ->filter(fn ($i) => $i->start_date)
             ->unique(fn ($i) => $i->product_type . '|' . $i->description . '|' . $i->start_date . '|' . $i->end_date)
             ->sortBy('start_date')
             ->map(fn ($i) => [

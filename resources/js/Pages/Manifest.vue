@@ -8,9 +8,14 @@ const props = defineProps({
 })
 
 const TYPE_META = {
-    hotel:     { icon: '🏨', label: 'Hotel' },
-    transport: { icon: '🚐', label: 'Transport' },
-    guide:     { icon: '👤', label: 'Guide' },
+    hotel:      { icon: '🏨', label: 'Hotel' },
+    transport:  { icon: '🚐', label: 'Transport' },
+    guide:      { icon: '👤', label: 'Guide' },
+    restaurant: { icon: '🍽️', label: 'Restoran' },
+    attraction: { icon: '🎟️', label: 'Atraksi' },
+    venue:      { icon: '🏛️', label: 'Venue' },
+    equipment:  { icon: '🎒', label: 'Perlengkapan' },
+    other:      { icon: '📌', label: 'Lainnya' },
 }
 
 const ROLE_LABELS = {
