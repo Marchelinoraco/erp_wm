@@ -1,5 +1,6 @@
 <script setup>
 import { Head } from '@inertiajs/vue3'
+import { toDisplayHtml } from '@/lib/richtext'
 
 const props = defineProps({
     tour: Object,
@@ -131,7 +132,9 @@ function fmtTime(t) {
                             </p>
                         </div>
                         <div class="px-4 py-3 border-b last:border-0">
-                            <p v-if="day.description_ind || day.description" class="text-sm text-gray-700 whitespace-pre-line">{{ day.description_ind || day.description }}</p>
+                            <div v-if="day.description_ind || day.description"
+                                class="text-sm text-gray-700 [&_p+p]:mt-1 [&_ul]:list-disc [&_ul]:ml-4 [&_ul]:my-1 [&_ol]:list-decimal [&_ol]:ml-4 [&_ol]:my-1"
+                                v-html="toDisplayHtml(day.description_ind || day.description)"></div>
                             <div v-if="hoursForDay(day.day_number).length"
                                 :class="(day.description_ind || day.description) ? 'mt-3 pt-3 border-t border-dashed' : ''"
                                 class="space-y-1.5">

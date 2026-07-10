@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { useForm, router } from '@inertiajs/vue3'
 import { Button } from '@/Components/ui/button'
 import { Input } from '@/Components/ui/input'
@@ -7,7 +7,9 @@ import { Label } from '@/Components/ui/label'
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/Components/ui/dialog'
+import RichTextEditor from '@/Components/RichTextEditor.vue'
 import { confirm } from '@/lib/confirm'
+import { htmlToText } from '@/lib/richtext'
 
 const props = defineProps({ tour: Object })
 
@@ -125,7 +127,7 @@ async function copyItinerary() {
     const lines = []
     itineraryDays.value.forEach(day => {
         lines.push(`HARI ${day.day_number}${day.title ? ': ' + day.title : ''}`)
-        if (day.description) lines.push(day.description.trim())
+        if (day.description) lines.push(htmlToText(day.description).trim())
         ;(groupedHours.value[day.day_number] ?? []).forEach(h => {
             let l = `- ${h.start_time}${h.end_time ? '–' + h.end_time : ''} | ${h.activity}`
             if (h.notes) l += ` | ${h.notes}`
@@ -250,23 +252,6 @@ async function deletePdf() {
     })
 }
 
-// ── Auto-resize directive ────────────────────────────────────────────────────
-const vAutoResize = {
-    mounted(el) {
-        const resize = () => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px' }
-        el.style.overflow = 'hidden'
-        resize()
-        el.addEventListener('input', resize)
-    },
-}
-
-onMounted(() => nextTick(() => {
-    document.querySelectorAll('.itinerary-desc').forEach(el => {
-        el.style.overflow = 'hidden'
-        el.style.height = 'auto'
-        el.style.height = el.scrollHeight + 'px'
-    })
-}))
 </script>
 
 <template>
@@ -295,11 +280,10 @@ onMounted(() => nextTick(() => {
                     <Input v-model="day.title" placeholder="Judul hari ini (mis. Arrival & City Tour)" class="flex-1" />
                     <Button type="button" size="sm" variant="ghost" class="text-destructive hover:text-destructive shrink-0" @click="removeDay(i)">✕</Button>
                 </div>
-                <textarea
+                <RichTextEditor
                     v-model="day.description"
-                    v-auto-resize
                     placeholder="Aktivitas, jadwal, tempat yang dikunjungi..."
-                    class="itinerary-desc ml-11 w-[calc(100%-2.75rem)] min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    class="ml-11 w-[calc(100%-2.75rem)]"
                 />
                 <div class="ml-11">
                     <button type="button" @click="indOpen[i] = !indOpen[i]"
@@ -313,11 +297,11 @@ onMounted(() => nextTick(() => {
                             Tampil di MyJobs & manifest untuk guide/sopir/tour leader. Quotation customer tetap memakai teks di atas.
                         </p>
                         <Input v-model="day.title_ind" placeholder="Judul hari (bahasa Indonesia)" class="bg-white" />
-                        <textarea
+                        <RichTextEditor
                             v-model="day.description_ind"
-                            v-auto-resize
                             placeholder="Deskripsi bahasa Indonesia untuk tim lapangan..."
-                            class="w-full min-h-[60px] rounded-md border border-input bg-white px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            min-height="60px"
+                            class="w-full bg-white"
                         />
                     </div>
                 </div>

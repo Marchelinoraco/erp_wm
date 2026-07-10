@@ -65,6 +65,8 @@
         font-size: 8.5pt; font-weight: bold; border-left: 4px solid #c0272d;
     }
     .day-body { padding: 7px 12px 5px; font-size: 8.5pt; color: #374151; line-height: 1.5; text-align: justify; }
+    .day-body p { margin: 0 0 4px; }
+    .day-body ul, .day-body ol { margin: 2px 0 4px 16px; padding: 0; }
     .hour-table { width: 100%; border-collapse: collapse; margin: 8px 0 3px; }
     .hour-table td { font-size: 8pt; color: #374151; padding: 2px 0; vertical-align: top; }
     .hour-table td.ht { font-weight: bold; color: #0f3460; white-space: nowrap; width: 90px; padding-right: 10px; }
@@ -291,7 +293,7 @@
         <div class="day">
             <div class="day-head">DAY {{ $day->day_number }}@if($day->title): {{ strtoupper($day->title) }}@endif</div>
             <div class="day-body">
-                @if($day->description){{ $day->description }}@endif
+                @if($day->description){!! \App\Support\RichText::toPdfHtml($day->description) !!}@endif
                 @if($hours->count())
                 <div class="hour-sep"></div>
                 <table class="hour-table">
