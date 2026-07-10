@@ -6,6 +6,7 @@ use App\Models\BankAccount;
 use App\Models\Invoice;
 use App\Models\Tour;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Mpdf\Mpdf;
 use Mpdf\Output\Destination;
@@ -142,13 +143,17 @@ class InvoiceController extends Controller
         $rate     = $isIdr ? 1.0 : (float) $data['exchange_rate'];
         $totalIdr = (float) $invoice->total * $rate;
 
-        $invoice->update([
-            'exchange_rate' => $rate,
-            'total_idr'     => $totalIdr,
-            'status'        => 'sent',
-            'approved_at'   => now(),
-            'approved_by'   => auth()->id(),
-        ]);
+        DB::transaction(function () use ($invoice, $rate, $totalIdr) {
+            $invoice->update([
+                'exchange_rate'  => $rate,
+                'total_idr'      => $totalIdr,
+                'status'         => 'sent',
+                'approved_at'    => now(),
+                'approved_by'    => auth()->id(),
+                // Nomor keuangan gapless — urut sesuai urutan masuk Keuangan
+                'finance_number' => $invoice->finance_number ?? Invoice::nextFinanceNumber(),
+            ]);
+        });
 
         $money = ($invoice->currency ?: 'IDR') . ' ' . number_format((float) $invoice->total, 0, ',', '.');
         $idrEq = $isIdr ? '' : ' (≈ IDR ' . number_format($totalIdr, 0, ',', '.') . ')';
@@ -156,7 +161,8 @@ class InvoiceController extends Controller
         $invoice->tour?->histories()->create([
             'type'            => 'note',
             'status_snapshot' => $invoice->tour->status,
-            'description'     => 'Invoice ' . $invoice->number . ' disetujui & dikirim ke Keuangan (' . $money . $idrEq . ').',
+            'description'     => 'Invoice ' . $invoice->number . ' disetujui & masuk Keuangan sebagai '
+                . $invoice->finance_number . ' (' . $money . $idrEq . ').',
             'created_by'      => auth()->user()?->name ?? 'Sistem',
         ]);
 

@@ -479,6 +479,9 @@ function addProduct(product, extra = {}) {
                 <div class="flex items-start justify-between gap-3 flex-wrap">
                     <div class="flex items-center gap-2 flex-wrap">
                         <span class="font-mono text-sm font-semibold">{{ inv.number }}</span>
+                        <span v-if="inv.finance_number" class="font-mono text-xs text-muted-foreground">
+                            Keuangan: {{ inv.finance_number }}
+                        </span>
                         <span class="text-xs px-2 py-0.5 rounded-full font-medium" :class="STAGE_BADGE[stage(inv)].cls">
                             {{ STAGE_BADGE[stage(inv)].label }}
                         </span>

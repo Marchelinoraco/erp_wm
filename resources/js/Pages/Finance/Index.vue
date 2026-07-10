@@ -159,7 +159,10 @@ const BILL_STATUS = {
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             <tr v-for="inv in outstanding_invoices" :key="inv.id" class="hover:bg-gray-50">
-                                <td class="px-4 py-3 font-mono text-xs font-medium text-gray-700">{{ inv.number }}</td>
+                                <td class="px-4 py-3 font-mono text-xs">
+                                    <span class="font-medium text-gray-700">{{ inv.finance_number ?? inv.number }}</span>
+                                    <span v-if="inv.finance_number" class="block text-[11px] text-gray-400">{{ inv.number }}</span>
+                                </td>
                                 <td class="px-4 py-3 font-mono text-xs text-gray-600">{{ inv.tour?.code ?? '—' }}</td>
                                 <td class="px-4 py-3 text-gray-700">{{ inv.tour?.customer?.name ?? '—' }}</td>
                                 <td class="px-4 py-3 text-gray-500 text-xs">{{ fmtDate(inv.date) }}</td>

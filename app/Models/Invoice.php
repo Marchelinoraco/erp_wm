@@ -112,6 +112,23 @@ class Invoice extends Model
         $this->update($updates);
     }
 
+    /**
+     * Nomor keuangan gapless berikutnya (INV-<tahun>-NNNN), reset per tahun.
+     * Panggil di dalam transaksi — lockForUpdate mencegah dua approve
+     * bersamaan mendapat nomor yang sama.
+     */
+    public static function nextFinanceNumber(): string
+    {
+        $prefix = 'INV-' . now()->year . '-';
+        $latest = static::where('finance_number', 'like', $prefix . '%')
+            ->lockForUpdate()
+            ->orderByDesc('finance_number')
+            ->value('finance_number');
+        $next = $latest ? ((int) substr($latest, strlen($prefix))) + 1 : 1;
+
+        return $prefix . str_pad($next, 4, '0', STR_PAD_LEFT);
+    }
+
     protected static function booted(): void
     {
         static::creating(function (Invoice $inv) {

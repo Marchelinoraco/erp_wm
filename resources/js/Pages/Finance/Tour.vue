@@ -284,7 +284,8 @@ const CAT_LABEL = {
                         <div class="flex items-start justify-between gap-4">
                             <div>
                                 <div class="flex items-center gap-2 flex-wrap">
-                                    <span class="font-mono text-sm font-semibold text-gray-800">{{ inv.number }}</span>
+                                    <span class="font-mono text-sm font-semibold text-gray-800">{{ inv.finance_number ?? inv.number }}</span>
+                                    <span v-if="inv.finance_number" class="font-mono text-xs text-gray-400">{{ inv.number }}</span>
                                     <span class="text-xs px-2 py-0.5 rounded-full font-medium"
                                         :class="INV_STATUS[inv.status]?.cls">
                                         {{ INV_STATUS[inv.status]?.label }}
