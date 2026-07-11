@@ -148,6 +148,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/invoices/{invoice}',          [InvoiceController::class, 'destroy'])->name('invoices.destroy');
         Route::post('/invoices/{invoice}/items',      [InvoiceItemController::class, 'store'])->name('invoice-items.store');
         Route::post('/invoices/{invoice}/items/bulk', [InvoiceItemController::class, 'bulkStore'])->name('invoice-items.bulk');
+        Route::patch('/invoices/{invoice}/items/bulk', [InvoiceItemController::class, 'bulkUpdate'])->name('invoice-items.bulk-update');
         Route::patch('/invoice-items/{invoiceItem}',  [InvoiceItemController::class, 'update'])->name('invoice-items.update');
         Route::delete('/invoice-items/{invoiceItem}', [InvoiceItemController::class, 'destroy'])->name('invoice-items.destroy');
 

@@ -78,6 +78,35 @@ class InvoiceItemController extends Controller
         return redirect()->back();
     }
 
+    /** Autosave massal dari tabel Rincian Profit — satu request untuk semua baris yang berubah. */
+    public function bulkUpdate(Request $request, Invoice $invoice)
+    {
+        $this->ensureEditable($invoice);
+
+        $data = $request->validate([
+            'items'               => 'required|array|min:1|max:200',
+            'items.*.id'          => 'required|integer',
+            'items.*.qty'         => 'sometimes|integer|min:1',
+            'items.*.nights'      => 'sometimes|integer|min:1',
+            'items.*.description' => 'sometimes|nullable|string|max:500',
+            'items.*.unit_cost'   => 'sometimes|numeric|min:0',
+            'items.*.unit_sell'   => 'sometimes|numeric|min:0',
+            'items.*.start_date'  => 'sometimes|nullable|date',
+            'items.*.end_date'    => 'sometimes|nullable|date|after_or_equal:items.*.start_date',
+        ]);
+
+        $items = $invoice->items()
+            ->whereIn('id', collect($data['items'])->pluck('id'))
+            ->get()
+            ->keyBy('id');
+
+        foreach ($data['items'] as $row) {
+            $items->get($row['id'])?->update(collect($row)->except('id')->all());
+        }
+
+        return redirect()->back();
+    }
+
     public function update(Request $request, InvoiceItem $invoiceItem)
     {
         $this->ensureEditable($invoiceItem->invoice);
