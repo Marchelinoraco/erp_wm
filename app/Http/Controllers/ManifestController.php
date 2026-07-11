@@ -12,6 +12,7 @@ class ManifestController extends Controller
         $tour->load(['customer', 'items' => function ($q) {
             $q->orderBy('day_number')->orderBy('sort_order');
         }, 'assignments', 'itineraryDays', 'itineraryHours']);
+        $tour->maskCustomerForField();
 
         return Inertia::render('Manifest', [
             'tour'     => $tour,

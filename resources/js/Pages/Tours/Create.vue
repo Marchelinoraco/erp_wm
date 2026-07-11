@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Head, Link, useForm } from '@inertiajs/vue3'
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { Button } from '@/Components/ui/button'
 import { Input } from '@/Components/ui/input'
 import { Label } from '@/Components/ui/label'
@@ -28,6 +28,7 @@ const form = useForm({
     inquiry_source: props.type === 'tour' ? 'website' : 'external',
     package_id:     null,
     customer_id:    'none',
+    guest_name:     '',
     title:          '',
     pax:            1,
     start_date:     '',
@@ -36,6 +37,16 @@ const form = useForm({
     sales_person:   '',
     notes:          '',
     details:        emptyDetails(props.type),
+})
+
+// --- customer buyer: nama tamu wajib ---
+const selectedCustomer = computed(() =>
+    props.customers.find(c => String(c.id) === form.customer_id) ?? null
+)
+const isBuyer = computed(() => selectedCustomer.value?.type === 'buyer')
+
+watch(isBuyer, (val) => {
+    if (!val) form.guest_name = ''
 })
 
 // --- package combobox ---
@@ -315,6 +326,16 @@ function submit() {
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
+                        </div>
+
+                        <!-- NAMA TAMU — khusus customer tipe buyer -->
+                        <div v-if="isBuyer" class="space-y-1.5">
+                            <Label for="guest_name">Nama Tamu <span class="text-destructive">*</span></Label>
+                            <Input id="guest_name" v-model="form.guest_name" placeholder="Mis. Mr. Tanaka & Party" />
+                            <p class="text-xs text-muted-foreground">
+                                Nama ini yang dilihat guide/sopir di lapangan, bukan nama travel agent.
+                            </p>
+                            <p v-if="form.errors.guest_name" class="text-sm text-destructive">{{ form.errors.guest_name }}</p>
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">

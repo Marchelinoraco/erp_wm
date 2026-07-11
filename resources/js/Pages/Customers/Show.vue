@@ -54,7 +54,7 @@ const HISTORY_ICONS = {
     email:           '✉',
 }
 
-const TYPE_LABELS = { agent: 'Agent', corporate: 'Korporat', direct: 'Direct' }
+const TYPE_LABELS = { agent: 'Agent', corporate: 'Korporat', direct: 'Direct', buyer: 'Buyer (Travel Agent)' }
 
 const totalConfirmed = computed(() => props.tours.filter(t => t.status === 'confirmed').length)
 const totalRevenue   = computed(() => props.tours.reduce((sum, t) => sum + (t.total_sell ?? 0), 0))

@@ -124,6 +124,23 @@ class Tour extends Model
         return $this->belongsTo(Customer::class);
     }
 
+    /**
+     * Ganti payload customer dengan nama tamu untuk halaman tim lapangan
+     * (MyJobs, Manifest). Bila guest_name terisi (customer tipe buyer),
+     * kontak buyer tidak boleh sampai ke browser — manifest publik via signed URL.
+     */
+    public function maskCustomerForField(): void
+    {
+        if (! $this->guest_name) {
+            return;
+        }
+
+        $this->setRelation('customer', new Customer([
+            'name'    => $this->guest_name,
+            'country' => $this->customer?->country,
+        ]));
+    }
+
     public function package()
     {
         return $this->belongsTo(TourPackage::class, 'package_id');

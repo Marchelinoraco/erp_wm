@@ -17,7 +17,8 @@ class MyJobsController extends Controller
                 'assignments' => fn ($q) => $q->where('user_id', $user->id),
             ])
             ->orderBy('start_date')
-            ->get();
+            ->get()
+            ->each->maskCustomerForField();
 
         return Inertia::render('MyJobs/Index', [
             'tours' => $tours,
@@ -34,6 +35,7 @@ class MyJobsController extends Controller
         );
 
         $tour->load(['customer', 'assignments', 'items', 'itineraryDays', 'itineraryHours']);
+        $tour->maskCustomerForField();
 
         return Inertia::render('MyJobs/Show', [
             'tour'     => $tour,

@@ -35,6 +35,7 @@ class InvoiceController extends Controller
         ]);
 
         $tour->invoices()->create([
+            'guest_name' => $tour->guest_name,
             'pax'      => $data['pax'] ?? $tour->pax,
             'date'     => $data['date'] ?? now()->toDateString(),
             'due_date' => $data['due_date'] ?? ($tour->start_date?->toDateString() ?? now()->addDays(7)->toDateString()),

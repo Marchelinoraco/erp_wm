@@ -29,8 +29,8 @@ watch(search, () => {
     }, 400)
 })
 
-const TYPE_LABELS = { agent: 'Agent', corporate: 'Korporat', direct: 'Direct' }
-const TYPE_VARIANTS = { agent: 'default', corporate: 'secondary', direct: 'outline' }
+const TYPE_LABELS = { agent: 'Agent', corporate: 'Korporat', direct: 'Direct', buyer: 'Buyer (Travel Agent)' }
+const TYPE_VARIANTS = { agent: 'default', corporate: 'secondary', direct: 'outline', buyer: 'default' }
 
 async function confirmDelete(id) {
     if (await confirm({

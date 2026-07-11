@@ -36,7 +36,7 @@ class CustomerController extends Controller
     {
         $data = $request->validate([
             'name'           => 'required|string|max:255',
-            'type'           => 'required|string|in:agent,corporate,direct',
+            'type'           => 'required|string|in:agent,corporate,direct,buyer',
             'country'        => 'nullable|string|max:100',
             'contact_person' => 'nullable|string|max:255',
             'phone'          => 'nullable|string|max:50',
@@ -87,7 +87,7 @@ class CustomerController extends Controller
     {
         $data = $request->validate([
             'name'           => 'required|string|max:255',
-            'type'           => 'required|string|in:agent,corporate,direct',
+            'type'           => 'required|string|in:agent,corporate,direct,buyer',
             'country'        => 'nullable|string|max:100',
             'contact_person' => 'nullable|string|max:255',
             'phone'          => 'nullable|string|max:50',

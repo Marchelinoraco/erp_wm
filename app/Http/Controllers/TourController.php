@@ -14,6 +14,7 @@ use App\Models\TourPackage;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class TourController extends Controller
@@ -80,7 +81,7 @@ class TourController extends Controller
         }
 
         return Inertia::render('Tours/Create', [
-            'customers' => Customer::orderBy('name')->get(['id', 'name', 'country']),
+            'customers' => Customer::orderBy('name')->get(['id', 'name', 'country', 'type']),
             'packages'  => TourPackage::where('is_active', true)
                 ->orderBy('type')
                 ->orderBy('title')
@@ -99,6 +100,11 @@ class TourController extends Controller
             'package_id'     => 'nullable|exists:tour_packages,id',
             'customer_id'    => 'nullable|exists:customers,id',
             'title'          => 'nullable|string|max:255',
+            // Wajib bila customer bertipe buyer — nama inilah yang dilihat tim lapangan
+            'guest_name'     => [
+                Rule::requiredIf(fn () => Customer::find($request->customer_id)?->type === 'buyer'),
+                'nullable', 'string', 'max:255',
+            ],
             'pax'            => 'required|integer|min:1',
             'budget'         => 'nullable|numeric|min:0',
             'start_date'     => 'nullable|date',
@@ -122,7 +128,7 @@ class TourController extends Controller
 
         return Inertia::render('Tours/Edit', [
             'tour'        => $tour,
-            'customers'   => Customer::orderBy('name')->get(['id', 'name']),
+            'customers'   => Customer::orderBy('name')->get(['id', 'name', 'type']),
             'products'    => Product::where('is_active', true)
                 ->orderBy('type')
                 ->orderBy('group_label')
@@ -153,6 +159,11 @@ class TourController extends Controller
             'tour_direction' => 'nullable|in:inbound,outbound',
             'customer_id'    => 'nullable|exists:customers,id',
             'title'          => 'nullable|string|max:255',
+            'guest_name'     => [
+                Rule::requiredIf(fn () => $request->has('customer_id')
+                    && Customer::find($request->customer_id)?->type === 'buyer'),
+                'nullable', 'string', 'max:255',
+            ],
             'pax'            => 'sometimes|required|integer|min:1',
             'budget'         => 'nullable|numeric|min:0',
             'start_date'     => 'nullable|date',

@@ -68,6 +68,7 @@ function submit() {
                                         <SelectItem value="direct">Direct</SelectItem>
                                         <SelectItem value="agent">Agent</SelectItem>
                                         <SelectItem value="corporate">Korporat</SelectItem>
+                                        <SelectItem value="buyer">Buyer (Travel Agent)</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <p v-if="form.errors.type" class="text-sm text-destructive">{{ form.errors.type }}</p>

@@ -1,4 +1,5 @@
 <script setup>
+import { computed, watch } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import { Button } from '@/Components/ui/button'
 import { Input } from '@/Components/ui/input'
@@ -22,6 +23,7 @@ const headerForm = useForm({
     type:           tourType,
     tour_direction: props.tour.tour_direction ?? 'inbound',
     customer_id:    props.tour.customer_id ? String(props.tour.customer_id) : 'none',
+    guest_name:     props.tour.guest_name     ?? '',
     title:          props.tour.title          ?? '',
     pax:            props.tour.pax            ?? 1,
     budget:         props.tour.budget         ?? '',
@@ -32,6 +34,15 @@ const headerForm = useForm({
     default_markup: props.tour.default_markup ?? 0,
     notes:          props.tour.notes          ?? '',
     details:        { ...emptyDetails(tourType), ...(props.tour.details ?? {}) },
+})
+
+const selectedCustomer = computed(() =>
+    (props.customers ?? []).find(c => String(c.id) === headerForm.customer_id) ?? null
+)
+const isBuyer = computed(() => selectedCustomer.value?.type === 'buyer')
+
+watch(isBuyer, (val) => {
+    if (!val) headerForm.guest_name = ''
 })
 
 function saveHeader() {
@@ -77,6 +88,16 @@ function saveHeader() {
                         </SelectContent>
                     </Select>
                 </div>
+            </div>
+
+            <!-- Nama tamu — khusus customer tipe buyer, dilihat tim lapangan -->
+            <div v-if="isBuyer" class="space-y-1.5">
+                <Label for="guest_name">Nama Tamu <span class="text-destructive">*</span></Label>
+                <Input id="guest_name" v-model="headerForm.guest_name" placeholder="Mis. Mr. Tanaka & Party" />
+                <p class="text-xs text-muted-foreground">
+                    Nama ini yang dilihat guide/sopir di lapangan, bukan nama travel agent.
+                </p>
+                <p v-if="headerForm.errors.guest_name" class="text-xs text-destructive">{{ headerForm.errors.guest_name }}</p>
             </div>
 
             <div class="space-y-1.5">
