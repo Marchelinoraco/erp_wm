@@ -92,10 +92,10 @@ function sendEmail() {
         </template>
 
         <div class="py-6">
-            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            <div class="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
+                <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,24rem)] gap-6 items-start">
 
-                    <div class="lg:col-span-2 space-y-6">
+                    <div class="space-y-6">
                         <HeaderPanel :tour="tour" :customers="customers" />
                         <ItemsPanel :tour="tour" :products="products" />
                         <InvoicesPanel v-if="tour.status === 'confirmed'" :tour="tour" :products="products" />

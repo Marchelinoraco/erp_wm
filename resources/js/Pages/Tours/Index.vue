@@ -102,7 +102,7 @@ async function confirmDelete(tour) {
         </template>
 
         <div class="py-6">
-            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-4">
+            <div class="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 space-y-4">
                 <!-- Filter -->
                 <div class="rounded-lg border bg-white shadow-sm p-3 sm:p-4">
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-2">
@@ -221,7 +221,7 @@ async function confirmDelete(tour) {
                                 <TableHead>Status</TableHead>
                                 <TableHead class="text-right">Nilai Jual</TableHead>
                                 <TableHead class="text-right">Profit</TableHead>
-                                <TableHead class="w-44"></TableHead>
+                                <TableHead class="w-12"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -229,52 +229,49 @@ async function confirmDelete(tour) {
                                 Belum ada {{ type ? typeLabel(type).toLowerCase() : 'inquiry' }}.
                             </TableEmpty>
                             <TableRow v-for="t in tours.data" :key="t.id">
-                                <TableCell class="font-mono text-sm font-medium">
+                                <TableCell class="py-2 font-mono text-sm font-medium whitespace-nowrap">
                                     {{ t.code }}
-                                    <div class="mt-1">
-                                        <span :class="[TYPE_BADGE[t.type] ?? 'bg-gray-100 text-gray-600', 'inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold']">
-                                            {{ types[t.type] ?? typeLabel(t.type) }}
-                                        </span>
+                                    <span :class="[TYPE_BADGE[t.type] ?? 'bg-gray-100 text-gray-600', 'ml-1.5 align-middle font-sans inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold']">
+                                        {{ types[t.type] ?? typeLabel(t.type) }}
+                                    </span>
+                                </TableCell>
+                                <TableCell class="py-2">
+                                    <div class="max-w-[13rem] truncate" :title="t.customer?.name">{{ t.customer?.name ?? '—' }}</div>
+                                </TableCell>
+                                <TableCell class="py-2">
+                                    <div class="max-w-[30rem] truncate font-medium" :title="t.title">
+                                        {{ t.title ?? '—' }}
+                                        <span class="text-xs text-muted-foreground font-normal">· {{ t.pax }} pax</span>
                                     </div>
                                 </TableCell>
-                                <TableCell>{{ t.customer?.name ?? '—' }}</TableCell>
-                                <TableCell>
-                                    <div class="font-medium">{{ t.title ?? '—' }}</div>
-                                    <div class="text-xs text-muted-foreground">{{ t.pax }} pax</div>
-                                </TableCell>
-                                <TableCell class="text-sm">
+                                <TableCell class="py-2 text-sm whitespace-nowrap">
                                     <template v-if="t.start_date">
-                                        {{ fmtDate(t.start_date) }}<br/>
-                                        <span class="text-muted-foreground">s/d {{ fmtDate(t.end_date) }}</span>
+                                        {{ fmtDate(t.start_date) }} <span class="text-muted-foreground">s/d {{ fmtDate(t.end_date) }}</span>
                                     </template>
                                     <template v-else>—</template>
                                 </TableCell>
-                                <TableCell>
+                                <TableCell class="py-2 whitespace-nowrap">
                                     <span
                                         :class="[STATUS_CONFIG[t.status]?.class, 'inline-flex px-2 py-0.5 rounded-full text-xs font-medium']"
                                     >
                                         {{ STATUS_CONFIG[t.status]?.label ?? t.status }}
                                     </span>
-                                    <div v-if="t.status === 'confirmed'" class="mt-1">
-                                        <span v-if="t.invoices_count > 0"
-                                            class="inline-flex items-center gap-1 text-xs text-green-700">
-                                            ✓ Invoice dibuat
-                                        </span>
-                                        <span v-else
-                                            class="inline-flex items-center gap-1 text-xs text-orange-600">
-                                            ⚠ Belum ada invoice
-                                        </span>
-                                    </div>
+                                    <template v-if="t.status === 'confirmed'">
+                                        <span v-if="t.invoices_count > 0" title="Invoice dibuat"
+                                            class="ml-1.5 align-middle text-xs text-green-700">✓</span>
+                                        <span v-else title="Belum ada invoice"
+                                            class="ml-1.5 align-middle text-xs text-orange-600">⚠ Belum ada invoice</span>
+                                    </template>
                                 </TableCell>
-                                <TableCell class="text-right font-mono text-sm">
+                                <TableCell class="py-2 text-right font-mono text-sm">
                                     {{ fmtRp(t.total_sell) }}
                                 </TableCell>
-                                <TableCell class="text-right font-mono text-sm"
+                                <TableCell class="py-2 text-right font-mono text-sm"
                                     :class="profit(t) >= 0 ? 'text-green-700' : 'text-red-600'"
                                 >
                                     {{ fmtRp(profit(t)) }}
                                 </TableCell>
-                                <TableCell class="text-right">
+                                <TableCell class="py-2 text-right">
                                     <RowActions>
                                         <DropdownMenuItem as-child>
                                             <a :href="route('quotation.preview', t.id)" target="_blank">Lihat Quotation PDF</a>
