@@ -30,7 +30,11 @@ class LedgerSync
     private static function upsert($payment, string $source, string $direction, string $categoryName, string $label): void
     {
         $category = FinCategory::where('name', $categoryName)->where('is_system', true)->first();
-        $account  = self::accountForMethod($payment->method ?? null);
+        // Akun kas dipilih eksplisit oleh akuntan sejak fitur ini ada; baris
+        // lama yang belum punya cash_account_id tetap pakai tebakan lama.
+        $account  = $payment->cash_account_id
+            ? CashAccount::find($payment->cash_account_id)
+            : self::accountForMethod($payment->method ?? null);
 
         if (! $category || ! $account) {
             return; // fondasi keuangan belum di-seed

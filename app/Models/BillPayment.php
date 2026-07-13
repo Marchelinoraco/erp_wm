@@ -13,4 +13,9 @@ class BillPayment extends Model
     {
         return $this->belongsTo(Bill::class);
     }
+
+    public function cashAccount()
+    {
+        return $this->belongsTo(CashAccount::class);
+    }
 }

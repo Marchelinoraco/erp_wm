@@ -11,10 +11,11 @@ class InvoicePaymentController extends Controller
     public function store(Request $request, Invoice $invoice)
     {
         $data = $request->validate([
-            'date'   => 'required|date',
-            'amount' => 'required|numeric|min:0.01',
-            'method' => 'required|in:transfer,cash,other',
-            'notes'  => 'nullable|string',
+            'date'            => 'required|date',
+            'amount'          => 'required|numeric|min:0.01',
+            'method'          => 'required|in:transfer,cash,other',
+            'cash_account_id' => 'required|exists:cash_accounts,id',
+            'notes'           => 'nullable|string',
         ]);
 
         $invoice->payments()->create($data);

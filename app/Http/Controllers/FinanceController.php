@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Bill;
 use App\Models\BillPayment;
+use App\Models\CashAccount;
 use App\Models\Invoice;
 use App\Models\InvoicePayment;
 use App\Models\Supplier;
@@ -75,11 +76,13 @@ class FinanceController extends Controller
             'items',
             // Hanya invoice yang sudah disetujui sales yang dikelola di Keuangan.
             // Items = rincian profit internal, tampil read-only untuk akuntan.
-            'invoices' => fn ($q) => $q->approved()->with(['payments', 'items.product.supplier']),
-            'bills.payments',
+            'invoices' => fn ($q) => $q->approved()->with(['payments.cashAccount:id,name', 'items.product.supplier']),
+            'bills.payments.cashAccount:id,name',
             'bills.supplier:id,name',
             // Asal bill (bila dibuat otomatis dari item Rincian Profit bersupplier)
             'bills.invoiceItem.invoice:id,number,finance_number',
+            // Permintaan biaya tambahan dari sales — pending & histori (approved/rejected)
+            'costRequests' => fn ($q) => $q->latest()->with(['requestedBy:id,name', 'reviewedBy:id,name', 'supplier:id,name']),
         ]);
 
         $tour->append([
@@ -89,8 +92,9 @@ class FinanceController extends Controller
         ]);
 
         return Inertia::render('Finance/Tour', [
-            'tour'      => $tour,
-            'suppliers' => Supplier::orderBy('name')->get(['id', 'name']),
+            'tour'        => $tour,
+            'suppliers'   => Supplier::orderBy('name')->get(['id', 'name']),
+            'cashAccounts' => CashAccount::active()->get(['id', 'name', 'type']),
         ]);
     }
 }

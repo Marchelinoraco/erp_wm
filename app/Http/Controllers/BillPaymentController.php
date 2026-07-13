@@ -11,10 +11,11 @@ class BillPaymentController extends Controller
     public function store(Request $request, Bill $bill)
     {
         $data = $request->validate([
-            'date'   => 'required|date',
-            'amount' => 'required|numeric|min:0.01',
-            'method' => 'required|in:transfer,cash,other',
-            'notes'  => 'nullable|string',
+            'date'            => 'required|date',
+            'amount'          => 'required|numeric|min:0.01',
+            'method'          => 'required|in:transfer,cash,other',
+            'cash_account_id' => 'required|exists:cash_accounts,id',
+            'notes'           => 'nullable|string',
         ]);
 
         $bill->payments()->create($data);

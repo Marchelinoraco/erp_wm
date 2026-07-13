@@ -8,17 +8,21 @@ import { TYPE_LABELS } from '@/lib/tourConstants'
 import { Button } from '@/Components/ui/button'
 import { Input } from '@/Components/ui/input'
 import { Label } from '@/Components/ui/label'
+import { Textarea } from '@/Components/ui/textarea'
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/Components/ui/select'
 import {
-    Dialog, DialogContent, DialogHeader, DialogTitle,
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/Components/ui/dialog'
 
 const props = defineProps({
-    tour:      Object,
-    suppliers: Array,
+    tour:         Object,
+    suppliers:    Array,
+    cashAccounts: { type: Array, default: () => [] },
 })
+
+const ACCOUNT_ICON = { bank: '🏦', cash: '💵' }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function fmtDate(d) {
@@ -91,17 +95,19 @@ const invPayDialogOpen  = ref(false)
 const payingInvoice     = ref(null)
 
 const invPayForm = useForm({
-    date:   today(),
-    amount: '',
-    method: 'transfer',
-    notes:  '',
+    date:            today(),
+    amount:          '',
+    method:          'transfer',
+    cash_account_id: null,
+    notes:           '',
 })
 
 function openAddInvPayment(inv) {
     payingInvoice.value = inv
     invPayForm.reset()
-    invPayForm.date   = today()
-    invPayForm.method = 'transfer'
+    invPayForm.date            = today()
+    invPayForm.method          = 'transfer'
+    invPayForm.cash_account_id = props.cashAccounts[0]?.id ?? null
     invPayDialogOpen.value = true
 }
 function submitInvPayment() {
@@ -177,22 +183,67 @@ async function deleteBill(id) {
     }
 }
 
+// ── Review Permintaan Biaya Tambahan ─────────────────────────────────────────
+const approveCrDialogOpen = ref(false)
+const rejectCrDialogOpen  = ref(false)
+const reviewingCr         = ref(null)
+
+const approveCrForm = useForm({ amount: '', date: today(), due_date: '' })
+const rejectCrForm  = useForm({ review_notes: '' })
+
+function openApproveCr(cr) {
+    reviewingCr.value    = cr
+    approveCrForm.reset()
+    approveCrForm.amount = cr.amount
+    approveCrForm.date   = today()
+    approveCrDialogOpen.value = true
+}
+function submitApproveCr() {
+    approveCrForm.post(route('cost-requests.approve', reviewingCr.value.id), {
+        preserveScroll: true, only: ['tour'],
+        onSuccess: () => { approveCrDialogOpen.value = false },
+    })
+}
+function openRejectCr(cr) {
+    reviewingCr.value = cr
+    rejectCrForm.reset()
+    rejectCrDialogOpen.value = true
+}
+function submitRejectCr() {
+    rejectCrForm.post(route('cost-requests.reject', reviewingCr.value.id), {
+        preserveScroll: true, only: ['tour'],
+        onSuccess: () => { rejectCrDialogOpen.value = false },
+    })
+}
+
+const CR_CATEGORY_LABEL = {
+    hotel: 'Hotel', transport: 'Transport', guide: 'Guide',
+    restaurant: 'Restaurant', attraction: 'Wisata', other: 'Lainnya',
+}
+const CR_STATUS_BADGE = {
+    pending:  { label: '🟡 Menunggu',  cls: 'bg-amber-100 text-amber-700' },
+    approved: { label: '🟢 Disetujui', cls: 'bg-green-100 text-green-700' },
+    rejected: { label: '🔴 Ditolak',   cls: 'bg-red-100 text-red-600' },
+}
+
 // ── Bill Payment ──────────────────────────────────────────────────────────────
 const billPayDialogOpen = ref(false)
 const payingBill        = ref(null)
 
 const billPayForm = useForm({
-    date:   today(),
-    amount: '',
-    method: 'transfer',
-    notes:  '',
+    date:            today(),
+    amount:          '',
+    method:          'transfer',
+    cash_account_id: null,
+    notes:           '',
 })
 
 function openAddBillPayment(bill) {
     payingBill.value = bill
     billPayForm.reset()
-    billPayForm.date   = today()
-    billPayForm.method = 'transfer'
+    billPayForm.date            = today()
+    billPayForm.method          = 'transfer'
+    billPayForm.cash_account_id = props.cashAccounts[0]?.id ?? null
     billPayDialogOpen.value = true
 }
 function submitBillPayment() {
@@ -341,6 +392,7 @@ const CAT_LABEL = {
                                     <span class="text-gray-400 text-xs">≈ {{ fmtRp(p.amount_idr) }}</span>
                                 </template>
                                 <span class="text-gray-400">{{ fmtDate(p.date) }} · {{ p.method }}</span>
+                                <span v-if="p.cash_account" class="text-gray-400">· {{ ACCOUNT_ICON[p.cash_account.type] }} {{ p.cash_account.name }}</span>
                                 <span v-if="p.notes" class="text-gray-400 truncate">· {{ p.notes }}</span>
                                 <button @click="deleteInvPayment(p.id)"
                                     class="ml-auto text-gray-300 hover:text-red-500 transition-colors text-base leading-none">×</button>
@@ -430,6 +482,50 @@ const CAT_LABEL = {
                 </div>
             </div>
 
+            <!-- ── Permintaan Biaya Tambahan (dari sales) ── -->
+            <div v-if="tour.cost_requests?.length" class="bg-white rounded-xl border shadow-sm overflow-hidden">
+                <div class="px-5 py-4 border-b">
+                    <h2 class="text-sm font-semibold text-gray-800">Permintaan Biaya Tambahan</h2>
+                    <p class="text-xs text-gray-400 mt-0.5">Biaya tak terduga yang diajukan sales saat tour berjalan.</p>
+                </div>
+                <div class="divide-y">
+                    <div v-for="cr in tour.cost_requests" :key="cr.id" class="px-5 py-4"
+                        :class="cr.status === 'pending' ? 'bg-amber-50/50' : ''">
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="text-sm font-semibold text-gray-800">{{ cr.description }}</span>
+                                    <span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">
+                                        {{ CR_CATEGORY_LABEL[cr.category] ?? cr.category }}
+                                    </span>
+                                    <span class="text-xs px-2 py-0.5 rounded-full font-medium" :class="CR_STATUS_BADGE[cr.status]?.cls">
+                                        {{ CR_STATUS_BADGE[cr.status]?.label }}
+                                    </span>
+                                </div>
+                                <p class="text-xs text-gray-400 mt-0.5">
+                                    Diajukan {{ cr.requested_by?.name }}
+                                    <template v-if="cr.supplier"> · {{ cr.supplier.name }}</template>
+                                    · {{ fmtDate(cr.created_at) }}
+                                </p>
+                                <p v-if="cr.notes" class="text-xs text-gray-500 mt-1">"{{ cr.notes }}"</p>
+                                <p v-if="cr.status !== 'pending'" class="text-xs text-gray-400 mt-1">
+                                    Direview {{ cr.reviewed_by?.name }} · {{ fmtDate(cr.reviewed_at) }}
+                                    <template v-if="cr.review_notes"> — {{ cr.review_notes }}</template>
+                                </p>
+                            </div>
+                            <div class="text-right shrink-0">
+                                <p class="font-bold text-gray-800">{{ fmtRp(cr.amount) }}</p>
+                                <p class="text-xs text-gray-400">perkiraan</p>
+                            </div>
+                        </div>
+                        <div v-if="cr.status === 'pending'" class="mt-3 flex gap-2">
+                            <Button size="sm" @click="openApproveCr(cr)">Setujui</Button>
+                            <Button size="sm" variant="outline" @click="openRejectCr(cr)">Tolak</Button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- ── AP — Bill ── -->
             <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
                 <div class="px-5 py-4 border-b flex items-center justify-between">
@@ -480,6 +576,7 @@ const CAT_LABEL = {
                                 class="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 rounded px-3 py-1.5">
                                 <span class="text-blue-600 font-medium">-{{ fmtRp(p.amount) }}</span>
                                 <span class="text-gray-400">{{ fmtDate(p.date) }} · {{ p.method }}</span>
+                                <span v-if="p.cash_account" class="text-gray-400">· {{ ACCOUNT_ICON[p.cash_account.type] }} {{ p.cash_account.name }}</span>
                                 <span v-if="p.notes" class="text-gray-400 truncate">· {{ p.notes }}</span>
                                 <button @click="deleteBillPayment(p.id)"
                                     class="ml-auto text-gray-300 hover:text-red-500 transition-colors text-base leading-none">×</button>
@@ -564,6 +661,18 @@ const CAT_LABEL = {
                                 </SelectContent>
                             </Select>
                         </div>
+                    </div>
+                    <div class="space-y-1.5">
+                        <Label>Akun Kas <span class="text-destructive">*</span></Label>
+                        <Select v-model="invPayForm.cash_account_id">
+                            <SelectTrigger><SelectValue placeholder="Pilih akun kas..." /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem v-for="a in cashAccounts" :key="a.id" :value="a.id">
+                                    {{ ACCOUNT_ICON[a.type] }} {{ a.name }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <p v-if="invPayForm.errors.cash_account_id" class="text-xs text-destructive">{{ invPayForm.errors.cash_account_id }}</p>
                     </div>
                     <div class="space-y-1.5">
                         <Label>Jumlah (IDR)</Label>
@@ -684,6 +793,18 @@ const CAT_LABEL = {
                         </div>
                     </div>
                     <div class="space-y-1.5">
+                        <Label>Akun Kas <span class="text-destructive">*</span></Label>
+                        <Select v-model="billPayForm.cash_account_id">
+                            <SelectTrigger><SelectValue placeholder="Pilih akun kas..." /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem v-for="a in cashAccounts" :key="a.id" :value="a.id">
+                                    {{ ACCOUNT_ICON[a.type] }} {{ a.name }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <p v-if="billPayForm.errors.cash_account_id" class="text-xs text-destructive">{{ billPayForm.errors.cash_account_id }}</p>
+                    </div>
+                    <div class="space-y-1.5">
                         <Label>Jumlah (IDR)</Label>
                         <Input type="number" v-model="billPayForm.amount" min="1" step="any" required />
                     </div>
@@ -695,6 +816,60 @@ const CAT_LABEL = {
                         <Button type="button" variant="outline" @click="billPayDialogOpen = false">Batal</Button>
                         <Button type="submit" :disabled="billPayForm.processing">Simpan</Button>
                     </div>
+                </form>
+            </DialogContent>
+        </Dialog>
+
+        <!-- ── Dialog: Setujui Permintaan Biaya Tambahan ── -->
+        <Dialog v-model:open="approveCrDialogOpen">
+            <DialogContent class="max-w-sm">
+                <DialogHeader>
+                    <DialogTitle>Setujui Biaya Tambahan</DialogTitle>
+                </DialogHeader>
+                <p class="text-xs text-gray-500">
+                    {{ reviewingCr?.description }} — nominal akan tercatat sebagai Bill baru untuk tour ini.
+                </p>
+                <form @submit.prevent="submitApproveCr" class="space-y-3 mt-2">
+                    <div class="space-y-1.5">
+                        <Label>Nominal Final (IDR)</Label>
+                        <Input type="number" v-model="approveCrForm.amount" min="0" step="1000" required />
+                        <p v-if="approveCrForm.errors.amount" class="text-xs text-destructive">{{ approveCrForm.errors.amount }}</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="space-y-1.5">
+                            <Label>Tanggal</Label>
+                            <Input type="date" v-model="approveCrForm.date" required />
+                        </div>
+                        <div class="space-y-1.5">
+                            <Label>Jatuh Tempo</Label>
+                            <Input type="date" v-model="approveCrForm.due_date" />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" @click="approveCrDialogOpen = false">Batal</Button>
+                        <Button type="submit" :disabled="approveCrForm.processing">Setujui & Buat Bill</Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+
+        <!-- ── Dialog: Tolak Permintaan Biaya Tambahan ── -->
+        <Dialog v-model:open="rejectCrDialogOpen">
+            <DialogContent class="max-w-sm">
+                <DialogHeader>
+                    <DialogTitle>Tolak Biaya Tambahan</DialogTitle>
+                </DialogHeader>
+                <p class="text-xs text-gray-500">{{ reviewingCr?.description }}</p>
+                <form @submit.prevent="submitRejectCr" class="space-y-3 mt-2">
+                    <div class="space-y-1.5">
+                        <Label>Alasan Penolakan</Label>
+                        <Textarea v-model="rejectCrForm.review_notes" rows="3" required placeholder="Jelaskan alasannya..." />
+                        <p v-if="rejectCrForm.errors.review_notes" class="text-xs text-destructive">{{ rejectCrForm.errors.review_notes }}</p>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" @click="rejectCrDialogOpen = false">Batal</Button>
+                        <Button type="submit" variant="destructive" :disabled="rejectCrForm.processing">Tolak</Button>
+                    </DialogFooter>
                 </form>
             </DialogContent>
         </Dialog>
