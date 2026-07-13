@@ -3,7 +3,8 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Head, Link, useForm, router } from '@inertiajs/vue3'
 import { ref } from 'vue'
 import { confirm } from '@/lib/confirm'
-import { fmtRp, fmtCur } from '@/lib/fmt'
+import { fmtRp, fmtCur, fmtNum } from '@/lib/fmt'
+import { TYPE_LABELS } from '@/lib/tourConstants'
 import { Button } from '@/Components/ui/button'
 import { Input } from '@/Components/ui/input'
 import { Label } from '@/Components/ui/label'
@@ -32,6 +33,26 @@ const STATUS_COLOR = {
     confirmed: 'bg-green-100 text-green-700',
     cancelled: 'bg-red-100 text-red-600',
     inquiry:   'bg-gray-100 text-gray-600',
+}
+
+// ── Rincian Profit (internal, read-only) ─────────────────────────────────────
+const profitOpen = ref({})
+
+function invTotalCost(inv) {
+    return (inv.items ?? []).reduce((s, i) => s + Number(i.line_cost), 0)
+}
+function invTotalSell(inv) {
+    return (inv.items ?? []).reduce((s, i) => s + Number(i.line_sell), 0)
+}
+// Tour inbound/outbound: profit = tagihan customer (IDR) − total cost item.
+// Tipe lain: profit per item (sell − cost). Sama dengan rumus di panel sales.
+function invProfit(inv) {
+    if (props.tour.type === 'tour') return Number(inv.total_idr) - invTotalCost(inv)
+    return invTotalSell(inv) - invTotalCost(inv)
+}
+function invMargin(inv) {
+    const base = props.tour.type === 'tour' ? Number(inv.total_idr) : invTotalSell(inv)
+    return base > 0 ? Math.round((invProfit(inv) / base) * 1000) / 10 : 0
 }
 
 // ── Invoice CRUD ──────────────────────────────────────────────────────────────
@@ -100,16 +121,22 @@ const billDialogOpen  = ref(false)
 const editingBill     = ref(null)
 
 const billForm = useForm({
-    supplier_id: null,
-    description: '',
-    category:    'other',
-    date:        today(),
-    due_date:    '',
-    amount:      '',
-    status:      'unpaid',
-    notes:       '',
+    supplier_id:     null,
+    invoice_item_id: null,
+    description:     '',
+    category:        'other',
+    date:            today(),
+    due_date:        '',
+    amount:          '',
+    status:          'unpaid',
+    notes:           '',
 })
 
+/**
+ * Bill dari item Rincian Profit bersupplier dibuat OTOMATIS saat sales
+ * menyetujui invoice (lihat Bill::createMissingFromInvoice di backend) —
+ * tombol ini murni untuk bill manual (tanpa item asal).
+ */
 function openAddBill() {
     editingBill.value = null
     billForm.reset()
@@ -119,16 +146,17 @@ function openAddBill() {
     billDialogOpen.value = true
 }
 function openEditBill(bill) {
-    editingBill.value       = bill
-    billForm.supplier_id    = bill.supplier_id ?? null
-    billForm.description    = bill.description
-    billForm.category       = bill.category
-    billForm.date           = bill.date?.slice(0, 10) ?? today()
-    billForm.due_date       = bill.due_date?.slice(0, 10) ?? ''
-    billForm.amount         = bill.amount
-    billForm.status         = bill.status
-    billForm.notes          = bill.notes ?? ''
-    billDialogOpen.value    = true
+    editingBill.value        = bill
+    billForm.supplier_id     = bill.supplier_id ?? null
+    billForm.invoice_item_id = bill.invoice_item_id ?? null
+    billForm.description     = bill.description
+    billForm.category        = bill.category
+    billForm.date             = bill.date?.slice(0, 10) ?? today()
+    billForm.due_date        = bill.due_date?.slice(0, 10) ?? ''
+    billForm.amount          = bill.amount
+    billForm.status          = bill.status
+    billForm.notes           = bill.notes ?? ''
+    billDialogOpen.value     = true
 }
 function submitBill() {
     if (editingBill.value) {
@@ -319,6 +347,70 @@ const CAT_LABEL = {
                             </div>
                         </div>
 
+                        <!-- Rincian Profit (internal, read-only untuk akuntan) -->
+                        <div v-if="inv.items?.length" class="mt-3 rounded-md border">
+                            <button type="button" @click="profitOpen[inv.id] = !profitOpen[inv.id]"
+                                class="w-full flex items-center justify-between px-3 py-2 text-left text-xs font-semibold uppercase text-gray-400 hover:bg-gray-50">
+                                <span>Rincian Profit (internal · IDR)</span>
+                                <span class="flex items-center gap-2">
+                                    <span class="font-mono normal-case text-[11px]"
+                                        :class="invProfit(inv) >= 0 ? 'text-green-700' : 'text-red-600'">
+                                        {{ fmtRp(invProfit(inv)) }} ({{ invMargin(inv) }}%)
+                                    </span>
+                                    <span>{{ profitOpen[inv.id] ? '▾' : '▸' }}</span>
+                                </span>
+                            </button>
+                            <div v-if="profitOpen[inv.id]" class="border-t">
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-sm">
+                                        <thead>
+                                            <tr class="border-b bg-gray-50 text-gray-400 text-xs uppercase">
+                                                <th class="px-3 py-2 text-left">Deskripsi</th>
+                                                <th class="px-3 py-2 text-center w-14">Qty</th>
+                                                <th class="px-3 py-2 text-center w-14">Mlm</th>
+                                                <th class="px-3 py-2 text-right w-28">Cost/unit</th>
+                                                <th class="px-3 py-2 text-right w-28">Sell/unit</th>
+                                                <th class="px-3 py-2 text-right w-28">Total Cost</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="item in inv.items" :key="item.id" class="border-b last:border-0">
+                                                <td class="px-3 py-1.5">
+                                                    {{ item.description }}
+                                                    <span class="block text-xs text-gray-400">
+                                                        {{ TYPE_LABELS[item.product_type] ?? item.product_type }}
+                                                        <template v-if="item.start_date">
+                                                            · 📅 {{ fmtDate(item.start_date) }}<template v-if="item.end_date && item.end_date !== item.start_date"> – {{ fmtDate(item.end_date) }}</template>
+                                                        </template>
+                                                    </span>
+                                                </td>
+                                                <td class="px-3 py-1.5 text-center">{{ item.qty }}</td>
+                                                <td class="px-3 py-1.5 text-center">{{ item.nights }}</td>
+                                                <td class="px-3 py-1.5 text-right font-mono">{{ fmtNum(item.unit_cost) }}</td>
+                                                <td class="px-3 py-1.5 text-right font-mono">{{ fmtNum(item.unit_sell) }}</td>
+                                                <td class="px-3 py-1.5 text-right font-mono font-medium">{{ fmtRp(item.line_cost) }}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="border-t bg-gray-50/50 px-4 py-3 text-sm space-y-1">
+                                    <div class="flex justify-between text-xs text-gray-500">
+                                        <span>Total Cost (Modal)</span>
+                                        <span class="font-mono">{{ fmtRp(invTotalCost(inv)) }}</span>
+                                    </div>
+                                    <div class="flex justify-between text-xs text-gray-500">
+                                        <span>{{ tour.type === 'tour' ? 'Total Tagihan Customer (IDR)' : 'Total Jual Item' }}</span>
+                                        <span class="font-mono">{{ fmtRp(tour.type === 'tour' ? inv.total_idr : invTotalSell(inv)) }}</span>
+                                    </div>
+                                    <div class="flex justify-between font-semibold"
+                                        :class="invProfit(inv) >= 0 ? 'text-green-700' : 'text-red-600'">
+                                        <span>Profit</span>
+                                        <span class="font-mono">{{ fmtRp(invProfit(inv)) }} ({{ invMargin(inv) }}%)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Actions -->
                         <div class="mt-3 flex gap-2 flex-wrap">
                             <a :href="route('invoices.preview', inv.id)" target="_blank">
@@ -326,6 +418,9 @@ const CAT_LABEL = {
                             </a>
                             <a :href="route('invoices.download', inv.id)">
                                 <Button size="sm" variant="outline">⬇ Unduh</Button>
+                            </a>
+                            <a v-if="inv.items?.length" :href="route('invoices.profit-pdf', inv.id)" target="_blank">
+                                <Button size="sm" variant="outline">📊 Rincian Profit PDF</Button>
                             </a>
                             <Button size="sm" variant="outline" @click="openAddInvPayment(inv)">+ Bayar</Button>
                             <Button size="sm" variant="outline" @click="openEditInvoice(inv)">Edit</Button>
@@ -339,7 +434,7 @@ const CAT_LABEL = {
             <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
                 <div class="px-5 py-4 border-b flex items-center justify-between">
                     <h2 class="text-sm font-semibold text-gray-800">AP — Bill ke Supplier</h2>
-                    <Button size="sm" @click="openAddBill">+ Bill</Button>
+                    <Button size="sm" @click="openAddBill()">+ Bill</Button>
                 </div>
 
                 <div v-if="!tour.bills?.length" class="px-5 py-6 text-sm text-gray-400 text-center">
@@ -359,11 +454,18 @@ const CAT_LABEL = {
                                         :class="BILL_STATUS[bill.status]?.cls">
                                         {{ BILL_STATUS[bill.status]?.label }}
                                     </span>
+                                    <span v-if="Number(bill.amount) === 0" title="Dibuat otomatis dari Rincian Profit, nominal belum diisi"
+                                        class="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">
+                                        ⚠ Perlu diisi nominal
+                                    </span>
                                 </div>
                                 <p class="text-xs text-gray-400 mt-0.5">
                                     <template v-if="bill.supplier">{{ bill.supplier.name }} · </template>
                                     Tgl: {{ fmtDate(bill.date) }}
                                     <template v-if="bill.due_date"> · Jatuh tempo: {{ fmtDate(bill.due_date) }}</template>
+                                    <template v-if="bill.invoice_item?.invoice">
+                                        · 📋 Dari Rincian Profit {{ bill.invoice_item.invoice.finance_number ?? bill.invoice_item.invoice.number }}
+                                    </template>
                                 </p>
                             </div>
                             <div class="text-right shrink-0">

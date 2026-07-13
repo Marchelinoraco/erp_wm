@@ -74,9 +74,12 @@ class FinanceController extends Controller
             'customer:id,name',
             'items',
             // Hanya invoice yang sudah disetujui sales yang dikelola di Keuangan.
-            'invoices' => fn ($q) => $q->approved()->with('payments'),
+            // Items = rincian profit internal, tampil read-only untuk akuntan.
+            'invoices' => fn ($q) => $q->approved()->with(['payments', 'items.product.supplier']),
             'bills.payments',
             'bills.supplier:id,name',
+            // Asal bill (bila dibuat otomatis dari item Rincian Profit bersupplier)
+            'bills.invoiceItem.invoice:id,number,finance_number',
         ]);
 
         $tour->append([

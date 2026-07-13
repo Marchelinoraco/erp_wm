@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\BankAccount;
+use App\Models\Bill;
 use App\Models\Invoice;
 use App\Models\Tour;
+use App\Support\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -154,6 +156,10 @@ class InvoiceController extends Controller
                 // Nomor keuangan gapless — urut sesuai urutan masuk Keuangan
                 'finance_number' => $invoice->finance_number ?? Invoice::nextFinanceNumber(),
             ]);
+
+            // Item bersupplier di Rincian Profit langsung tercatat sebagai Bill
+            // draft (nominal 0) — akuntan tinggal mengisi nominalnya.
+            Bill::createMissingFromInvoice($invoice);
         });
 
         $money = ($invoice->currency ?: 'IDR') . ' ' . number_format((float) $invoice->total, 0, ',', '.');
@@ -217,6 +223,41 @@ class InvoiceController extends Controller
     public function preview(Invoice $invoice)
     {
         return $this->respond($invoice, Destination::INLINE);
+    }
+
+    /**
+     * PDF Rincian Profit (internal) — modal vs jual untuk Keuangan.
+     * Hanya tersedia setelah invoice disetujui sales.
+     */
+    public function profitPdf(Invoice $invoice)
+    {
+        abort_unless($invoice->approved_at, 403, 'Rincian profit hanya tersedia setelah invoice disetujui.');
+
+        $invoice->load(['tour.customer', 'items', 'approvedBy']);
+
+        $tour      = $invoice->tour;
+        $isTour    = $tour->type === 'tour';
+        $totalCost = $invoice->items->sum('line_cost');
+        $totalSell = $invoice->items->sum('line_sell');
+        // Tour inbound/outbound: profit = tagihan customer (IDR) − cost item.
+        // Tipe lain: profit per item (jual − cost). Rumus sama dengan panel sales.
+        $revenue = $isTour ? (float) $invoice->total_idr : (float) $totalSell;
+        $profit  = $revenue - $totalCost;
+        $margin  = $revenue > 0 ? round($profit / $revenue * 100, 1) : 0;
+
+        $number = $invoice->finance_number ?? $invoice->number;
+
+        return Pdf::stream('finance.profit_breakdown', [
+            'invoice'   => $invoice,
+            'tour'      => $tour,
+            'isTour'    => $isTour,
+            'totalCost' => $totalCost,
+            'totalSell' => $totalSell,
+            'profit'    => $profit,
+            'margin'    => $margin,
+            'title'     => 'Rincian Profit',
+            'period'    => $number,
+        ], 'PROFIT-' . $number);
     }
 
     private function respond(Invoice $invoice, string $destination)

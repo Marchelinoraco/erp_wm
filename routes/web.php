@@ -203,6 +203,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('role:admin,sales,accountant')->group(function () {
         Route::get('/invoices/{invoice}/preview',  [InvoiceController::class, 'preview'])->name('invoices.preview');
         Route::get('/invoices/{invoice}/download', [InvoiceController::class, 'download'])->name('invoices.download');
+        // Rincian profit internal (modal vs jual) — hanya invoice yang sudah disetujui
+        Route::get('/invoices/{invoice}/profit-pdf', [InvoiceController::class, 'profitPdf'])->name('invoices.profit-pdf');
     });
 
     // Rekening pembayaran (tampil di invoice) — sales & akuntan bisa kelola

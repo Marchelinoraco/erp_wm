@@ -11,13 +11,14 @@ class BillController extends Controller
     public function store(Request $request, Tour $tour)
     {
         $data = $request->validate([
-            'supplier_id' => 'nullable|exists:suppliers,id',
-            'description' => 'required|string|max:255',
-            'category'    => 'required|in:hotel,transport,guide,restaurant,attraction,agent,other',
-            'date'        => 'required|date',
-            'due_date'    => 'nullable|date',
-            'amount'      => 'required|numeric|min:0',
-            'notes'       => 'nullable|string',
+            'supplier_id'      => 'nullable|exists:suppliers,id',
+            'invoice_item_id'  => 'nullable|exists:invoice_items,id',
+            'description'      => 'required|string|max:255',
+            'category'         => 'required|in:hotel,transport,guide,restaurant,attraction,agent,other',
+            'date'             => 'required|date',
+            'due_date'         => 'nullable|date',
+            'amount'           => 'required|numeric|min:0',
+            'notes'            => 'nullable|string',
         ]);
 
         $tour->bills()->create($data);
@@ -28,14 +29,15 @@ class BillController extends Controller
     public function update(Request $request, Bill $bill)
     {
         $data = $request->validate([
-            'supplier_id' => 'nullable|exists:suppliers,id',
-            'description' => 'required|string|max:255',
-            'category'    => 'required|in:hotel,transport,guide,restaurant,attraction,agent,other',
-            'date'        => 'required|date',
-            'due_date'    => 'nullable|date',
-            'amount'      => 'required|numeric|min:0',
-            'status'      => 'required|in:unpaid,partial,paid',
-            'notes'       => 'nullable|string',
+            'supplier_id'      => 'nullable|exists:suppliers,id',
+            'invoice_item_id'  => 'nullable|exists:invoice_items,id',
+            'description'      => 'required|string|max:255',
+            'category'         => 'required|in:hotel,transport,guide,restaurant,attraction,agent,other',
+            'date'             => 'required|date',
+            'due_date'         => 'nullable|date',
+            'amount'           => 'required|numeric|min:0',
+            'status'           => 'required|in:unpaid,partial,paid',
+            'notes'            => 'nullable|string',
         ]);
 
         $bill->update($data);
