@@ -24,6 +24,7 @@ const headerForm = useForm({
     tour_direction: props.tour.tour_direction ?? 'inbound',
     customer_id:    props.tour.customer_id ? String(props.tour.customer_id) : 'none',
     guest_name:     props.tour.guest_name     ?? '',
+    guest_phone:    props.tour.guest_phone    ?? '',
     title:          props.tour.title          ?? '',
     pax:            props.tour.pax            ?? 1,
     budget:         props.tour.budget         ?? '',
@@ -42,7 +43,7 @@ const selectedCustomer = computed(() =>
 const isBuyer = computed(() => selectedCustomer.value?.type === 'buyer')
 
 watch(isBuyer, (val) => {
-    if (!val) headerForm.guest_name = ''
+    if (!val) { headerForm.guest_name = ''; headerForm.guest_phone = '' }
 })
 
 function saveHeader() {
@@ -90,14 +91,21 @@ function saveHeader() {
                 </div>
             </div>
 
-            <!-- Nama tamu — khusus customer tipe buyer, dilihat tim lapangan -->
-            <div v-if="isBuyer" class="space-y-1.5">
-                <Label for="guest_name">Nama Tamu <span class="text-destructive">*</span></Label>
-                <Input id="guest_name" v-model="headerForm.guest_name" placeholder="Mis. Mr. Tanaka & Party" />
-                <p class="text-xs text-muted-foreground">
-                    Nama ini yang dilihat guide/sopir di lapangan, bukan nama travel agent.
+            <!-- Nama & telepon tamu — khusus customer tipe buyer, dilihat tim lapangan -->
+            <div v-if="isBuyer" class="grid grid-cols-2 gap-4">
+                <div class="space-y-1.5">
+                    <Label for="guest_name">Nama Tamu <span class="text-destructive">*</span></Label>
+                    <Input id="guest_name" v-model="headerForm.guest_name" placeholder="Mis. Mr. Tanaka & Party" />
+                    <p v-if="headerForm.errors.guest_name" class="text-xs text-destructive">{{ headerForm.errors.guest_name }}</p>
+                </div>
+                <div class="space-y-1.5">
+                    <Label for="guest_phone">Telepon Tamu</Label>
+                    <Input id="guest_phone" v-model="headerForm.guest_phone" placeholder="Mis. 0812xxxxxxx" />
+                    <p v-if="headerForm.errors.guest_phone" class="text-xs text-destructive">{{ headerForm.errors.guest_phone }}</p>
+                </div>
+                <p class="text-xs text-muted-foreground col-span-2">
+                    Nama & telepon ini yang dilihat guide/sopir di lapangan, bukan kontak travel agent.
                 </p>
-                <p v-if="headerForm.errors.guest_name" class="text-xs text-destructive">{{ headerForm.errors.guest_name }}</p>
             </div>
 
             <div class="space-y-1.5">

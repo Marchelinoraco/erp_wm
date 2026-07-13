@@ -29,6 +29,7 @@ const form = useForm({
     package_id:     null,
     customer_id:    'none',
     guest_name:     '',
+    guest_phone:    '',
     title:          '',
     pax:            1,
     start_date:     '',
@@ -46,7 +47,7 @@ const selectedCustomer = computed(() =>
 const isBuyer = computed(() => selectedCustomer.value?.type === 'buyer')
 
 watch(isBuyer, (val) => {
-    if (!val) form.guest_name = ''
+    if (!val) { form.guest_name = ''; form.guest_phone = '' }
 })
 
 // --- package combobox ---
@@ -328,14 +329,21 @@ function submit() {
                             </Select>
                         </div>
 
-                        <!-- NAMA TAMU — khusus customer tipe buyer -->
-                        <div v-if="isBuyer" class="space-y-1.5">
-                            <Label for="guest_name">Nama Tamu <span class="text-destructive">*</span></Label>
-                            <Input id="guest_name" v-model="form.guest_name" placeholder="Mis. Mr. Tanaka & Party" />
-                            <p class="text-xs text-muted-foreground">
-                                Nama ini yang dilihat guide/sopir di lapangan, bukan nama travel agent.
+                        <!-- NAMA TAMU & TELEPON — khusus customer tipe buyer -->
+                        <div v-if="isBuyer" class="grid grid-cols-2 gap-4">
+                            <div class="space-y-1.5">
+                                <Label for="guest_name">Nama Tamu <span class="text-destructive">*</span></Label>
+                                <Input id="guest_name" v-model="form.guest_name" placeholder="Mis. Mr. Tanaka & Party" />
+                                <p v-if="form.errors.guest_name" class="text-sm text-destructive">{{ form.errors.guest_name }}</p>
+                            </div>
+                            <div class="space-y-1.5">
+                                <Label for="guest_phone">Telepon Tamu</Label>
+                                <Input id="guest_phone" v-model="form.guest_phone" placeholder="Mis. 0812xxxxxxx" />
+                                <p v-if="form.errors.guest_phone" class="text-sm text-destructive">{{ form.errors.guest_phone }}</p>
+                            </div>
+                            <p class="text-xs text-muted-foreground col-span-2">
+                                Nama & telepon ini yang dilihat guide/sopir di lapangan, bukan kontak travel agent.
                             </p>
-                            <p v-if="form.errors.guest_name" class="text-sm text-destructive">{{ form.errors.guest_name }}</p>
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
