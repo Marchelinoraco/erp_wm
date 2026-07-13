@@ -105,6 +105,7 @@ class TourController extends Controller
                 Rule::requiredIf(fn () => Customer::find($request->customer_id)?->type === 'buyer'),
                 'nullable', 'string', 'max:255',
             ],
+            'guest_phone'    => 'nullable|string|max:50',
             'pax'            => 'required|integer|min:1',
             'budget'         => 'nullable|numeric|min:0',
             'start_date'     => 'nullable|date',
@@ -123,12 +124,13 @@ class TourController extends Controller
 
     public function edit(Tour $tour)
     {
-        $tour->load(['customer', 'items.product', 'quotationItems.product', 'assignments', 'itineraryDays', 'itineraryHours', 'histories', 'invoices.items.product', 'invoices.payments']);
+        $tour->load(['customer', 'items.product', 'quotationItems.product', 'assignments', 'itineraryDays', 'itineraryHours', 'histories', 'invoices.items.product', 'invoices.payments', 'costRequests.requestedBy:id,name']);
         $tour->append(['total_cost', 'total_sell', 'profit', 'margin', 'itinerary_pdf_url']);
 
         return Inertia::render('Tours/Edit', [
             'tour'        => $tour,
             'customers'   => Customer::orderBy('name')->get(['id', 'name', 'type']),
+            'suppliers'   => Supplier::orderBy('name')->get(['id', 'name']),
             'products'    => Product::where('is_active', true)
                 ->orderBy('type')
                 ->orderBy('group_label')
@@ -164,6 +166,7 @@ class TourController extends Controller
                     && Customer::find($request->customer_id)?->type === 'buyer'),
                 'nullable', 'string', 'max:255',
             ],
+            'guest_phone'    => 'nullable|string|max:50',
             'pax'            => 'sometimes|required|integer|min:1',
             'budget'         => 'nullable|numeric|min:0',
             'start_date'     => 'nullable|date',

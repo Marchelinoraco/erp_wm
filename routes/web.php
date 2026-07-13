@@ -7,6 +7,7 @@ use App\Http\Controllers\BillController;
 use App\Http\Controllers\FinanceLedgerController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ChannelManagerController;
+use App\Http\Controllers\CostRequestController;
 use App\Http\Controllers\ReminderController;
 use App\Http\Controllers\TourEmailController;
 use App\Http\Controllers\TourHistoryController;
@@ -156,6 +157,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/invoices/{invoice}/deposits',          [InvoicePaymentController::class, 'store'])->name('invoice-deposits.store');
         Route::delete('/invoice-deposits/{invoicePayment}',  [InvoicePaymentController::class, 'destroy'])->name('invoice-deposits.destroy');
 
+        // Permintaan biaya tambahan (Rincian Profit terkunci setelah approve — ini jalur terpisah)
+        Route::post('/tours/{tour}/cost-requests',    [CostRequestController::class, 'store'])->name('cost-requests.store');
+        Route::delete('/cost-requests/{costRequest}', [CostRequestController::class, 'destroy'])->name('cost-requests.destroy');
+
         Route::get('/tours/{tour}/quotation/download', [QuotationController::class, 'download'])->name('quotation.download');
         Route::get('/tours/{tour}/quotation/preview',  [QuotationController::class, 'preview'])->name('quotation.preview');
         Route::get('/tours/{tour}/quotation/word',     [QuotationController::class, 'word'])->name('quotation.word');
@@ -279,6 +284,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/finance/bills/{bill}',      [BillController::class, 'destroy'])->name('bills.destroy');
         Route::post('/finance/bills/{bill}/payments',      [BillPaymentController::class, 'store'])->name('bill-payments.store');
         Route::delete('/finance/bill-payments/{billPayment}', [BillPaymentController::class, 'destroy'])->name('bill-payments.destroy');
+
+        // Review permintaan biaya tambahan dari sales
+        Route::post('/cost-requests/{costRequest}/approve', [CostRequestController::class, 'approve'])->name('cost-requests.approve');
+        Route::post('/cost-requests/{costRequest}/reject',  [CostRequestController::class, 'reject'])->name('cost-requests.reject');
     });
 });
 

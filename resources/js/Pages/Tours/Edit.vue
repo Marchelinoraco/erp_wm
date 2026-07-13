@@ -12,6 +12,7 @@ import { STATUS_CONFIG } from '@/lib/tourConstants'
 import HeaderPanel      from '@/Components/Tours/HeaderPanel.vue'
 import ItemsPanel       from '@/Components/Tours/ItemsPanel.vue'
 import InvoicesPanel    from '@/Components/Tours/InvoicesPanel.vue'
+import CostRequestsPanel from '@/Components/Tours/CostRequestsPanel.vue'
 import OperasionalPanel from '@/Components/Tours/OperasionalPanel.vue'
 import ItineraryPanel   from '@/Components/Tours/ItineraryPanel.vue'
 import QuotationPanel   from '@/Components/Tours/QuotationPanel.vue'
@@ -23,6 +24,7 @@ import CostingPanel        from '@/Components/Tours/CostingPanel.vue'
 const props = defineProps({
     tour:              Object,
     customers:         Array,
+    suppliers:         { type: Array, default: () => [] },
     products:          Array,
     manifestUrl:       String,
     fieldUsers:        Array,
@@ -99,6 +101,7 @@ function sendEmail() {
                         <HeaderPanel :tour="tour" :customers="customers" />
                         <ItemsPanel :tour="tour" :products="products" />
                         <InvoicesPanel v-if="tour.status === 'confirmed'" :tour="tour" :products="products" />
+                        <CostRequestsPanel v-if="tour.status === 'confirmed'" :tour="tour" :suppliers="suppliers" />
                         <OperasionalPanel :tour="tour" :field-users="fieldUsers" :manifest-url="manifestUrl" />
                         <ItineraryPanel v-if="isTour" :tour="tour" />
                         <QuotationPanel :tour="tour" :quotation-defaults="quotationDefaults" :is-tour="isTour" />

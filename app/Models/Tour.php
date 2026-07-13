@@ -138,6 +138,7 @@ class Tour extends Model
         $this->setRelation('customer', new Customer([
             'name'    => $this->guest_name,
             'country' => $this->customer?->country,
+            'phone'   => $this->guest_phone,
         ]));
     }
 
@@ -223,6 +224,11 @@ class Tour extends Model
     public function bills()
     {
         return $this->hasMany(Bill::class);
+    }
+
+    public function costRequests()
+    {
+        return $this->hasMany(CostRequest::class);
     }
 
     // --- PERKIRAAN (snapshot tour_items) ---
