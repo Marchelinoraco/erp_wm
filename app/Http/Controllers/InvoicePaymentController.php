@@ -15,6 +15,8 @@ class InvoicePaymentController extends Controller
             'amount'          => 'required|numeric|min:0.01',
             'method'          => 'required|in:transfer,cash,other',
             'cash_account_id' => 'required|exists:cash_accounts,id',
+            // Kurs saat pembayaran INI diterima — wajib utk non-IDR, boleh beda dari kurs invoice
+            'exchange_rate'   => ($invoice->currency ?: 'IDR') !== 'IDR' ? 'required|numeric|min:0.000001' : 'nullable|numeric|min:0',
             'notes'           => 'nullable|string',
         ]);
 

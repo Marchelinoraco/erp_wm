@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BankAccount;
+use App\Models\CashAccount;
 use App\Models\Customer;
 use App\Models\MiceTemplate;
 use App\Models\Product;
@@ -124,13 +126,15 @@ class TourController extends Controller
 
     public function edit(Tour $tour)
     {
-        $tour->load(['customer', 'items.product', 'quotationItems.product', 'assignments', 'itineraryDays', 'itineraryHours', 'histories', 'invoices.items.product', 'invoices.payments', 'costRequests.requestedBy:id,name']);
+        $tour->load(['customer', 'items.product', 'quotationItems.product', 'assignments', 'itineraryDays', 'itineraryHours', 'histories', 'invoices.items.product', 'invoices.payments.cashAccount:id,name', 'costRequests.requestedBy:id,name', 'costRequests.invoice:id,number,finance_number']);
         $tour->append(['total_cost', 'total_sell', 'profit', 'margin', 'itinerary_pdf_url']);
 
         return Inertia::render('Tours/Edit', [
             'tour'        => $tour,
-            'customers'   => Customer::orderBy('name')->get(['id', 'name', 'type']),
-            'suppliers'   => Supplier::orderBy('name')->get(['id', 'name']),
+            'customers'    => Customer::orderBy('name')->get(['id', 'name', 'type']),
+            'suppliers'    => Supplier::orderBy('name')->get(['id', 'name']),
+            'bankAccounts' => BankAccount::active()->get(['id', 'bank', 'account_number']),
+            'cashAccounts' => CashAccount::active()->get(['id', 'name', 'type']),
             'products'    => Product::where('is_active', true)
                 ->orderBy('type')
                 ->orderBy('group_label')

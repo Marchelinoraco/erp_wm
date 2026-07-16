@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { router } from '@inertiajs/vue3'
 import { Button } from '@/Components/ui/button'
 import { Input } from '@/Components/ui/input'
@@ -10,7 +10,11 @@ import { confirm } from '@/lib/confirm'
 import { fmtNum, fmtRp, fmtCur } from '@/lib/fmt'
 import { TYPE_LABELS } from '@/lib/tourConstants'
 
-const props = defineProps({ tour: Object, products: Array })
+const props = defineProps({
+    tour: Object, products: Array,
+    bankAccounts: { type: Array, default: () => [] },
+    cashAccounts: { type: Array, default: () => [] },
+})
 
 const CURRENCIES = ['IDR', 'USD', 'EUR', 'SGD', 'AUD', 'MYR']
 
@@ -58,6 +62,10 @@ watch(
                 description_lines: Array.isArray(inv.description_lines)
                     ? inv.description_lines.map(l => ({ label: l.label ?? '', date: l.date ?? '', detail: l.detail ?? '' }))
                     : [],
+                // Kosong di server = tampilkan semua rekening aktif → checkbox mulai tercentang semua
+                bank_account_ids: Array.isArray(inv.bank_account_ids) && inv.bank_account_ids.length
+                    ? inv.bank_account_ids
+                    : props.bankAccounts.map(a => a.id),
                 notes: inv.notes || '',
             }
             if (!(inv.id in profitOpen)) profitOpen[inv.id] = false
@@ -266,6 +274,19 @@ function saveProforma(invId) {
     errorMsg.value = ''
     router.patch(route('invoices.proforma', invId), proformaForms[invId], reload)
 }
+function selectedBankNames(inv) {
+    const ids = Array.isArray(inv.bank_account_ids) && inv.bank_account_ids.length
+        ? inv.bank_account_ids
+        : props.bankAccounts.map(a => a.id)
+    return props.bankAccounts.filter(a => ids.includes(a.id)).map(a => a.bank).join(', ') || 'Semua rekening aktif'
+}
+function toggleBankAccount(invId, accId) {
+    const ids = proformaForms[invId].bank_account_ids
+    const i   = ids.indexOf(accId)
+    if (i === -1) ids.push(accId)
+    else ids.splice(i, 1)
+    saveProforma(invId)
+}
 function addLine(invId) {
     proformaForms[invId].description_lines.push({ label: '', date: '', detail: '' })
 }
@@ -309,14 +330,32 @@ async function approve(inv) {
         afterFlush(() => router.post(route('invoices.approve', inv.id), {}, reload))
     }
 }
-function submitApprove() {
-    const inv = approveTarget.value
+async function submitApprove() {
+    const inv  = approveTarget.value
     if (!inv) return
+    const cur  = proformaForms[inv.id]?.currency
+    const rate = approveRate.value
+    const idrPreview = approveIdrPreview.value
+
+    // Tutup dialog kurs dulu — dua Dialog terbuka bersamaan bikin overlay dialog
+    // pertama menutupi & memblokir klik pada tombol di modal konfirmasi kedua.
+    approveDialogOpen.value = false
+    await nextTick()
+
+    // Jeda konfirmasi terakhir — kurs salah tidak bisa dikoreksi lagi setelah masuk Keuangan
+    if (!(await confirm({
+        title: 'Cek kembali kurs sebelum disetujui',
+        description: `1 ${cur} = Rp ${fmtNum(rate)} → Nilai ke Keuangan: ${fmtRp(idrPreview)}. Pastikan kurs ini sudah benar — setelah disetujui, invoice masuk Keuangan dan tidak bisa diubah lagi.`,
+        confirmLabel: 'Ya, Kurs Sudah Benar',
+        destructive: false,
+    }))) {
+        // Batal → buka lagi dialog kurs supaya sales bisa koreksi tanpa mulai dari awal
+        approveDialogOpen.value = true
+        return
+    }
+
     errorMsg.value = ''
-    afterFlush(() => router.post(route('invoices.approve', inv.id), { exchange_rate: approveRate.value }, {
-        ...reload,
-        onSuccess: () => { approveDialogOpen.value = false },
-    }))
+    afterFlush(() => router.post(route('invoices.approve', inv.id), { exchange_rate: rate }, reload))
 }
 const approveIdrPreview = computed(() => {
     const inv = approveTarget.value
@@ -494,14 +533,27 @@ onBeforeUnmount(() => {
 })
 
 // ── Pembayaran / DP (sales dapat input langsung) ────────────────────────────────
-const payForms = reactive({})  // { amount, date, method, notes } per invoice id
+const payForms = reactive({})  // { amount, date, method, cash_account_id, exchange_rate, notes } per invoice id
+
+function emptyPayForm(inv) {
+    return {
+        amount: '', date: todayStr(), method: 'transfer',
+        cash_account_id: props.cashAccounts[0]?.id ?? null,
+        // Default dari kurs invoice/pembayaran terakhir — tetap bisa diubah per pembayaran
+        // (DP tanggal 1 dan pelunasan tanggal 4 boleh beda kurs).
+        exchange_rate: (inv.currency || 'IDR') !== 'IDR'
+            ? (inv.payments?.at(-1)?.exchange_rate ?? inv.exchange_rate ?? '')
+            : '',
+        notes: '',
+    }
+}
 
 watch(
     () => props.tour.invoices,
     (list) => {
         ;(list ?? []).forEach(inv => {
             if (!(inv.id in payForms)) {
-                payForms[inv.id] = { amount: '', date: todayStr(), method: 'transfer', notes: '' }
+                payForms[inv.id] = emptyPayForm(inv)
             }
         })
     },
@@ -516,10 +568,11 @@ function invOutstanding(inv) {
 }
 function savePayment(invId) {
     errorMsg.value = ''
+    const inv = (props.tour.invoices ?? []).find(i => i.id === invId)
     router.post(route('invoice-deposits.store', invId), payForms[invId], {
         ...reload,
         onSuccess: () => {
-            payForms[invId] = { amount: '', date: todayStr(), method: 'transfer', notes: '' }
+            payForms[invId] = emptyPayForm(inv ?? {})
         },
     })
 }
@@ -744,26 +797,64 @@ function addProduct(product, extra = {}) {
                             <span class="font-mono font-semibold">{{ fmtCur(proformaTotal(inv.id), proformaForms[inv.id].currency) }}</span>
                         </div>
                     </div>
+
+                    <!-- Rekening yang ditampilkan di PDF invoice -->
+                    <div v-if="bankAccounts.length" class="space-y-1.5">
+                        <label class="text-xs font-medium text-muted-foreground">Rekening yang Ditampilkan di PDF</label>
+                        <div class="flex flex-wrap gap-3">
+                            <label v-for="a in bankAccounts" :key="a.id"
+                                class="flex items-center gap-1.5 text-sm border rounded px-2.5 py-1.5 cursor-pointer hover:bg-muted/30">
+                                <input type="checkbox"
+                                    :checked="proformaForms[inv.id].bank_account_ids.includes(a.id)"
+                                    @change="toggleBankAccount(inv.id, a.id)"
+                                    class="h-4 w-4 rounded border-input" />
+                                {{ a.bank }} <span class="text-muted-foreground">· {{ a.account_number }}</span>
+                            </label>
+                        </div>
+                        <p v-if="!proformaForms[inv.id].bank_account_ids.length" class="text-xs text-amber-600">
+                            Belum ada rekening dicentang — PDF akan menampilkan semua rekening aktif.
+                        </p>
+                    </div>
                 </template>
 
                 <!-- ── Ringkasan proforma (sudah disetujui) ── -->
                 <template v-else-if="isApproved(inv)">
-                    <div v-if="(inv.description_lines ?? []).length" class="rounded-md border divide-y text-sm">
-                        <div v-for="(ln, idx) in inv.description_lines" :key="idx" class="flex gap-2 px-3 py-1.5">
-                            <span class="w-28 font-medium">{{ idx === 0 || ln.label !== inv.description_lines[idx - 1].label ? ln.label : '' }}</span>
-                            <span class="w-40 text-muted-foreground">{{ ln.date }}</span>
-                            <span class="flex-1 whitespace-pre-line">{{ ln.detail }}</span>
-                        </div>
+                    <div v-if="(inv.description_lines ?? []).some(l => !l.amount)" class="rounded-md border divide-y text-sm">
+                        <template v-for="(ln, idx) in inv.description_lines" :key="idx">
+                            <div v-if="!ln.amount" class="flex gap-2 px-3 py-1.5">
+                                <span class="w-28 font-medium">{{ idx === 0 || ln.label !== inv.description_lines[idx - 1].label ? ln.label : '' }}</span>
+                                <span class="w-40 text-muted-foreground">{{ ln.date }}</span>
+                                <span class="flex-1 whitespace-pre-line">{{ ln.detail }}</span>
+                            </div>
+                        </template>
                     </div>
                     <div class="text-sm">
                         Price:
                         <span class="font-mono">{{ fmtCur(inv.unit_price, inv.currency) }}</span>
-                        × {{ tourPax || 1 }} pax =
+                        × {{ tourPax || 1 }} pax
+                        <span v-if="(inv.description_lines ?? []).some(l => l.amount)"> + biaya tambahan</span>
+                        =
                         <span class="font-mono font-semibold">{{ fmtCur(inv.total, inv.currency) }}</span>
                         <span v-if="(inv.currency || 'IDR') !== 'IDR'" class="text-xs text-muted-foreground">
                             (≈ {{ fmtRp(inv.total_idr) }}, rate {{ fmtNum(inv.exchange_rate) }})
                         </span>
                     </div>
+
+                    <!-- Biaya tambahan yang ditagihkan (disetujui akuntan dari pengajuan sales) -->
+                    <div v-if="(inv.description_lines ?? []).some(l => l.amount)" class="rounded-md border divide-y text-sm bg-blue-50/30">
+                        <div v-for="(ln, idx) in (inv.description_lines ?? []).filter(l => l.amount)" :key="'add-' + idx"
+                            class="flex items-center justify-between gap-2 px-3 py-1.5">
+                            <span>
+                                <span class="font-medium">{{ ln.label || 'Additional' }}</span>
+                                <span class="text-muted-foreground"> · {{ ln.detail }}</span>
+                            </span>
+                            <span class="font-mono font-semibold">{{ fmtCur(ln.amount, inv.currency) }}</span>
+                        </div>
+                    </div>
+
+                    <p v-if="bankAccounts.length" class="text-xs text-muted-foreground">
+                        Rekening di PDF: <span class="font-medium text-foreground">{{ selectedBankNames(inv) }}</span>
+                    </p>
                 </template>
 
                 <!-- ── Rincian profit internal (opsional, collapsible) ── -->
@@ -941,8 +1032,9 @@ function addProduct(product, extra = {}) {
                         <div v-for="p in inv.payments" :key="p.id"
                             class="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-2 text-sm">
                             <span class="font-mono font-medium text-green-700">+{{ fmtCur(p.amount, inv.currency) }}</span>
-                            <span v-if="inv.currency && inv.currency !== 'IDR'" class="text-xs text-muted-foreground">≈ {{ fmtRp(p.amount_idr) }}</span>
+                            <span v-if="inv.currency && inv.currency !== 'IDR'" class="text-xs text-muted-foreground">≈ {{ fmtRp(p.amount_idr) }} (rate {{ fmtNum(p.exchange_rate) }})</span>
                             <span class="text-xs text-muted-foreground">{{ p.date?.slice(0, 10) }} · {{ p.method }}</span>
+                            <span v-if="p.cash_account" class="text-xs text-muted-foreground">· {{ p.cash_account.name }}</span>
                             <span v-if="p.notes" class="text-xs text-muted-foreground truncate">· {{ p.notes }}</span>
                             <button type="button" @click="deletePayment(p.id)"
                                 class="ml-auto text-muted-foreground hover:text-destructive transition-colors text-base leading-none">×</button>
@@ -974,12 +1066,27 @@ function addProduct(product, extra = {}) {
                                     <option value="other">Other</option>
                                 </select>
                             </div>
+                            <div class="space-y-1">
+                                <label class="text-xs text-muted-foreground">Akun Kas</label>
+                                <select v-model="payForms[inv.id].cash_account_id"
+                                    class="border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary">
+                                    <option :value="null" disabled>Pilih akun kas...</option>
+                                    <option v-for="a in cashAccounts" :key="a.id" :value="a.id">{{ a.name }}</option>
+                                </select>
+                            </div>
+                            <div v-if="(inv.currency || 'IDR') !== 'IDR'" class="space-y-1">
+                                <label class="text-xs text-muted-foreground">Kurs (1 {{ inv.currency }} = Rp)</label>
+                                <input type="number" v-model="payForms[inv.id].exchange_rate" min="0" step="any" placeholder="mis. 18075"
+                                    class="w-32 border rounded px-2 py-1 text-sm text-right font-mono focus:outline-none focus:ring-1 focus:ring-primary" />
+                            </div>
                             <div class="space-y-1 flex-1 min-w-[8rem]">
                                 <label class="text-xs text-muted-foreground">Notes (optional)</label>
                                 <input type="text" v-model="payForms[inv.id].notes" placeholder="e.g. DP 50%"
                                     class="w-full border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
                             </div>
-                            <Button size="sm" :disabled="!(Number(payForms[inv.id]?.amount) > 0)" @click="savePayment(inv.id)">
+                            <Button size="sm"
+                                :disabled="!(Number(payForms[inv.id]?.amount) > 0) || !payForms[inv.id]?.cash_account_id || ((inv.currency || 'IDR') !== 'IDR' && !(Number(payForms[inv.id]?.exchange_rate) > 0))"
+                                @click="savePayment(inv.id)">
                                 + Save
                             </Button>
                         </div>

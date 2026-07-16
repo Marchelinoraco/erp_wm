@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Head, Link, useForm, router } from '@inertiajs/vue3'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { confirm } from '@/lib/confirm'
 import { fmtRp, fmtCur, fmtNum } from '@/lib/fmt'
 import { TYPE_LABELS } from '@/lib/tourConstants'
@@ -99,6 +99,7 @@ const invPayForm = useForm({
     amount:          '',
     method:          'transfer',
     cash_account_id: null,
+    exchange_rate:   '',
     notes:           '',
 })
 
@@ -108,6 +109,11 @@ function openAddInvPayment(inv) {
     invPayForm.date            = today()
     invPayForm.method          = 'transfer'
     invPayForm.cash_account_id = props.cashAccounts[0]?.id ?? null
+    // Default dari kurs invoice/pembayaran terakhir — titik awal, tetap bisa diubah
+    // per pembayaran (DP tanggal 1 dan pelunasan tanggal 4 boleh beda kurs).
+    invPayForm.exchange_rate   = (inv.currency || 'IDR') !== 'IDR'
+        ? (inv.payments?.at(-1)?.exchange_rate ?? inv.exchange_rate ?? '')
+        : ''
     invPayDialogOpen.value = true
 }
 function submitInvPayment() {
@@ -188,14 +194,20 @@ const approveCrDialogOpen = ref(false)
 const rejectCrDialogOpen  = ref(false)
 const reviewingCr         = ref(null)
 
-const approveCrForm = useForm({ amount: '', date: today(), due_date: '' })
+// tour.invoices dari FinanceController hanya berisi invoice yang approved,
+// dan tour cuma boleh punya satu invoice — jadi ini invoice utama tour.
+const mainInvoice = computed(() => props.tour.invoices?.[0] ?? null)
+const canBillCustomer = computed(() => mainInvoice.value && (mainInvoice.value.currency || 'IDR') === 'IDR')
+
+const approveCrForm = useForm({ amount: '', date: today(), due_date: '', bill_customer: false, sell_amount: '' })
 const rejectCrForm  = useForm({ review_notes: '' })
 
 function openApproveCr(cr) {
     reviewingCr.value    = cr
     approveCrForm.reset()
-    approveCrForm.amount = cr.amount
-    approveCrForm.date   = today()
+    approveCrForm.amount      = cr.amount
+    approveCrForm.date        = today()
+    approveCrForm.sell_amount = cr.amount
     approveCrDialogOpen.value = true
 }
 function submitApproveCr() {
@@ -389,7 +401,7 @@ const CAT_LABEL = {
                                 class="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 rounded px-3 py-1.5">
                                 <span class="text-green-600 font-medium">+{{ fmtCur(p.amount, inv.currency) }}</span>
                                 <template v-if="isNonIdr(inv)">
-                                    <span class="text-gray-400 text-xs">≈ {{ fmtRp(p.amount_idr) }}</span>
+                                    <span class="text-gray-400 text-xs">≈ {{ fmtRp(p.amount_idr) }} (rate {{ fmtNum(p.exchange_rate) }})</span>
                                 </template>
                                 <span class="text-gray-400">{{ fmtDate(p.date) }} · {{ p.method }}</span>
                                 <span v-if="p.cash_account" class="text-gray-400">· {{ ACCOUNT_ICON[p.cash_account.type] }} {{ p.cash_account.name }}</span>
@@ -511,6 +523,9 @@ const CAT_LABEL = {
                                 <p v-if="cr.status !== 'pending'" class="text-xs text-gray-400 mt-1">
                                     Direview {{ cr.reviewed_by?.name }} · {{ fmtDate(cr.reviewed_at) }}
                                     <template v-if="cr.review_notes"> — {{ cr.review_notes }}</template>
+                                </p>
+                                <p v-if="cr.invoice" class="text-xs text-blue-700 mt-1">
+                                    📄 Ditambahkan ke invoice {{ cr.invoice.finance_number ?? cr.invoice.number }} sebagai biaya tambahan
                                 </p>
                             </div>
                             <div class="text-right shrink-0">
@@ -675,8 +690,19 @@ const CAT_LABEL = {
                         <p v-if="invPayForm.errors.cash_account_id" class="text-xs text-destructive">{{ invPayForm.errors.cash_account_id }}</p>
                     </div>
                     <div class="space-y-1.5">
-                        <Label>Jumlah (IDR)</Label>
+                        <Label>Jumlah ({{ payingInvoice?.currency || 'IDR' }})</Label>
                         <Input type="number" v-model="invPayForm.amount" min="1" step="any" required />
+                    </div>
+                    <div v-if="(payingInvoice?.currency || 'IDR') !== 'IDR'" class="space-y-1.5">
+                        <Label>Kurs saat diterima (1 {{ payingInvoice.currency }} = Rp) <span class="text-destructive">*</span></Label>
+                        <Input type="number" v-model="invPayForm.exchange_rate" min="0" step="any" required />
+                        <p class="text-[11px] text-gray-400">
+                            Boleh beda dari kurs invoice atau pembayaran sebelumnya — tiap pembayaran dikonversi ke IDR dengan kursnya sendiri.
+                        </p>
+                        <p v-if="invPayForm.amount && invPayForm.exchange_rate" class="text-xs text-gray-500">
+                            ≈ Rp {{ fmtNum(Number(invPayForm.amount) * Number(invPayForm.exchange_rate)) }}
+                        </p>
+                        <p v-if="invPayForm.errors.exchange_rate" class="text-xs text-destructive">{{ invPayForm.errors.exchange_rate }}</p>
                     </div>
                     <div class="space-y-1.5">
                         <Label>Catatan</Label>
@@ -832,7 +858,7 @@ const CAT_LABEL = {
                 <form @submit.prevent="submitApproveCr" class="space-y-3 mt-2">
                     <div class="space-y-1.5">
                         <Label>Nominal Final (IDR)</Label>
-                        <Input type="number" v-model="approveCrForm.amount" min="0" step="1000" required />
+                        <Input type="number" v-model="approveCrForm.amount" min="0" step="any" required />
                         <p v-if="approveCrForm.errors.amount" class="text-xs text-destructive">{{ approveCrForm.errors.amount }}</p>
                     </div>
                     <div class="grid grid-cols-2 gap-3">
@@ -845,9 +871,31 @@ const CAT_LABEL = {
                             <Input type="date" v-model="approveCrForm.due_date" />
                         </div>
                     </div>
+
+                    <!-- Tagihkan ke customer → nempel jadi baris "Additional" di invoice yang sudah ada -->
+                    <div class="rounded-md border p-3 space-y-2" :class="approveCrForm.bill_customer ? 'bg-blue-50/50 border-blue-200' : ''">
+                        <label class="flex items-center gap-2 text-sm font-medium" :class="!canBillCustomer ? 'opacity-50' : ''">
+                            <input type="checkbox" v-model="approveCrForm.bill_customer" :disabled="!canBillCustomer" class="h-4 w-4 rounded border-input" />
+                            Tagihkan ke customer
+                        </label>
+                        <p v-if="!canBillCustomer" class="text-[11px] text-amber-600">
+                            Tour ini belum punya invoice IDR yang disetujui — tidak bisa menagih biaya tambahan ke customer.
+                        </p>
+                        <p v-else class="text-[11px] text-gray-400">
+                            Menambahkan baris "Additional" ke invoice {{ mainInvoice.finance_number ?? mainInvoice.number }} — total tagihan customer bertambah otomatis, invoice tidak diganti nomor barunya.
+                        </p>
+                        <div v-if="approveCrForm.bill_customer" class="space-y-1.5">
+                            <Label>Nominal Tagihan ke Customer (IDR)</Label>
+                            <Input type="number" v-model="approveCrForm.sell_amount" min="1" step="any" required />
+                            <p v-if="approveCrForm.errors.sell_amount" class="text-xs text-destructive">{{ approveCrForm.errors.sell_amount }}</p>
+                        </div>
+                    </div>
+
                     <DialogFooter>
                         <Button type="button" variant="outline" @click="approveCrDialogOpen = false">Batal</Button>
-                        <Button type="submit" :disabled="approveCrForm.processing">Setujui & Buat Bill</Button>
+                        <Button type="submit" :disabled="approveCrForm.processing">
+                            {{ approveCrForm.bill_customer ? 'Setujui, Buat Bill & Tagihkan' : 'Setujui & Buat Bill' }}
+                        </Button>
                     </DialogFooter>
                 </form>
             </DialogContent>

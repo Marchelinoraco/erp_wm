@@ -25,6 +25,8 @@ const props = defineProps({
     tour:              Object,
     customers:         Array,
     suppliers:         { type: Array, default: () => [] },
+    bankAccounts:      { type: Array, default: () => [] },
+    cashAccounts:      { type: Array, default: () => [] },
     products:          Array,
     manifestUrl:       String,
     fieldUsers:        Array,
@@ -100,7 +102,7 @@ function sendEmail() {
                     <div class="space-y-6">
                         <HeaderPanel :tour="tour" :customers="customers" />
                         <ItemsPanel :tour="tour" :products="products" />
-                        <InvoicesPanel v-if="tour.status === 'confirmed'" :tour="tour" :products="products" />
+                        <InvoicesPanel v-if="tour.status === 'confirmed'" :tour="tour" :products="products" :bank-accounts="bankAccounts" :cash-accounts="cashAccounts" />
                         <CostRequestsPanel v-if="tour.status === 'confirmed'" :tour="tour" :suppliers="suppliers" />
                         <OperasionalPanel :tour="tour" :field-users="fieldUsers" :manifest-url="manifestUrl" />
                         <ItineraryPanel v-if="isTour" :tour="tour" />
