@@ -212,11 +212,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/invoices/{invoice}/profit-pdf', [InvoiceController::class, 'profitPdf'])->name('invoices.profit-pdf');
     });
 
-    // Rekening pembayaran (tampil di invoice) — sales & akuntan bisa kelola
+    // Rekening pembayaran (tampil di invoice) — sales & akuntan bisa tambah/edit
     Route::middleware('role:admin,sales,accountant')->group(function () {
         Route::get('/finance/bank-accounts',                   [BankAccountController::class, 'index'])->name('bank-accounts.index');
         Route::post('/finance/bank-accounts',                  [BankAccountController::class, 'store'])->name('bank-accounts.store');
         Route::patch('/finance/bank-accounts/{bankAccount}',   [BankAccountController::class, 'update'])->name('bank-accounts.update');
+    });
+    // Hapus rekening — hanya admin & akuntan (sales tidak boleh)
+    Route::middleware('role:admin,accountant')->group(function () {
         Route::delete('/finance/bank-accounts/{bankAccount}',  [BankAccountController::class, 'destroy'])->name('bank-accounts.destroy');
     });
 

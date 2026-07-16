@@ -118,7 +118,7 @@ async function remove(acc) {
                                 {{ acc.is_active ? 'Nonaktifkan' : 'Aktifkan' }}
                             </Button>
                             <Button size="sm" variant="outline" @click="openEdit(acc)">Edit</Button>
-                            <Button size="sm" variant="destructive" @click="remove(acc)">Hapus</Button>
+                            <Button v-if="canSeeFinance" size="sm" variant="destructive" @click="remove(acc)">Hapus</Button>
                         </div>
                     </div>
                 </div>

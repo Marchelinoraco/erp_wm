@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\BankAccount;
+use App\Models\CashAccount;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -20,7 +21,14 @@ class BankAccountController extends Controller
         $data = $this->validateData($request);
 
         $data['sort_order'] = BankAccount::max('sort_order') + 1;
-        BankAccount::create($data);
+        $bankAccount = BankAccount::create($data);
+
+        // Rekening baru otomatis jadi akun kas (buku besar) — supaya langsung
+        // bisa dipilih saat mencatat pembayaran, tanpa langkah tambahan.
+        CashAccount::firstOrCreate(
+            ['name' => $bankAccount->bank, 'type' => 'bank'],
+            ['opening_balance' => 0, 'is_active' => true, 'sort_order' => CashAccount::max('sort_order') + 1]
+        );
 
         return redirect()->back()->with('success', 'Rekening ditambahkan.');
     }
