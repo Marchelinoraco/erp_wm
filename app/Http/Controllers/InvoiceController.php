@@ -25,7 +25,7 @@ class InvoiceController extends Controller
     {
         if ($tour->invoices()->exists()) {
             throw ValidationException::withMessages([
-                'invoice' => 'Tour ini sudah punya invoice. Nomor invoice mengikuti kode tour, jadi satu tour hanya boleh satu invoice.',
+                'invoice' => 'Tour ini sudah punya invoice — satu tour hanya boleh satu invoice.',
             ]);
         }
 
@@ -36,14 +36,18 @@ class InvoiceController extends Controller
             'notes'    => 'nullable|string',
         ]);
 
-        $tour->invoices()->create([
-            'guest_name' => $tour->guest_name,
-            'pax'      => $data['pax'] ?? $tour->pax,
-            'date'     => $data['date'] ?? now()->toDateString(),
-            'due_date' => $data['due_date'] ?? ($tour->start_date?->toDateString() ?? now()->addDays(7)->toDateString()),
-            'notes'    => $data['notes'] ?? null,
-            'status'   => 'draft',
-        ]);
+        // Transaksi + lockForUpdate (Invoice::nextNumber) mencegah dua invoice
+        // tipe & tahun sama dibuat bersamaan mendapat nomor kembar.
+        DB::transaction(function () use ($tour, $data) {
+            $tour->invoices()->create([
+                'guest_name' => $tour->guest_name,
+                'pax'      => $data['pax'] ?? $tour->pax,
+                'date'     => $data['date'] ?? now()->toDateString(),
+                'due_date' => $data['due_date'] ?? ($tour->start_date?->toDateString() ?? now()->addDays(7)->toDateString()),
+                'notes'    => $data['notes'] ?? null,
+                'status'   => 'draft',
+            ]);
+        });
 
         return redirect()->back();
     }

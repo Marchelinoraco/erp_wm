@@ -132,14 +132,32 @@ class Invoice extends Model
         return $prefix . str_pad($next, 4, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * Nomor invoice per tipe penjualan & tahun (INV-<tahun>-<kode tipe>-NNNN),
+     * urut berdasarkan KAPAN INVOICE ini dibuat — bukan urutan tour-nya.
+     * Kode tipe sama persis dengan Tour::resolveTypeCode() (11=Tour Inbound,
+     * 12=Outbound, 13=Rental, dst) sehingga nomor tetap jadi referensi tipe
+     * penjualan sekilas pandang. Panggil di dalam transaksi — lockForUpdate
+     * mencegah dua invoice bersamaan (tipe & tahun sama) dapat nomor sama.
+     */
+    public static function nextNumber(?Tour $tour): string
+    {
+        $typeCode = $tour?->resolveTypeCode() ?? '11';
+        $prefix   = 'INV-' . now()->year . '-' . $typeCode . '-';
+        $latest   = static::where('number', 'like', $prefix . '%')
+            ->lockForUpdate()
+            ->orderByDesc('number')
+            ->value('number');
+        $next = $latest ? ((int) substr($latest, strlen($prefix))) + 1 : 1;
+
+        return $prefix . str_pad($next, 4, '0', STR_PAD_LEFT);
+    }
+
     protected static function booted(): void
     {
         static::creating(function (Invoice $inv) {
             if (! $inv->number) {
-                // Nomor invoice mengikuti kode tour, awalan WM- diganti INV-
-                // (WM-2026-11-0001 → INV-2026-11-0001). Satu tour = satu invoice.
-                $code        = (string) $inv->tour?->code;
-                $inv->number = preg_replace('/^WM-/', 'INV-', $code);
+                $inv->number = static::nextNumber($inv->tour);
             }
         });
     }
