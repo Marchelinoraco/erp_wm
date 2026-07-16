@@ -9,7 +9,7 @@
     .sheet { border: 1.2px solid #000; }
 
     /* ── Header ── */
-    .pad { padding: 12px 18px; }
+    .pad { padding: 8px 18px; }
     .head-table { width: 100%; }
     .head-table td { vertical-align: middle; }
     .logo-cell { width: 130px; text-align: center; }
@@ -38,7 +38,7 @@
     }
 
     /* ── Bill to ── */
-    .billto { width: 100%; margin: 10px 0 4px; font-size: 10pt; }
+    .billto { width: 100%; margin: 6px 0 2px; font-size: 10pt; }
     .billto td { vertical-align: top; padding: 1px 0; }
     .billto .k { width: 130px; font-weight: bold; }
     .billto .strong { font-weight: bold; }
@@ -52,13 +52,13 @@
     }
     .main .dcell { border-left: 1px solid #000; padding: 3px 12px; vertical-align: top; }
     .main .acell { border-left: 1px solid #000; border-right: 1px solid #000; padding: 3px 12px 3px 4px; text-align: right; white-space: nowrap; vertical-align: top; }
-    .main .lead td { padding-top: 9px; }
-    .main .tail td { padding-bottom: 9px; }
+    .main .lead td { padding-top: 6px; }
+    .main .tail td { padding-bottom: 3px; }
     .kv { width: 100%; border-collapse: collapse; }
     .kv td { font-size: 10pt; padding: 1px 0; vertical-align: top; }
     .kv td.k { width: 120px; }
     .kv td.s { width: 14px; }
-    .gap td { height: 8px; font-size: 0; line-height: 0; }
+    .gap td { height: 4px; font-size: 0; line-height: 0; }
 
     .main tr.sumtop td { border-top: 1px solid #000; }
     .main .sumlabel { border-left: 1px solid #000; text-align: right; font-weight: bold; padding: 5px 12px; }
@@ -67,25 +67,25 @@
     .main tr.balance td { border-bottom: 1px solid #000; }
     .main tr.rowend td { border-bottom: 1px solid #000; }
 
-    .note { font-size: 9pt; margin: 8px 0 14px; }
+    .note { font-size: 9pt; margin: 6px 0 8px; }
     .note b { font-weight: bold; }
     .note i { font-style: italic; }
 
     /* ── Payment ── */
-    .pay { font-size: 10pt; line-height: 1.6; margin-bottom: 18px; }
+    .pay { font-size: 10pt; line-height: 1.35; margin-bottom: 10px; }
     .pay .lead { margin-bottom: 3px; }
-    .pay-table { border-collapse: collapse; }
+    .pay-table { border-collapse: collapse; page-break-inside: avoid; }
     .pay-table td { font-size: 10pt; padding: 0; vertical-align: top; }
     .pay-table td.k { width: 150px; }
     .pay-table td.s { width: 12px; }
 
     .proforma {
         border-top: 1.3px solid #c0272d; border-bottom: 1.3px solid #c0272d;
-        padding: 9px 4px; text-align: center; font-weight: bold; font-size: 12pt;
-        margin: 6px 0 4px;
+        padding: 6px 4px; text-align: center; font-weight: bold; font-size: 12pt;
+        margin: 4px 0 2px;
     }
 
-    .extra-note { font-size: 9pt; color: #334155; margin-top: 10px; line-height: 1.5; }
+    .extra-note { font-size: 9pt; color: #334155; margin-top: 8px; line-height: 1.4; }
 </style>
 </head>
 <body>
