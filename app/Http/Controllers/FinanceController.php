@@ -26,7 +26,7 @@ class FinanceController extends Controller
         $outstandingInvoices = Invoice::approved()
             ->with(['tour:id,code,customer_id', 'tour.customer:id,name', 'payments'])
             ->whereIn('status', ['sent', 'partial'])
-            ->latest('date')
+            ->orderBy('number')
             ->get();
 
         $unpaidBills = Bill::with(['tour:id,code', 'supplier:id,name', 'payments'])
