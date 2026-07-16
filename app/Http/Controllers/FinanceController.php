@@ -82,7 +82,7 @@ class FinanceController extends Controller
             // Asal bill (bila dibuat otomatis dari item Rincian Profit bersupplier)
             'bills.invoiceItem.invoice:id,number,finance_number',
             // Permintaan biaya tambahan dari sales — pending & histori (approved/rejected)
-            'costRequests' => fn ($q) => $q->latest()->with(['requestedBy:id,name', 'reviewedBy:id,name', 'supplier:id,name']),
+            'costRequests' => fn ($q) => $q->latest()->with(['requestedBy:id,name', 'reviewedBy:id,name', 'supplier:id,name', 'invoice:id,number,finance_number']),
         ]);
 
         $tour->append([

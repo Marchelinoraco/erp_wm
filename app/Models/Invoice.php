@@ -13,6 +13,7 @@ class Invoice extends Model
         'due_date'          => 'date',
         'approved_at'       => 'datetime',
         'description_lines' => 'array',
+        'bank_account_ids'   => 'array',
         'exchange_rate'     => 'decimal:6',
         'unit_price'        => 'decimal:2',
         'total_idr'         => 'decimal:2',
@@ -104,7 +105,9 @@ class Invoice extends Model
         $pax   = (int) ($this->tour?->pax ?? $this->pax ?? 1);
         $total = (float) $this->unit_price * max($pax, 1);
 
-        $updates = ['total' => $total];
+        // Simpan pax yang dipakai menghitung total — PDF menampilkan pax invoice,
+        // jadi keduanya harus selalu berasal dari angka yang sama.
+        $updates = ['total' => $total, 'pax' => max($pax, 1)];
         if (($this->currency ?: 'IDR') === 'IDR') {
             $updates['total_idr'] = $total;
         }

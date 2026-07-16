@@ -37,4 +37,10 @@ class CostRequest extends Model
     {
         return $this->belongsTo(Bill::class);
     }
+
+    /** Invoice suplemen bila biaya ini ditagihkan ke customer saat disetujui. */
+    public function invoice()
+    {
+        return $this->belongsTo(Invoice::class);
+    }
 }

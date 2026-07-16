@@ -78,6 +78,8 @@ class InvoiceController extends Controller
             'description_lines.*.label'  => 'nullable|string|max:255',
             'description_lines.*.date'   => 'nullable|string|max:255',
             'description_lines.*.detail' => 'nullable|string|max:1000',
+            'bank_account_ids'           => 'nullable|array',
+            'bank_account_ids.*'         => 'integer|exists:bank_accounts,id',
             'notes'                      => 'nullable|string',
         ]);
 
@@ -86,6 +88,8 @@ class InvoiceController extends Controller
             'unit_price'        => $data['unit_price'],
             'guest_name'        => $data['guest_name'] ?? null,
             'description_lines' => array_values($data['description_lines'] ?? []),
+            // Kosong = tampilkan semua rekening aktif (lihat bankAccounts())
+            'bank_account_ids'  => ! empty($data['bank_account_ids']) ? array_values($data['bank_account_ids']) : null,
             'notes'             => $data['notes'] ?? $invoice->notes,
         ]);
 
@@ -309,12 +313,14 @@ class InvoiceController extends Controller
         $html = view('invoice', [
             'invoice'      => $invoice,
             'company'      => config('quotation.company'),
-            'bank'         => $this->bankAccounts(),
+            'bank'         => $this->bankAccounts($invoice),
             'paymentTerms' => config('quotation.payment_terms', ''),
             'logo'         => $this->logoDataUri(),
             'lines'        => $invoice->description_lines ?? [],
             'unitPrice'    => (float) $invoice->unit_price,
-            'pax'          => (int) ($invoice->tour?->pax ?? $invoice->pax ?? 0),
+            // Pax milik INVOICE (bukan tour) — invoice suplemen biaya tambahan
+            // pakai pax 1 agar baris "harga × pax" cocok dengan totalnya.
+            'pax'          => (int) ($invoice->pax ?? $invoice->tour?->pax ?? 0),
             'paid'         => $paid,
             'outstanding'  => $outstanding,
         ])->render();
@@ -324,10 +330,18 @@ class InvoiceController extends Controller
         return $mpdf;
     }
 
-    /** Rekening aktif dari DB (dikelola akuntan); fallback ke config bila kosong. */
-    private function bankAccounts(): array
+    /**
+     * Rekening yang tampil di PDF — sales bisa pilih sebagian saat mengisi
+     * proforma (bank_account_ids); kosong = semua rekening aktif (default lama).
+     */
+    private function bankAccounts(Invoice $invoice): array
     {
-        $accounts = BankAccount::active()->get()
+        $query = BankAccount::active();
+        if (! empty($invoice->bank_account_ids)) {
+            $query->whereIn('id', $invoice->bank_account_ids);
+        }
+
+        $accounts = $query->get()
             ->map(fn ($b) => [
                 'bank'    => $b->bank,
                 'account' => $b->account_number,

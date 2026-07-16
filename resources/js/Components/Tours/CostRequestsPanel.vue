@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, ref } from 'vue'
+import { ref } from 'vue'
 import { useForm, router } from '@inertiajs/vue3'
 import { Button } from '@/Components/ui/button'
 import { Input } from '@/Components/ui/input'
@@ -100,6 +100,9 @@ async function cancelRequest(id) {
                         <p v-if="cr.status === 'rejected' && cr.review_notes" class="text-xs text-red-600 mt-1">
                             Alasan ditolak: {{ cr.review_notes }}
                         </p>
+                        <p v-if="cr.invoice" class="text-xs text-blue-700 mt-1">
+                            📄 Ditambahkan ke invoice {{ cr.invoice.number }} sebagai biaya tambahan
+                        </p>
                     </div>
                     <Button v-if="cr.status === 'pending'" size="sm" variant="outline" @click="cancelRequest(cr.id)">
                         Batalkan
@@ -142,7 +145,7 @@ async function cancelRequest(id) {
                 </div>
                 <div class="space-y-1.5">
                     <Label>Nominal Perkiraan (IDR) <span class="text-destructive">*</span></Label>
-                    <Input type="number" v-model="form.amount" min="0" step="1000" placeholder="0" />
+                    <Input type="number" v-model="form.amount" min="0" step="any" placeholder="0" />
                     <p v-if="form.errors.amount" class="text-xs text-destructive">{{ form.errors.amount }}</p>
                 </div>
                 <div class="space-y-1.5">

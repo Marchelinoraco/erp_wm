@@ -193,6 +193,7 @@
 
                             @php $prevLbl = null; @endphp
                             @foreach($lines as $ln)
+                            @continue(!empty($ln['amount']))
                             @php
                                 $lbl = trim($ln['label'] ?? '');
                                 $dt  = trim($ln['date'] ?? '');
@@ -242,8 +243,25 @@
                             </tr>
                         </table>
                     </td>
-                    <td class="acell">{{ $fmt($invoice->total) }}</td>
+                    <td class="acell">{{ $fmt($invoice->total - collect($lines)->sum('amount')) }}</td>
                 </tr>
+
+                {{-- Baris berjumlah nominal sendiri (mis. "Additional" — biaya tambahan disetujui akuntan) --}}
+                @foreach($lines as $ln)
+                @continue(empty($ln['amount']))
+                <tr>
+                    <td class="dcell">
+                        <table class="kv">
+                            <tr>
+                                <td class="k">{{ trim($ln['label'] ?? '') ?: 'Additional' }}</td>
+                                <td class="s">:</td>
+                                <td>{{ $ln['detail'] ?? '' }}</td>
+                            </tr>
+                        </table>
+                    </td>
+                    <td class="acell">{{ $fmt($ln['amount']) }}</td>
+                </tr>
+                @endforeach
 
                 {{-- Filler for height --}}
                 <tr class="tail rowend"><td class="dcell">&nbsp;</td><td class="acell"></td></tr>
