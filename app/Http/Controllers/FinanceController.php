@@ -29,6 +29,12 @@ class FinanceController extends Controller
             ->orderBy('number')
             ->get();
 
+        $paidInvoices = Invoice::approved()
+            ->with(['tour:id,code,customer_id', 'tour.customer:id,name', 'payments'])
+            ->where('status', 'paid')
+            ->orderBy('number')
+            ->get();
+
         $unpaidBills = Bill::with(['tour:id,code', 'supplier:id,name', 'payments'])
             ->whereIn('status', ['unpaid', 'partial'])
             ->latest('date')
@@ -64,6 +70,7 @@ class FinanceController extends Controller
             'ap_total'             => (float) $apTotal,
             'ap_paid'              => (float) $apPaid,
             'outstanding_invoices' => $outstandingInvoices,
+            'paid_invoices'        => $paidInvoices,
             'unpaid_bills'         => $unpaidBills,
             'confirmed_tours'      => $confirmedTours,
         ]);

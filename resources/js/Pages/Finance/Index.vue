@@ -9,6 +9,7 @@ const props = defineProps({
     ap_total:             Number,
     ap_paid:              Number,
     outstanding_invoices: Array,
+    paid_invoices:        { type: Array, default: () => [] },
     unpaid_bills:         Array,
     confirmed_tours:      { type: Array, default: () => [] },
 })
@@ -176,6 +177,62 @@ const BILL_STATUS = {
                                     {{ fmtCur(inv.total - inv.payments.reduce((s, p) => s + Number(p.amount), 0), inv.currency) }}
                                     <span v-if="inv.currency && inv.currency !== 'IDR'" class="block text-xs text-orange-400">
                                         ≈ {{ fmtRp(inv.total_idr - inv.payments.reduce((s, p) => s + Number(p.amount_idr ?? p.amount), 0)) }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    <span class="text-xs px-2 py-0.5 rounded-full font-medium"
+                                        :class="INV_STATUS[inv.status]?.cls ?? 'bg-gray-100 text-gray-600'">
+                                        {{ INV_STATUS[inv.status]?.label ?? inv.status }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    <Link
+                                        v-if="inv.tour"
+                                        :href="route('finance.tour', inv.tour.id)"
+                                        class="text-xs text-blue-600 hover:underline"
+                                    >Detail</Link>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Invoice Lunas -->
+            <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+                <div class="px-5 py-4 border-b flex items-center justify-between">
+                    <h2 class="text-sm font-semibold text-gray-800">Invoice Lunas</h2>
+                    <span class="text-xs text-gray-400">{{ paid_invoices.length }} invoice</span>
+                </div>
+                <div v-if="!paid_invoices.length" class="px-5 py-8 text-center text-sm text-gray-400">
+                    Belum ada invoice lunas.
+                </div>
+                <div v-else class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+                            <tr>
+                                <th class="px-4 py-2.5 text-left">Nomor</th>
+                                <th class="px-4 py-2.5 text-left">Tour</th>
+                                <th class="px-4 py-2.5 text-left">Customer</th>
+                                <th class="px-4 py-2.5 text-left">Tanggal</th>
+                                <th class="px-4 py-2.5 text-right">Total</th>
+                                <th class="px-4 py-2.5 text-center">Status</th>
+                                <th class="px-4 py-2.5"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <tr v-for="inv in paid_invoices" :key="inv.id" class="hover:bg-gray-50">
+                                <td class="px-4 py-3 font-mono text-xs">
+                                    <span class="font-medium text-gray-700">{{ inv.finance_number ?? inv.number }}</span>
+                                    <span v-if="inv.finance_number" class="block text-[11px] text-gray-400">{{ inv.number }}</span>
+                                </td>
+                                <td class="px-4 py-3 font-mono text-xs text-gray-600">{{ inv.tour?.code ?? '—' }}</td>
+                                <td class="px-4 py-3 text-gray-700">{{ inv.tour?.customer?.name ?? '—' }}</td>
+                                <td class="px-4 py-3 text-gray-500 text-xs">{{ fmtDate(inv.date) }}</td>
+                                <td class="px-4 py-3 text-right font-medium text-gray-800">
+                                    {{ fmtCur(inv.total, inv.currency) }}
+                                    <span v-if="inv.currency && inv.currency !== 'IDR'" class="block text-xs text-gray-400">
+                                        ≈ {{ fmtRp(inv.total_idr) }}
                                     </span>
                                 </td>
                                 <td class="px-4 py-3 text-center">
