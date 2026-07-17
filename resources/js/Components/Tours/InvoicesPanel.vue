@@ -1090,6 +1090,7 @@ function addProduct(product, extra = {}) {
                                 + Save
                             </Button>
                         </div>
+                        <p v-if="errorMsg" class="text-xs text-destructive mt-1.5">{{ errorMsg }}</p>
                     </div>
                 </div>
 
