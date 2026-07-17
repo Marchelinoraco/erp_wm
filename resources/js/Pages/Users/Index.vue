@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Head, useForm, router, usePage } from '@inertiajs/vue3'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { confirm } from '@/lib/confirm'
 import { Button } from '@/Components/ui/button'
 import { Input } from '@/Components/ui/input'
@@ -16,18 +16,21 @@ import {
 const props  = defineProps({ users: Array })
 const me     = usePage().props.auth.user
 
-// --- Roles config ---
+// --- Roles config — harus selalu sinkron dengan enum users.role di database ---
 const ROLES = [
-    { value: 'admin',       label: 'Admin',       color: 'bg-red-100 text-red-700' },
-    { value: 'sales',       label: 'Sales',       color: 'bg-blue-100 text-blue-700' },
-    { value: 'accountant',  label: 'Akuntansi',   color: 'bg-green-100 text-green-700' },
-    { value: 'guide',       label: 'Guide',       color: 'bg-purple-100 text-purple-700' },
-    { value: 'driver',      label: 'Driver',      color: 'bg-yellow-100 text-yellow-700' },
-    { value: 'tour_leader', label: 'Tour Leader', color: 'bg-orange-100 text-orange-700' },
+    { value: 'admin',        label: 'Admin',         color: 'bg-red-100 text-red-700',       dot: 'bg-red-500' },
+    { value: 'sales',        label: 'Sales',         color: 'bg-blue-100 text-blue-700',     dot: 'bg-blue-500' },
+    { value: 'accountant',   label: 'Akuntansi',     color: 'bg-green-100 text-green-700',   dot: 'bg-green-500' },
+    { value: 'operation',    label: 'Operation',     color: 'bg-cyan-100 text-cyan-700',     dot: 'bg-cyan-500' },
+    { value: 'travel_agent', label: 'Travel Agent',  color: 'bg-pink-100 text-pink-700',     dot: 'bg-pink-500' },
+    { value: 'guide',        label: 'Guide',         color: 'bg-purple-100 text-purple-700', dot: 'bg-purple-500' },
+    { value: 'driver',       label: 'Driver',        color: 'bg-yellow-100 text-yellow-700', dot: 'bg-yellow-500' },
+    { value: 'tour_leader',  label: 'Tour Leader',   color: 'bg-orange-100 text-orange-700', dot: 'bg-orange-500' },
 ]
+const GROUP_ORDER = ROLES.map(r => r.value)
 
 function roleConfig(value) {
-    return ROLES.find(r => r.value === value) ?? { label: value, color: 'bg-gray-100 text-gray-600' }
+    return ROLES.find(r => r.value === value) ?? { label: value, color: 'bg-gray-100 text-gray-600', dot: 'bg-gray-400' }
 }
 
 // --- Add ---
@@ -63,17 +66,36 @@ async function deleteUser(u) {
     }
 }
 
-// --- Group by role ---
-const GROUP_ORDER = ['admin', 'sales', 'accountant', 'guide', 'driver', 'tour_leader']
-function grouped() {
-    return GROUP_ORDER
+// --- Pencarian & filter role (klik kartu statistik utk filter cepat) ---
+const search       = ref('')
+const activeFilter = ref(null) // role value, atau null = semua
+
+function toggleFilter(role) {
+    activeFilter.value = activeFilter.value === role ? null : role
+}
+
+function countByRole(role) {
+    return props.users.filter(u => u.role === role).length
+}
+
+const filteredUsers = computed(() => {
+    const q = search.value.trim().toLowerCase()
+    return props.users.filter(u => {
+        const matchesRole   = !activeFilter.value || u.role === activeFilter.value
+        const matchesSearch = !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+        return matchesRole && matchesSearch
+    })
+})
+
+const grouped = computed(() =>
+    GROUP_ORDER
         .map(role => ({
             role,
             config: roleConfig(role),
-            users:  props.users.filter(u => u.role === role),
+            users:  filteredUsers.value.filter(u => u.role === role),
         }))
         .filter(g => g.users.length > 0)
-}
+)
 
 function formatDate(d) {
     return new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -85,37 +107,66 @@ function formatDate(d) {
     <AuthenticatedLayout>
         <template #header>
             <div class="flex items-center justify-between">
-                <h2 class="text-xl font-semibold">Kelola Akun</h2>
-                <Button size="sm" @click="showAdd = true">+ Tambah Akun</Button>
+                <div>
+                    <h2 class="text-xl font-semibold">Kelola Akun</h2>
+                    <p class="text-sm text-muted-foreground mt-0.5">{{ users.length }} akun terdaftar di seluruh role</p>
+                </div>
+                <Button size="sm" @click="showAdd = true">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    Tambah Akun
+                </Button>
             </div>
         </template>
 
         <div class="py-6">
-            <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 space-y-6">
+            <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 space-y-5">
 
-                <!-- Stats -->
-                <div class="grid grid-cols-3 gap-3 sm:grid-cols-6">
-                    <div
+                <!-- Stats — klik utk filter cepat -->
+                <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+                    <button
                         v-for="r in ROLES" :key="r.value"
-                        class="rounded-lg border bg-white p-3 text-center shadow-sm"
+                        type="button"
+                        class="cursor-pointer rounded-lg border bg-white p-3 text-center shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
+                        :class="activeFilter === r.value ? 'ring-2 ring-offset-1 ring-gray-400 border-transparent' : 'border-gray-200'"
+                        @click="toggleFilter(r.value)"
                     >
-                        <div class="text-xl font-bold text-gray-800">
-                            {{ users.filter(u => u.role === r.value).length }}
+                        <div class="text-xl font-bold text-gray-800">{{ countByRole(r.value) }}</div>
+                        <div class="mt-1.5 flex items-center justify-center gap-1">
+                            <span :class="['h-1.5 w-1.5 rounded-full', r.dot]"></span>
+                            <span class="text-[11px] font-medium text-gray-500 truncate">{{ r.label }}</span>
                         </div>
-                        <div class="mt-1">
-                            <span :class="['rounded-full px-2 py-0.5 text-[10px] font-semibold', r.color]">
-                                {{ r.label }}
-                            </span>
-                        </div>
+                    </button>
+                </div>
+
+                <!-- Toolbar: search + active filter chip -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <div class="relative flex-1 min-w-[14rem]">
+                        <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="7" /><path stroke-linecap="round" d="m21 21-4.35-4.35" />
+                        </svg>
+                        <Input v-model="search" placeholder="Cari nama atau email..." class="pl-9" />
                     </div>
+                    <button
+                        v-if="activeFilter"
+                        type="button"
+                        class="cursor-pointer inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                        @click="activeFilter = null"
+                    >
+                        Filter: {{ roleConfig(activeFilter).label }}
+                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                    </button>
                 </div>
 
                 <!-- Table -->
-                <div class="rounded-lg border bg-white shadow-sm overflow-hidden">
+                <div class="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
                     <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
-                            <tr class="border-b bg-muted/40">
+                            <tr class="border-b bg-gray-50/80">
                                 <th class="px-4 py-3 text-left font-medium text-muted-foreground">Nama</th>
                                 <th class="px-4 py-3 text-left font-medium text-muted-foreground">Email</th>
                                 <th class="px-4 py-3 text-left font-medium text-muted-foreground">Role</th>
@@ -124,12 +175,13 @@ function formatDate(d) {
                             </tr>
                         </thead>
                         <tbody>
-                            <template v-for="group in grouped()" :key="group.role">
+                            <template v-for="group in grouped" :key="group.role">
                                 <!-- Group header -->
                                 <tr class="bg-gray-50/60">
                                     <td colspan="5" class="px-4 py-1.5">
-                                        <span :class="['rounded-full px-2.5 py-0.5 text-xs font-semibold', group.config.color]">
-                                            {{ group.config.label }} ({{ group.users.length }})
+                                        <span class="inline-flex items-center gap-1.5">
+                                            <span :class="['h-1.5 w-1.5 rounded-full', group.config.dot]"></span>
+                                            <span class="text-xs font-semibold text-gray-600">{{ group.config.label }} ({{ group.users.length }})</span>
                                         </span>
                                     </td>
                                 </tr>
@@ -159,7 +211,7 @@ function formatDate(d) {
                                         <div class="flex items-center justify-end gap-1">
                                             <button
                                                 type="button"
-                                                class="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                                class="cursor-pointer rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                                                 :aria-label="`Edit akun ${u.name}`"
                                                 @click="openEdit(u)"
                                             >
@@ -174,8 +226,9 @@ function formatDate(d) {
                                                     'rounded p-1.5 transition-colors',
                                                     u.id === me.id
                                                         ? 'cursor-not-allowed text-muted-foreground/30'
-                                                        : 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive'
+                                                        : 'cursor-pointer text-muted-foreground hover:bg-destructive/10 hover:text-destructive'
                                                 ]"
+                                                :aria-label="u.id === me.id ? 'Tidak bisa hapus akun sendiri' : `Hapus akun ${u.name}`"
                                                 :title="u.id === me.id ? 'Tidak bisa hapus akun sendiri' : 'Hapus'"
                                                 :disabled="u.id === me.id"
                                                 @click="deleteUser(u)"
@@ -192,9 +245,19 @@ function formatDate(d) {
                                 </tr>
                             </template>
 
-                            <tr v-if="users.length === 0">
-                                <td colspan="5" class="px-4 py-10 text-center text-muted-foreground">
-                                    Belum ada akun.
+                            <tr v-if="filteredUsers.length === 0">
+                                <td colspan="5" class="px-4 py-12 text-center">
+                                    <p class="text-sm text-muted-foreground">
+                                        {{ users.length === 0 ? 'Belum ada akun.' : 'Tidak ada akun yang cocok.' }}
+                                    </p>
+                                    <button
+                                        v-if="users.length > 0 && (search || activeFilter)"
+                                        type="button"
+                                        class="cursor-pointer mt-2 text-xs font-medium text-primary hover:underline"
+                                        @click="search = ''; activeFilter = null"
+                                    >
+                                        Hapus pencarian & filter
+                                    </button>
                                 </td>
                             </tr>
                         </tbody>
