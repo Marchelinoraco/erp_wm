@@ -5,6 +5,7 @@ use App\Http\Controllers\AgentProductPriceController;
 use App\Http\Controllers\BankAccountController;
 use App\Http\Controllers\BillController;
 use App\Http\Controllers\FinanceLedgerController;
+use App\Http\Controllers\FinanceReportController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ChannelManagerController;
 use App\Http\Controllers\CostRequestController;
@@ -228,12 +229,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/finance',             [FinanceController::class, 'index'])->name('finance.index');
 
         // Buku kas / akuntansi — pencatatan pendapatan & pengeluaran
-        Route::get('/finance/cash-flow',     [FinanceLedgerController::class, 'cashFlow'])->name('finance.cashflow');
-        Route::get('/finance/journal',       [FinanceLedgerController::class, 'journal'])->name('finance.journal');
-        Route::get('/finance/ledger',        [FinanceLedgerController::class, 'ledger'])->name('finance.ledger');
-        Route::get('/finance/recap',         [FinanceLedgerController::class, 'recap'])->name('finance.recap');
-        Route::get('/finance/balance-sheet', [FinanceLedgerController::class, 'balanceSheet'])->name('finance.balance-sheet');
-        Route::get('/finance/income-statement',     [FinanceLedgerController::class, 'incomeStatement'])->name('finance.income-statement');
+        Route::get('/finance/cash-flow',     [FinanceReportController::class, 'cashFlow'])->name('finance.cashflow');
+        Route::get('/finance/journal',       [FinanceReportController::class, 'journal'])->name('finance.journal');
+        Route::get('/finance/ledger',        [FinanceReportController::class, 'ledger'])->name('finance.ledger');
+        Route::get('/finance/recap',         [FinanceReportController::class, 'recap'])->name('finance.recap');
+        Route::get('/finance/balance-sheet', [FinanceReportController::class, 'balanceSheet'])->name('finance.balance-sheet');
+        Route::get('/finance/income-statement',     [FinanceReportController::class, 'incomeStatement'])->name('finance.income-statement');
 
         // Aset Tetap
         Route::get('/finance/fixed-assets',                    [FixedAssetController::class, 'index'])->name('finance.fixed-assets');
@@ -254,15 +255,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/finance/loans/{loan}',     [LoanController::class, 'update'])->name('loans.update');
         Route::delete('/finance/loans/{loan}',    [LoanController::class, 'destroy'])->name('loans.destroy');
         Route::patch('/finance/settings',         [LoanController::class, 'updateSetting'])->name('finance.settings.update');
-        Route::get('/finance/account-balances', [FinanceLedgerController::class, 'accountBalances'])->name('finance.account-balances');
+        Route::get('/finance/account-balances', [FinanceReportController::class, 'accountBalances'])->name('finance.account-balances');
 
         // Unduh PDF laporan keuangan
-        Route::get('/finance/account-balances/pdf',    [FinanceLedgerController::class, 'accountBalancesPdf'])->name('finance.account-balances.pdf');
-        Route::get('/finance/balance-sheet/pdf',       [FinanceLedgerController::class, 'balanceSheetPdf'])->name('finance.balance-sheet.pdf');
-        Route::get('/finance/income-statement/pdf',    [FinanceLedgerController::class, 'incomeStatementPdf'])->name('finance.income-statement.pdf');
-        Route::get('/finance/journal/pdf',          [FinanceLedgerController::class, 'journalPdf'])->name('finance.journal.pdf');
-        Route::get('/finance/ledger/pdf',           [FinanceLedgerController::class, 'ledgerPdf'])->name('finance.ledger.pdf');
-        Route::get('/finance/recap/pdf',            [FinanceLedgerController::class, 'recapPdf'])->name('finance.recap.pdf');
+        Route::get('/finance/account-balances/pdf',    [FinanceReportController::class, 'accountBalancesPdf'])->name('finance.account-balances.pdf');
+        Route::get('/finance/balance-sheet/pdf',       [FinanceReportController::class, 'balanceSheetPdf'])->name('finance.balance-sheet.pdf');
+        Route::get('/finance/income-statement/pdf',    [FinanceReportController::class, 'incomeStatementPdf'])->name('finance.income-statement.pdf');
+        Route::get('/finance/journal/pdf',          [FinanceReportController::class, 'journalPdf'])->name('finance.journal.pdf');
+        Route::get('/finance/ledger/pdf',           [FinanceReportController::class, 'ledgerPdf'])->name('finance.ledger.pdf');
+        Route::get('/finance/recap/pdf',            [FinanceReportController::class, 'recapPdf'])->name('finance.recap.pdf');
         Route::get('/finance/transactions',  [FinanceLedgerController::class, 'transactions'])->name('finance.transactions');
         Route::post('/finance/transactions', [FinanceLedgerController::class, 'storeTransaction'])->name('finance.transactions.store');
         Route::patch('/finance/transactions/{finTransaction}',  [FinanceLedgerController::class, 'updateTransaction'])->name('finance.transactions.update');

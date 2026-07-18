@@ -1,8 +1,8 @@
 <?php
 
-use App\Models\Invoice;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -17,15 +17,18 @@ return new class extends Migration
 
         // Backfill: invoice yang sudah approved diberi nomor urut sesuai
         // urutan approve, counter reset per tahun (tahun approved_at).
+        // Pakai query builder (bukan model Eloquent) supaya migration ini tidak
+        // ikut terpengaruh scope/kolom yang ditambahkan ke model Invoice di masa depan.
         $counters = [];
-        Invoice::whereNotNull('approved_at')
+        DB::table('invoices')
+            ->whereNotNull('approved_at')
             ->orderBy('approved_at')
             ->orderBy('id')
-            ->get()
-            ->each(function (Invoice $inv) use (&$counters) {
-                $year = $inv->approved_at->format('Y');
+            ->get(['id', 'approved_at'])
+            ->each(function ($inv) use (&$counters) {
+                $year = substr($inv->approved_at, 0, 4);
                 $counters[$year] = ($counters[$year] ?? 0) + 1;
-                $inv->update([
+                DB::table('invoices')->where('id', $inv->id)->update([
                     'finance_number' => 'INV-' . $year . '-' . str_pad($counters[$year], 4, '0', STR_PAD_LEFT),
                 ]);
             });

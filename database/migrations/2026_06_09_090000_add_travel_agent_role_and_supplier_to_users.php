@@ -10,7 +10,9 @@ return new class extends Migration
     public function up(): void
     {
         // Tambah 'travel_agent' ke enum role
-        DB::statement("ALTER TABLE users MODIFY role ENUM('admin','sales','accountant','guide','driver','tour_leader','travel_agent') NOT NULL DEFAULT 'sales'");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE users MODIFY role ENUM('admin','sales','accountant','guide','driver','tour_leader','travel_agent') NOT NULL DEFAULT 'sales'");
+        }
 
         Schema::table('users', function (Blueprint $table) {
             $table->foreignId('supplier_id')
@@ -28,6 +30,8 @@ return new class extends Migration
             $table->dropColumn('supplier_id');
         });
 
-        DB::statement("ALTER TABLE users MODIFY role ENUM('admin','sales','accountant','guide','driver','tour_leader') NOT NULL DEFAULT 'sales'");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE users MODIFY role ENUM('admin','sales','accountant','guide','driver','tour_leader') NOT NULL DEFAULT 'sales'");
+        }
     }
 };

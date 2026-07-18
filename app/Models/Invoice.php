@@ -4,9 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Invoice extends Model
 {
+    use SoftDeletes;
+
     protected $guarded = [];
     protected $casts   = [
         'date'              => 'date',
@@ -123,7 +126,8 @@ class Invoice extends Model
     public static function nextFinanceNumber(): string
     {
         $prefix = 'INV-' . now()->year . '-';
-        $latest = static::where('finance_number', 'like', $prefix . '%')
+        $latest = static::withTrashed()
+            ->where('finance_number', 'like', $prefix . '%')
             ->lockForUpdate()
             ->orderByDesc('finance_number')
             ->value('finance_number');
@@ -144,7 +148,8 @@ class Invoice extends Model
     {
         $typeCode = $tour?->resolveTypeCode() ?? '11';
         $prefix   = 'INV-' . now()->year . '-' . $typeCode . '-';
-        $latest   = static::where('number', 'like', $prefix . '%')
+        $latest   = static::withTrashed()
+            ->where('number', 'like', $prefix . '%')
             ->lockForUpdate()
             ->orderByDesc('number')
             ->value('number');
