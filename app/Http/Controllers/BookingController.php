@@ -13,7 +13,12 @@ class BookingController extends Controller
     /** Daftar booking — semua tour confirmed dikelompokkan, untuk operation/sales/admin. */
     public function index(Request $request)
     {
+        $user = $request->user();
+
         $tours = Tour::where('status', 'confirmed')
+            ->when($user->isSales(), fn ($q) => $q->where(
+                fn ($w) => $w->where('created_by', $user->id)->orWhereNull('created_by')
+            ))
             ->with([
                 'customer:id,name',
                 'bookings' => fn ($q) => $q->orderByRaw("FIELD(status,'pending','booked','cancelled')")->orderBy('id'),
@@ -52,14 +57,17 @@ class BookingController extends Controller
             ->sortByDesc(fn ($t) => count($t['bookings']))
             ->values();
 
-        $allBookings = TourBooking::query();
+        $allBookings = TourBooking::query()
+            ->when($user->isSales(), fn ($q) => $q->whereHas('tour', fn ($t) => $t->where(
+                fn ($w) => $w->where('created_by', $user->id)->orWhereNull('created_by')
+            )));
 
         $stats = [
-            'pending'   => (clone $allBookings)->where('status', 'pending')->count(),
-            'booked'    => (clone $allBookings)->where('status', 'booked')->count(),
-            'cancelled' => (clone $allBookings)->where('status', 'cancelled')->count(),
-            'est_total'    => (float) TourBooking::whereIn('status', ['pending', 'booked'])->sum('est_cost'),
-            'actual_total' => (float) TourBooking::where('status', 'booked')->sum('actual_cost'),
+            'pending'      => (clone $allBookings)->where('status', 'pending')->count(),
+            'booked'       => (clone $allBookings)->where('status', 'booked')->count(),
+            'cancelled'    => (clone $allBookings)->where('status', 'cancelled')->count(),
+            'est_total'    => (float) (clone $allBookings)->whereIn('status', ['pending', 'booked'])->sum('est_cost'),
+            'actual_total' => (float) (clone $allBookings)->where('status', 'booked')->sum('actual_cost'),
         ];
 
         return Inertia::render('Bookings/Index', [

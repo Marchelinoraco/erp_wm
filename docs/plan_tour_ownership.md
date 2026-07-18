@@ -1,6 +1,14 @@
 # Kepemilikan Tour per Akun Sales + Reminder Otomatis
 
-> **Status (15 Jul 2026):** Plan disetujui user, implementasi SEMPAT dimulai lalu DIBATALKAN bersih (migration di-rollback, kode di-revert) karena user ingin mengerjakan fitur lain dulu. Saat melanjutkan: kerjakan dari awal mengikuti plan di bawah — tidak ada sisa kode fitur ini di repo saat ini.
+> **Status (18 Jul 2026): SELESAI & TERVERIFIKASI (kode lokal, belum deploy production).** Semua §1-7 sudah diimplementasikan dan diverifikasi via test otomatis — bukan cuma ditulis.
+>
+> **Checklist final:**
+> - [x] §1 Migration `2026_07_21_000000_add_created_by_to_tours.php` — **sudah dijalankan** di DB lokal (`welcome_manado`). **Belum dijalankan di production** — jalankan `php artisan migrate` di VPS saat deploy.
+> - [x] §2-7 — semua kode sesuai rencana (lihat isi file ini untuk detail per bagian).
+> - [x] **Verifikasi otomatis**: `tests/Feature/TourOwnershipTest.php` (baru, 6 test) — scope `visibleTo`/`isAccessibleBy`, 403 saat sales buka/hapus tour milik sales lain, `created_by` terisi otomatis + reminder H+1 saat tour dibuat, reminder berantai saat status berubah (berhenti di confirmed/cancelled), dashboard `totalTours` ter-scope untuk sales vs admin. **Semua 6 lolos.**
+> - [x] Regresi: `php artisan test` penuh → **38/38 lolos** (32 sebelumnya + 6 baru), termasuk migration baru ini kompatibel SQLite (terbukti karena `RefreshDatabase` migrate-fresh duluan sebelum test jalan).
+> - [ ] **Belum dikerjakan**: cek manual di browser (login sebagai sales sungguhan, lihat filter Tours/Dashboard/Booking) — test otomatis mengonfirmasi logic backend benar, tapi belum ada yang benar-benar klik-klik di UI. Disarankan sebelum deploy ke production.
+> - [ ] **Belum dikerjakan**: deploy ke VPS (`git pull` + `php artisan migrate` + `npm run build`).
 
 ## Context
 

@@ -123,7 +123,7 @@ async function confirmDelete(tour) {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div class="lg:col-span-2">
+                        <div class="lg:col-span-2" v-if="salesPeople.length > 1">
                             <Select v-model="sales">
                                 <SelectTrigger class="w-full h-10">
                                     <SelectValue placeholder="Semua sales" />

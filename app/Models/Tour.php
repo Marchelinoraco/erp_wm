@@ -3,10 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 
 class Tour extends Model
 {
+    use SoftDeletes;
+
     protected $guarded = [];
 
     protected $casts = [
@@ -119,6 +122,23 @@ class Tour extends Model
         return self::TYPE_CODES[$this->type] ?? '11';
     }
 
+    /** Sales hanya melihat tour miliknya + tour lama tanpa pemilik; admin semua. */
+    public function scopeVisibleTo($query, User $user)
+    {
+        return $user->isAdmin() ? $query
+            : $query->where(fn ($q) => $q->where('created_by', $user->id)->orWhereNull('created_by'));
+    }
+
+    public function isAccessibleBy(User $user): bool
+    {
+        return $user->isAdmin() || $this->created_by === null || $this->created_by === $user->id;
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
     public function customer()
     {
         return $this->belongsTo(Customer::class);
@@ -175,6 +195,11 @@ class Tour extends Model
     public function histories()
     {
         return $this->hasMany(TourHistory::class)->latest();
+    }
+
+    public function reminders()
+    {
+        return $this->hasMany(Reminder::class);
     }
 
     public function getItineraryPdfUrlAttribute(): ?string
@@ -311,7 +336,8 @@ class Tour extends Model
             if (empty($tour->code)) {
                 $year   = now()->year;
                 $prefix = 'WM-' . $year . '-' . $tour->resolveTypeCode() . '-';
-                $latest = static::where('code', 'like', $prefix . '%')
+                $latest = static::withTrashed()
+                    ->where('code', 'like', $prefix . '%')
                     ->orderByDesc('code')
                     ->value('code');
                 $next = $latest ? ((int) substr($latest, strlen($prefix))) + 1 : 1;

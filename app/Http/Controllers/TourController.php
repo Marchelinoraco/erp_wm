@@ -8,6 +8,7 @@ use App\Models\Customer;
 use App\Models\MiceTemplate;
 use App\Models\Product;
 use App\Models\QuotationItem;
+use App\Models\Reminder;
 use App\Models\Supplier;
 use App\Models\Tour;
 use App\Http\Controllers\TourEmailController;
@@ -28,7 +29,8 @@ class TourController extends Controller
             $type = null;
         }
 
-        $query = Tour::with('customer')
+        $query = Tour::visibleTo($request->user())
+            ->with('customer')
             ->withSum('items as total_sell', 'line_sell')
             ->withSum('items as total_cost', 'line_cost')
             ->withCount('invoices')
@@ -118,7 +120,14 @@ class TourController extends Controller
             'details'        => 'nullable|array',
         ]);
 
+        $data['created_by'] = $request->user()->id;
+        if (empty($data['sales_person'])) {
+            $data['sales_person'] = $request->user()->name;
+        }
+
         $tour = Tour::create($data);
+
+        $this->createAutoReminder($tour, $request->user()->id, 'Dibuat otomatis saat inquiry dibuat.');
 
         return redirect()->route('tours.edit', $tour)
             ->with('success', $tour->type_label . ' ' . $tour->code . ' berhasil dibuat.');
@@ -126,6 +135,8 @@ class TourController extends Controller
 
     public function edit(Tour $tour)
     {
+        abort_unless($tour->isAccessibleBy(auth()->user()), 403);
+
         $tour->load(['customer', 'items.product', 'quotationItems.product', 'assignments', 'itineraryDays', 'itineraryHours', 'histories', 'invoices.items.product', 'invoices.payments.cashAccount:id,name', 'costRequests.requestedBy:id,name', 'costRequests.invoice:id,number,finance_number']);
         $tour->append(['total_cost', 'total_sell', 'profit', 'margin', 'itinerary_pdf_url']);
 
@@ -160,6 +171,8 @@ class TourController extends Controller
 
     public function update(Request $request, Tour $tour)
     {
+        abort_unless($tour->isAccessibleBy($request->user()), 403);
+
         $data = $request->validate([
             'type'           => 'nullable|string|in:' . implode(',', array_keys(Tour::TYPES)),
             'tour_direction' => 'nullable|in:inbound,outbound',
@@ -211,6 +224,8 @@ class TourController extends Controller
                 'created_by'      => auth()->user()->name,
             ]);
 
+            $this->handleStatusChangeReminder($tour, $data['status']);
+
             // Konversi quotation items yang disetujui → tour items saat dikonfirmasi.
             if ($data['status'] === 'confirmed') {
                 $this->convertApprovedQuotationItems($tour);
@@ -231,10 +246,57 @@ class TourController extends Controller
 
     public function destroy(Tour $tour)
     {
+        abort_unless($tour->isAccessibleBy(auth()->user()), 403);
+
         $tour->delete();
 
         return redirect()->route('tours.index')
             ->with('success', 'Tour berhasil dihapus.');
+    }
+
+    /** Reminder follow-up otomatis H+1, dibuat sekali saat inquiry baru dibuat. */
+    private function createAutoReminder(Tour $tour, int $userId, string $notes): void
+    {
+        Reminder::create([
+            'user_id'   => $userId,
+            'tour_id'   => $tour->id,
+            'title'     => 'Follow up ' . $tour->type_label . ' ' . $tour->code,
+            'notes'     => $notes,
+            'remind_at' => now()->addDay(),
+        ]);
+    }
+
+    /**
+     * Reminder follow-up berantai: tiap kali status berubah (kecuali ke status akhir),
+     * reminder otomatis lama ditandai selesai dan reminder baru H+1 dibuat untuk
+     * pemilik tour. Status akhir (confirmed/cancelled) hanya menutup reminder lama.
+     */
+    private function handleStatusChangeReminder(Tour $tour, string $newStatus): void
+    {
+        $tour->reminders()
+            ->where('is_done', false)
+            ->where('notes', 'like', 'Dibuat otomatis%')
+            ->update(['is_done' => true]);
+
+        if (in_array($newStatus, ['confirmed', 'cancelled'], true)) {
+            return;
+        }
+
+        $labels = [
+            'inquiry'         => 'Inquiry',
+            'quotation_draft' => 'Draft Quotation',
+            'quotation_sent'  => 'Sent',
+            'follow_up'       => 'Follow Up',
+            'negotiation'     => 'Negosiasi',
+        ];
+
+        Reminder::create([
+            'user_id'   => $tour->created_by ?? auth()->id(),
+            'tour_id'   => $tour->id,
+            'title'     => 'Follow up ' . $tour->code . ' — status: ' . ($labels[$newStatus] ?? $newStatus),
+            'notes'     => 'Dibuat otomatis saat status berubah.',
+            'remind_at' => now()->addDay(),
+        ]);
     }
 
     /**

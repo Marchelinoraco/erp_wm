@@ -20,9 +20,10 @@ class ReminderController extends Controller
             ->get()
             ->append(['is_overdue', 'is_today']);
 
-        $tours = Tour::whereNotIn('status', ['confirmed', 'cancelled'])
+        $tours = Tour::visibleTo($user)
+            ->whereNotIn('status', ['confirmed', 'cancelled'])
             ->orderByDesc('created_at')
-            ->get(['id', 'code', 'title', 'status']);
+            ->get(['id', 'code', 'title', 'status', 'created_by']);
 
         $stats = [
             'overdue'  => $reminders->where('is_done', false)->filter(fn($r) => $r->remind_at->isPast() && !$r->remind_at->isToday())->count(),
