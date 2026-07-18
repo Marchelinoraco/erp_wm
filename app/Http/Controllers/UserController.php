@@ -26,7 +26,7 @@ class UserController extends Controller
             'name'     => 'required|string|max:255',
             'email'    => 'required|email|unique:users,email',
             'password' => 'required|string|min:8',
-            'role'     => 'required|in:admin,sales,accountant,guide,driver,tour_leader',
+            'role'     => 'required|in:admin,sales,accountant,operation,travel_agent,guide,driver,tour_leader',
         ]);
 
         User::create([
@@ -44,7 +44,7 @@ class UserController extends Controller
         $data = $request->validate([
             'name'     => 'required|string|max:255',
             'email'    => ['required', 'email', Rule::unique('users', 'email')->ignore($user->id)],
-            'role'     => 'required|in:admin,sales,accountant,guide,driver,tour_leader',
+            'role'     => 'required|in:admin,sales,accountant,operation,travel_agent,guide,driver,tour_leader',
             'password' => 'nullable|string|min:8',
         ]);
 
