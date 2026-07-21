@@ -13,13 +13,13 @@ class TourEmail extends Mailable
     use Queueable, SerializesModels;
 
     public function __construct(
-        public string $subject,
+        public string $subjectLine,
         public string $body,
     ) {}
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: $this->subject);
+        return new Envelope(subject: $this->subjectLine);
     }
 
     public function content(): Content
@@ -27,7 +27,7 @@ class TourEmail extends Mailable
         return new Content(
             view: 'emails.tour',
             with: [
-                'subject' => $this->subject,
+                'subject' => $this->subjectLine,
                 'body'    => $this->body,
             ],
         );

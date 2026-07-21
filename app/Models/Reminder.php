@@ -9,8 +9,9 @@ class Reminder extends Model
     protected $guarded = [];
 
     protected $casts = [
-        'remind_at' => 'date',
-        'is_done'   => 'boolean',
+        'remind_at'   => 'date',
+        'is_done'     => 'boolean',
+        'notified_at' => 'datetime',
     ];
 
     public function user()

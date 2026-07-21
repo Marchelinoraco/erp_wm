@@ -18,7 +18,7 @@ class TourEmailController extends Controller
             'body'    => 'required|string',
         ]);
 
-        Mail::to($data['to'])->send(new TourEmail($data['subject'], $data['body']));
+        Mail::to($data['to'])->queue(new TourEmail($data['subject'], $data['body']));
 
         // Log sebagai reminder "terkirim"
         Reminder::create([
