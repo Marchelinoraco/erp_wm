@@ -104,6 +104,10 @@ const navGroups = computed(() => {
             { label: 'Rekening',        route: 'bank-accounts.index',   match: 'bank-accounts.*',   icon: ICON.finance },
         ]
         groups.push({ label: 'Data Master', items: dataItems })
+
+        groups.push({ label: 'Marketing', items: [
+            { label: 'Kontak Brevo', route: 'marketing.contacts.index', match: 'marketing.contacts.*', icon: ICON.customers },
+        ]})
     }
 
     if (role === 'admin') {

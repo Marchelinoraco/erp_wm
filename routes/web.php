@@ -11,6 +11,7 @@ use App\Http\Controllers\ChannelManagerController;
 use App\Http\Controllers\CostRequestController;
 use App\Http\Controllers\ReminderController;
 use App\Http\Controllers\TourEmailController;
+use App\Http\Controllers\TourEmailStatusController;
 use App\Http\Controllers\TourHistoryController;
 use App\Http\Controllers\TourItineraryController;
 use App\Http\Controllers\UserController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\AssignmentController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\MarketingContactController;
 use App\Http\Controllers\InvoiceItemController;
 use App\Http\Controllers\InvoicePaymentController;
 use App\Http\Controllers\ManifestController;
@@ -116,6 +118,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('customers', CustomerController::class)
         ->middleware('role:admin,sales');
 
+    // Marketing — kontak Brevo (live via API, tidak disimpan di DB ERP)
+    Route::middleware('role:admin,sales')->group(function () {
+        Route::get('/marketing/contacts',  [MarketingContactController::class, 'index'])->name('marketing.contacts.index');
+        Route::post('/marketing/contacts', [MarketingContactController::class, 'store'])->name('marketing.contacts.store');
+        Route::get('/marketing/lists',     [MarketingContactController::class, 'lists'])->name('marketing.lists');
+        Route::post('/customers/{customer}/brevo', [MarketingContactController::class, 'push'])->name('marketing.customers.push');
+    });
+
     // Tours — admin + sales
     Route::resource('tours', TourController::class)
         ->except(['show'])
@@ -123,6 +133,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware('role:admin,sales')->group(function () {
         Route::post('/tours/{tour}/email',      [TourEmailController::class, 'send'])->name('tours.email.send');
+        Route::get('/tours/{tour}/email-status', TourEmailStatusController::class)->name('tours.email-status');
 
         Route::post('/tours/{tour}/histories',              [TourHistoryController::class, 'store'])->name('tours.histories.store');
         Route::delete('/tours/{tour}/histories/{history}',  [TourHistoryController::class, 'destroy'])->name('tours.histories.destroy');

@@ -1,7 +1,10 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
-import { Head, Link, router } from '@inertiajs/vue3'
+import { Head, Link, router, useForm } from '@inertiajs/vue3'
 import { ref, watch } from 'vue'
+import {
+    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/Components/ui/dialog'
 import { Button } from '@/Components/ui/button'
 import { Badge } from '@/Components/ui/badge'
 import { Input } from '@/Components/ui/input'
@@ -31,6 +34,48 @@ watch(search, () => {
 
 const TYPE_LABELS = { agent: 'Agent', corporate: 'Korporat', direct: 'Direct', buyer: 'Buyer (Travel Agent)' }
 const TYPE_VARIANTS = { agent: 'default', corporate: 'secondary', direct: 'outline', buyer: 'default' }
+
+// --- Dorong customer ke Brevo -------------------------------------------
+// List ditarik saat dialog dibuka (bukan saat halaman dimuat) supaya halaman
+// Customers tidak ikut menunggu Brevo.
+const pushOpen     = ref(false)
+const pushCustomer = ref(null)
+const brevoLists   = ref([])
+const listsError   = ref(null)
+const loadingLists = ref(false)
+const pushForm     = useForm({ list_ids: [] })
+
+async function openPush(customer) {
+    pushCustomer.value = customer
+    pushForm.reset()
+    pushOpen.value = true
+    loadingLists.value = true
+    listsError.value = null
+
+    try {
+        const res  = await fetch(route('marketing.lists'), { headers: { Accept: 'application/json' } })
+        const data = await res.json()
+        brevoLists.value = data.lists ?? []
+        listsError.value = data.error
+    } catch {
+        listsError.value = 'Tidak dapat memuat list dari Brevo.'
+    } finally {
+        loadingLists.value = false
+    }
+}
+
+function toggleList(id) {
+    const i = pushForm.list_ids.indexOf(id)
+    if (i === -1) pushForm.list_ids.push(id)
+    else pushForm.list_ids.splice(i, 1)
+}
+
+function submitPush() {
+    pushForm.post(route('marketing.customers.push', pushCustomer.value.id), {
+        preserveScroll: true,
+        onSuccess: () => { pushOpen.value = false },
+    })
+}
 
 async function confirmDelete(id) {
     if (await confirm({
@@ -95,6 +140,9 @@ async function confirmDelete(id) {
                                         <DropdownMenuItem as-child>
                                             <Link :href="route('customers.edit', c.id)">Edit</Link>
                                         </DropdownMenuItem>
+                                        <DropdownMenuItem :disabled="!c.email" @click="openPush(c)">
+                                            Dorong ke Brevo
+                                        </DropdownMenuItem>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem variant="destructive" @click="confirmDelete(c.id)">
                                             Hapus
@@ -121,5 +169,42 @@ async function confirmDelete(id) {
                 </div>
             </div>
         </div>
+
+        <Dialog v-model:open="pushOpen">
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Dorong ke Brevo</DialogTitle>
+                    <DialogDescription>
+                        {{ pushCustomer?.name }} ({{ pushCustomer?.email }}) akan ditambahkan ke audiens Brevo.
+                        Bila sudah terdaftar, datanya diperbarui.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div class="space-y-3">
+                    <p v-if="loadingLists" class="text-sm text-gray-500">Memuat list dari Brevo…</p>
+                    <p v-else-if="listsError" class="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                        {{ listsError }}
+                    </p>
+                    <template v-else>
+                        <p class="text-sm font-medium">List tujuan</p>
+                        <p v-if="brevoLists.length === 0" class="text-sm text-gray-500">
+                            Belum ada list di Brevo. Kontak tetap bisa ditambahkan tanpa list.
+                        </p>
+                        <div v-else class="space-y-2 max-h-48 overflow-y-auto">
+                            <label v-for="l in brevoLists" :key="l.id" class="flex items-center gap-2 text-sm">
+                                <input type="checkbox" :checked="pushForm.list_ids.includes(l.id)" @change="toggleList(l.id)" />
+                                {{ l.name }}
+                            </label>
+                        </div>
+                    </template>
+                    <p v-if="pushForm.errors.email" class="text-sm text-red-600">{{ pushForm.errors.email }}</p>
+                </div>
+
+                <DialogFooter>
+                    <Button variant="outline" @click="pushOpen = false">Batal</Button>
+                    <Button :disabled="pushForm.processing || loadingLists" @click="submitPush">Dorong</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </AuthenticatedLayout>
 </template>

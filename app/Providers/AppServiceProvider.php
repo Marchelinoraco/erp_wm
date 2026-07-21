@@ -2,10 +2,12 @@
 
 namespace App\Providers;
 
+use App\Contracts\BrevoGateway;
 use App\Models\BillPayment;
 use App\Models\InvoicePayment;
 use App\Observers\BillPaymentObserver;
 use App\Observers\InvoicePaymentObserver;
+use App\Services\Brevo\BrevoClient;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 
@@ -16,7 +18,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(BrevoGateway::class, BrevoClient::class);
     }
 
     /**

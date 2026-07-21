@@ -38,7 +38,7 @@ MVP dianggap **selesai** jika: (a) email uji benar-benar diterima di kotak masuk
 - Auto-email ke customer tanpa review Sales (ditolak — brand risk).
 - Broadcast/newsletter (L3) — hanya disiapkan celahnya, tidak dikoding.
 - Fitur CRM/Deals bawaan Brevo (redundan; sumber kebenaran customer/tour tetap di ERP).
-- Webhook status email (Opened/Clicked/Bounced) — opsional, dibahas sebagai *future* di §8, bukan MVP.
+- **Webhook** status email — tetap non-goal. Kebutuhan "lihat status email terkirim" dipenuhi lewat **polling** di §7c, yang tidak butuh endpoint publik maupun tabel event.
 
 ## 4. Prinsip Arsitektur (Clean)
 
@@ -108,12 +108,114 @@ Karena "Kontak Brevo" tidak pernah masuk DB ERP, tabel `customers` tetap bersih 
 **Arsitektur (live proxy, isolasi penuh):**
 
 - `config/services.php` blok `brevo` → `key` dari `env('BREVO_API_KEY')` (API key `xkeysib-...`, **server-side only**, tidak pernah ke frontend).
-- `App\Services\Brevo\BrevoClient` (di balik `App\Contracts\BrevoGateway`) — satu-satunya tempat `Http::withToken(...)->baseUrl('https://api.brevo.com/v3')`. Endpoint: `GET /contacts` (list+paginasi), `POST /contacts` (tambah / dorong customer ERP→Brevo), `GET /contacts` search, `POST /emailCampaigns` (broadcast). Bisa di-`Http::fake()` untuk test.
+- `App\Services\Brevo\BrevoClient` (di balik `App\Contracts\BrevoGateway`) — satu-satunya tempat `Http::withHeaders(['api-key' => config('services.brevo.key')])->baseUrl('https://api.brevo.com/v3')`. **Catatan: Brevo v3 memakai header `api-key`, BUKAN `Authorization: Bearer`** (`Http::withToken()` akan gagal autentikasi). Endpoint: `GET /contacts` (list+paginasi), `GET /contacts/{email}` (lookup 1 kontak), `POST /contacts` (tambah / dorong customer ERP→Brevo), `GET /contacts/lists` (daftar list), `POST /emailCampaigns` (broadcast). Bisa di-`Http::fake()` untuk test.
 - `MarketingContactController` + Vue `Marketing/Contacts/Index.vue` (tabel + paginasi + cari; tombol "Tambah kontak" & "Dorong customer ke Brevo"). Akses: admin + sales.
 - **Degradasi anggun:** bila Brevo API down/401, halaman tampilkan pesan error, bukan crash.
 - **Fase:** (7a) lihat/cari/tambah kontak + dorong customer ERP→Brevo; (7b) broadcast/campaign dari ERP (pilih list/segmen + konten). Consent/opt-in tetap syarat broadcast (§8.7).
 
 L3 **tidak menyentuh** kode L1/L2 (SMTP) — jalur REST API terpisah total dari jalur SMTP. Butuh **rotasi API key** yang sempat ter-expose (§8.2) sebelum dipakai.
+
+## 7a. Fase 7a — Halaman "Kontak Brevo" (DESAIN SELESAI, belum dibangun)
+
+**Keputusan user (21 Jul 2026):** cakupan **lengkap** (lihat + cari + tambah + dorong customer) · list tujuan **dipilih saat mendorong** · akses **admin + sales** · cari = **lookup email persis**.
+
+### 7a.1 Batasan API yang membentuk desain ini
+
+- **Autentikasi: header `api-key`**, BUKAN `Authorization: Bearer`. `Http::withToken()` akan gagal.
+- `GET /v3/contacts` hanya mendukung `limit` (1–1000, default 50), `offset`, `modifiedSince`, `createdSince`, `sort`, `ids` — **tidak ada parameter pencarian teks**. Karena itu "cari" diimplementasikan sebagai lookup email persis lewat `GET /v3/contacts/{email}`; pencarian sebagian kata **tidak didukung** (konsekuensi sadar dari pilihan live-API; kalau kelak benar-benar perlu, barulah mirror lokal layak dipertimbangkan).
+- Rate limit contacts ±10 req/detik — aman untuk pemakaian interaktif.
+
+### 7a.2 Fondasi backend (isolasi penuh)
+
+- `config/services.php` → `'brevo' => ['key' => env('BREVO_API_KEY')]`.
+- `App\Contracts\BrevoGateway` — kontrak, supaya controller tidak pernah tahu detail HTTP:
+  - `contacts(int $limit, int $offset): array` → `['contacts' => [...], 'count' => int]`
+  - `findContact(string $email): ?array` — **404 dari Brevo = kontak tidak ada → kembalikan `null`**, BUKAN dianggap error. Bedakan tegas dari gagal koneksi/401 (itu baru lempar exception), supaya UI bisa bilang "tidak ditemukan" alih-alih "Brevo bermasalah".
+  - `createContact(string $email, array $attributes = [], array $listIds = []): array` — **wajib kirim `updateEnabled: true`**. Tanpa ini, email yang sudah ada di Brevo ditolak 400 `duplicate_parameter`. Karena sudah ada ±5.359 kontak, kasus "customer sudah terdaftar" adalah kejadian **normal, bukan error** — dengan `updateEnabled` kontak lama justru ditambahkan ke list terpilih.
+  - `lists(): array` — untuk picker list saat mendorong
+- `App\Services\Brevo\BrevoClient implements BrevoGateway` — **satu-satunya** tempat HTTP ke Brevo:
+  `Http::withHeaders(['api-key' => config('services.brevo.key')])->timeout(10)->baseUrl('https://api.brevo.com/v3')`.
+- Binding `BrevoGateway` → `BrevoClient` di `AppServiceProvider` (memudahkan fake saat test).
+
+### 7a.3 Halaman Kontak Brevo
+
+- Route (middleware role **admin + sales**): `GET marketing/contacts` → `marketing.contacts.index`, `POST marketing/contacts` → `marketing.contacts.store`.
+- `MarketingContactController@index`: baca `?page` & `?email`. Bila `email` diisi → `findContact()` (hasil 0/1 baris). Bila tidak → `contacts(limit: 50, offset: (page-1)*50)`. Kirim prop: `contacts`, `count`, `page`, `lists`, `error`.
+- `@store`: validasi `email` (required, email), `name` (nullable), `list_ids` (array) → `createContact()`.
+- Vue `Pages/Marketing/Contacts/Index.vue`: tabel (email, nama, status subscribed/blocklisted), paginasi server-side, kotak "cari email persis", tombol "Tambah Kontak" (dialog: email, nama, pilih list).
+- Sidebar: grup baru **Marketing** → item "Kontak Brevo" (hanya admin & sales).
+
+### 7a.4 Dorong Customer ERP → Brevo
+
+- Route `POST customers/{customer}/brevo` → `marketing.customers.push` (admin + sales).
+- Tombol di halaman Customer → dialog **pilih list** (opsi dari `lists()`).
+- **Guard**: `customers.email` nullable → bila kosong, tombol nonaktif di UI **dan** server menolak (422). Jangan hanya andalkan UI.
+- **Customer sudah ada di Brevo = kasus normal**, bukan gagal (lihat `updateEnabled` di §7a.2). Pesan ke user: "Customer ditambahkan ke list X" — tidak perlu membedakan baru/lama.
+- ⚠️ **Risiko atribut (harus dicek sebelum koding):** Brevo hanya menerima atribut yang **sudah terdaftar** di akun (Contacts → Settings → Contact attributes). Mengirim atribut yang belum ada → 400 *Invalid attributes*. Atribut bawaan biasanya `FIRSTNAME`/`LASTNAME`/`SMS`; **negara & telepon kemungkinan perlu dibuat dulu** di Brevo.
+  → **Keputusan MVP: kirim seminimal mungkin** — `email` + `listIds` + `FIRSTNAME` (dari `customers.name`). Negara/telepon **ditunda** sampai atributnya dikonfirmasi ada di akun Brevo. Menghindari fitur gagal total gara-gara atribut tak dikenal.
+- Tidak ada kolom baru di DB ERP — status "sudah didorong" tidak disimpan lokal (konsisten prinsip live; kalau perlu tahu, cek via `findContact()`).
+
+### 7a.5 Ketahanan & keamanan
+
+- API key **server-side only** — tidak pernah masuk props Inertia/Vue.
+- Timeout 10 detik; bila Brevo down / 401 / rate-limited → controller menangkap exception, halaman tetap render dengan prop `error` (**bukan 500**).
+- **`BREVO_API_KEY` kosong/belum diisi** (mis. di lokal sebelum rotasi) → tampilkan pesan jelas "Integrasi Brevo belum dikonfigurasi", bukan 401 yang membingungkan. Dicek di awal sebelum request dikirim.
+- Akses dibatasi admin + sales (accountant/operation/field/travel_agent ditolak 403).
+
+### 7a.6 Rencana test (TDD, `Http::fake()` — tidak pernah memanggil Brevo sungguhan)
+
+1. Index menampilkan kontak dari API; `offset` untuk page 2 = 50.
+2. Cari dengan email persis memanggil `GET /contacts/{email}` dan menampilkan 1 hasil.
+3. Cari email yang **tidak ada** (Brevo 404) → halaman tampil "tidak ditemukan", **bukan** pesan error koneksi.
+4. `store` mengirim email + `listIds` yang benar ke Brevo, dengan `updateEnabled: true`.
+5. Dorong customer mengirim `FIRSTNAME` + list terpilih.
+6. Dorong customer yang **emailnya sudah ada di Brevo** → tetap sukses (bukan error duplikat).
+7. Dorong customer **tanpa email** → 422, tidak ada request ke Brevo.
+8. Role accountant/guide → 403.
+9. `BREVO_API_KEY` kosong → pesan "belum dikonfigurasi", tidak ada request ke Brevo.
+7. Brevo balas 401/500 → halaman tetap 200 dengan pesan error.
+
+### 7a.7 Prasyarat sebelum dibangun
+
+- **Rotasi API key** yang sempat ter-expose di chat (§8.2), lalu pasang sebagai `BREVO_API_KEY` di `.env` (lokal untuk dev + VPS untuk produksi).
+- Catatan: API key L3 **berbeda** dari SMTP key L1 — keduanya dipakai bersamaan, jalur berbeda.
+
+## 7c. Fase 7c — Status Email Terkirim (DESAIN, belum dibangun)
+
+**Tujuan:** Sales bisa tahu email penawaran/invoice-nya **sampai atau tidak, dibuka atau tidak** — langsung dari ERP, tanpa membuka Brevo.
+
+### 7c.1 Keputusan: polling, BUKAN webhook
+
+| | **Polling (dipilih)** | Webhook (ditolak untuk sekarang) |
+|---|---|---|
+| Cara | ERP tanya Brevo saat halaman dibuka | Brevo push event ke endpoint publik ERP |
+| Butuh | Tidak ada tambahan infrastruktur | Endpoint publik + verifikasi signature + tabel DB event |
+| Keamanan | Tidak menambah permukaan serangan | Endpoint publik bisa dipalsukan bila tak diverifikasi |
+
+Untuk kebutuhan "apakah penawaran saya sudah dibuka?", polling sudah memadai. Webhook tetap **non-goal** (§3) sampai ada kebutuhan real-time yang nyata.
+
+### 7c.2 Endpoint & gateway
+
+- `GET /v3/smtp/statistics/events` — event per email transaksional: `delivered`, `opened`, `clicks`, `hardBounces`, `softBounces`, `spam`, `blocked`. Filter: `email`, `startDate`/`endDate`, `limit`/`offset`.
+- Tambah ke `BrevoGateway` (§7a.2): `emailEvents(string $email, int $limit = 50): array`.
+- Autentikasi & penanganan error sama persis dengan §7a (header `api-key`, timeout 10 detik, key kosong → pesan "belum dikonfigurasi", Brevo down → halaman tetap hidup).
+
+### 7c.3 Di mana ditampilkan
+
+Di **Tours/Edit**, pada riwayat email yang sudah ada. ERP saat ini mencatat tiap pengiriman sebagai `Reminder` (`is_done=true`, judul `"Email terkirim: ..."`) — panel itu ditambah status terkini dari Brevo untuk **alamat email customer** tour tersebut, mis. badge `Terkirim · Dibuka 2×` atau `Bounce`.
+
+### 7c.4 Batasan yang harus disadari
+
+- **Retensi ±30 hari.** Endpoint ini default hanya memuat aktivitas 30 hari terakhir — status email lama bisa tidak tersedia. Ini batas Brevo, bukan desain kita. UI harus bilang "aktivitas >30 hari tidak tersedia", bukan "tidak terkirim".
+- **Korelasi MVP = per alamat email, bukan 1:1 per email.** Bila mengirim beberapa email ke alamat sama, event-nya tercampur dalam satu daftar. Cukup untuk pertanyaan "sudah dibuka belum?", tapi tidak bisa bilang *email yang mana*.
+- **Jalur peningkatan (bila kelak perlu presisi 1:1):** sematkan header kustom berisi id reminder saat kirim, lalu listener `MessageSent` menyimpan `messageId` Brevo ke baris reminder → korelasi tepat. Butuh 1 kolom baru + listener; **ditunda**, tidak dikerjakan di 7c.
+
+### 7c.5 Rencana test (`Http::fake()`)
+
+1. Riwayat email menampilkan status dari Brevo untuk alamat customer.
+2. Tidak ada event → tampil "belum ada aktivitas", bukan error.
+3. Brevo error/down → halaman Tours/Edit **tetap berfungsi**, status saja yang kosong + pesan.
+4. `BREVO_API_KEY` kosong → panel status tidak memanggil Brevo, tampil pesan belum dikonfigurasi.
 
 ## 8. Keamanan (WAJIB)
 
@@ -125,7 +227,7 @@ L3 **tidak menyentuh** kode L1/L2 (SMTP) — jalur REST API terpisah total dari 
 6. **Webhook (jika kelak dipakai, §future) wajib diverifikasi.** Endpoint publik penerima event Brevo harus memvalidasi *secret*/signature agar tidak bisa dipalsukan pihak luar. Tidak ada webhook di MVP.
 7. **Consent sebelum broadcast (L3).** Tidak ada customer yang masuk campaign tanpa `marketing_opt_in=true`. Transaksional (L1) tidak butuh consent; broadcast (L3) butuh.
 
-**Future (bukan MVP):** webhook `/v3` untuk status Sent/Delivered/Opened/Bounced yang dikaitkan ke `tour_histories` — deteksi email invalid/bounce supaya Sales tahu harus ganti kanal. Ditulis di sini sebagai arah, bukan pekerjaan sekarang.
+**Catatan:** kebutuhan "status email terkirim (Delivered/Opened/Bounced)" **tidak lagi memerlukan webhook** — dipenuhi lewat polling di §7c. Webhook hanya relevan bila kelak butuh reaksi real-time; bila itu terjadi, poin §8.6 (verifikasi signature) wajib dipenuhi.
 
 ## 9. Deployment (VPS aaPanel)
 
@@ -158,5 +260,9 @@ L3 **tidak menyentuh** kode L1/L2 (SMTP) — jalur REST API terpisah total dari 
 - [ ] `.env` production di VPS: SMTP Brevo + FROM `marketing@welcomemanado.com` (§5, §8.3)
 - [ ] Deploy: `migrate` + **queue worker** (`queue:work`) + **scheduler cron** (`schedule:run`) aktif di VPS (§9)
 - [ ] Test kirim nyata ke inbox (§10.1) + **rotasi SMTP key** yang sempat ter-expose di chat (§8.2)
-- [ ] *(L3 — ditunda: `config/services.php` blok brevo, `customers.marketing_opt_in`, `BrevoClient`, UI campaign)*
+- [x] **Fase 7a — SELESAI & teruji** (lokal): `config/services.php` blok brevo, `BrevoGateway`+`BrevoClient`+binding, `MarketingContactController` (index/cari/store/lists/push), `Marketing/Contacts/Index.vue`, menu sidebar Marketing, tombol "Dorong ke Brevo" di Customers/Index. Test: `BrevoClientTest` (6) + `MarketingContactTest` (10) + `CustomerPushToBrevoTest` (4).
+- [x] **Fase 7c — backend SELESAI & teruji**: endpoint `GET tours/{tour}/email-status` (`TourEmailStatusController`) + `emailEvents()` di gateway. `TourEmailStatusTest` (6). **Dibuat sebagai endpoint terpisah, bukan prop di TourController@edit** — supaya halaman Tours/Edit tidak melambat menunggu Brevo (timeout 10 detik).
+- [ ] **Fase 7c — sisa: tampilan di Tours/Edit** (panggil endpoint saat panel dibuka, tampilkan badge Terkirim/Dibuka/Bounce).
+- [ ] Isi `BREVO_API_KEY` di `.env` lokal & VPS (hasil rotasi), lalu uji dengan data Brevo sungguhan.
+- [ ] *(Fase 7b — ditunda: broadcast/campaign dari ERP, `customers.marketing_opt_in`)*
 ```

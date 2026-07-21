@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    // Brevo REST API (kontak & statistik email). Terpisah dari kredensial SMTP
+    // di config/mail.php — SMTP untuk mengirim, API key untuk membaca/kelola data.
+    'brevo' => [
+        'key'      => env('BREVO_API_KEY'),
+        'base_url' => env('BREVO_BASE_URL', 'https://api.brevo.com/v3'),
+    ],
+
 ];
