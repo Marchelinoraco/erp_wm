@@ -35,6 +35,9 @@ Akibatnya sales terpaksa membagi nominal supaya `unit_price × pax` menghasilkan
 | D6 | Struktur: **field sendiri di invoice** — bukan tabel/model terpisah, bukan sekadar ganti istilah UI |
 | D7 | Kontrak aturan mendukung **lebih dari satu pengali** (hotel = kamar × malam) |
 | D8 | MICE dihitung sebagai **harga paket × jumlah peserta** (bukan jumlah dari Quotation Items) |
+| D9 | Frontend memakai **satu berkas definisi per jenis** (`resources/js/sales-lines/*.js`), bukan 7 folder halaman terpisah. Halaman `Index`/`Create`/`Edit` tetap bersama dan membaca dari registry. |
+| D10 | Label harga & pengali **hanya hidup di backend** dan dikirim ke frontend lewat payload Inertia — tidak digandakan di berkas definisi frontend |
+| D11 | Perapian 38 controller ke folder fitur adalah **proyek terpisah**, di luar spec ini (lihat §6) |
 
 ---
 
@@ -134,6 +137,73 @@ $total   = $rule->calculateTotal((float) $this->unit_price, $this->billing_quant
 - `finance_number`, pembuatan Bill otomatis, ledger — Keuangan tidak tersentuh
 - Struktur tabel `orders`/`payments` — tidak ada, ini modul yang berbeda dari fitur Midtrans di `client_wm`/`api_wm`
 - Panel Vue 1.282 baris — **tidak dipecah**. Perubahan pada Fase 3 hanya mengganti label statis dan menambah input pengali; struktur komponen tetap.
+- `Pages/Tours/` tetap satu folder dengan tiga halaman bersama (`Index`, `Create`, `Edit`) — lihat §3.5 untuk alasannya
+
+### 3.5 Definisi jenis penjualan di frontend
+
+#### Kondisi sekarang
+
+`resources/js/lib/inquiryTypes.js` sudah memuat definisi per jenis penjualan — `INQUIRY_TYPES`, `TYPE_BADGE`, `TYPE_FIELDS`, `typeLabel()`, `emptyDetails()` — hanya saja ditumpuk dalam satu berkas. Pola yang dibutuhkan sudah ada embrionya; yang kurang adalah pemisahannya.
+
+`Pages/` sendiri **sudah rapi per fitur** (13 folder: `Finance`, `Marketing`, `Products`, `Customers`, dan seterusnya). Hanya `Tours` yang menampung tujuh jenis penjualan sekaligus.
+
+#### Struktur target
+
+```
+resources/js/sales-lines/
+├── index.js          registry + helper resolusi
+├── tour.js           inbound & outbound (arah = sub-field, bukan berkas terpisah)
+├── hotel.js
+├── guide.js
+├── transport.js
+├── mice.js
+├── document.js
+└── ticketing.js
+```
+
+Tiap berkas memuat segala yang khas jenis itu:
+
+```js
+// sales-lines/guide.js
+export default {
+    key:   'guide',
+    label: 'Penjualan Jasa Guide',
+    badge: { class: 'bg-emerald-100 text-emerald-700' },
+    fields: [...],                    // pindahan dari TYPE_FIELDS
+    panels: ['header', 'items', 'invoices', 'costRequests',
+             'operasional', 'quotation', 'qItems', 'history'],
+}
+```
+
+`Index.vue`, `Create.vue`, dan `Edit.vue` tetap **satu berkas bersama** yang membaca definisi dari registry. `Edit.vue` yang sekarang memakai `v-if="isTour"` dan `v-if="isMice"` berganti menjadi perulangan atas `definisi.panels`.
+
+Setelah seluruh isinya dipindahkan, `lib/inquiryTypes.js` dihapus.
+
+#### Kenapa bukan tujuh folder halaman
+
+Diukur langsung dari kode:
+
+| Berkas | Ukuran | Titik percabangan tipe |
+|---|---:|---:|
+| `Create.vue` | 24 KB | 9 |
+| `Index.vue` | 18 KB | 16 |
+| `Edit.vue` | 9 KB | 9 |
+| **Total** | **51 KB** | **34** |
+
+Ketiga halaman itu sekitar **95% identik** untuk ketujuh jenis. Memecahnya menjadi tujuh folder mengubah 51 KB menjadi ~360 KB, dan setiap perubahan umum — menambah satu kolom di tabel daftar penjualan, misalnya — menjadi **tujuh kali penyuntingan**.
+
+Itu kebalikan dari tujuan yang diminta. Folder terpisah terlihat rapi di file explorer, tetapi menaikkan ongkos setiap perubahan tujuh kali lipat. Registry memberi isolasi yang sama tanpa duplikasi: menambah jenis ke-8 cukup menambah satu berkas dan mendaftarkannya di `index.js`.
+
+#### Pembagian sumber kebenaran
+
+Label harga dan pengali **tidak digandakan** di berkas definisi frontend. Dua sumber kebenaran untuk aturan penagihan akan berselisih cepat atau lambat.
+
+| Sumber kebenaran | Isi | Sampai ke frontend lewat |
+|---|---|---|
+| Backend `SalesLineRule` | label harga, nama & jumlah pengali, rumus total | payload Inertia |
+| Frontend `sales-lines/*.js` | panel yang tampil, field form, warna badge, label jenis | langsung |
+
+Tidak ada tumpang tindih: backend memegang segala yang menyangkut uang, frontend memegang segala yang menyangkut tampilan.
 
 ---
 
@@ -144,8 +214,9 @@ $total   = $rule->calculateTotal((float) $this->unit_price, $this->billing_quant
 | 0 | Characterization test — kunci perilaku SEKARANG untuk ketujuh jenis, sebelum kode produksi disentuh | Tidak |
 | 1 | Kontrak + registry + 7 rule ditulis, dipanggil dari `syncProformaTotal()` tapi **menghasilkan angka identik** dengan rumus lama | Tidak |
 | 2 | Migrasi kolom + backfill data lama + `syncProformaTotal()` sepenuhnya lewat registry | Tidak (lihat §7) |
-| 3 | Pengali `billing_quantities` bisa diedit langsung di panel invoice + label harga mengikuti jenis | **Ya** |
+| 3 | Pengali `billing_quantities` bisa diedit langsung di panel invoice + label harga mengikuti jenis (dikirim dari backend, D10) | **Ya** |
 | 4 | Label jenis penjualan ikut tercetak di PDF invoice | **Ya** |
+| 5 | `lib/inquiryTypes.js` dipecah ke `sales-lines/*.js`; `Edit.vue` beralih dari `v-if` per tipe ke perulangan `panels` | Tidak |
 
 Fase 0–2 sengaja tidak mengubah satu pun yang dilihat pengguna — kalau ada yang salah, ketahuan sebelum ada perilaku baru yang membingungkan sales. Fase 3 baru menghadirkan nilai yang diminta (§10.4 selesai).
 
@@ -162,17 +233,28 @@ Fase 0–2 sengaja tidak mengubah satu pun yang dilihat pengguna — kalau ada y
 | R5 | Panel Vue besar, autosave & anti-race di dalamnya | Sedang | Fase 1–3 tidak menyentuh mekanisme autosave sama sekali — hanya label dan satu blok input pengali baru |
 | R6 | Data lama dengan `tour.pax` bernilai 0/null | Rendah | `max($pax,1)` sudah menutupinya sekarang; backfill menegaskan eksplisit per baris |
 | R7 | Sistem sudah dipakai production — lihat §7 | — | Bagian tersendiri |
+| R8 | Fase 5 mengubah `Edit.vue` dari `v-if` per tipe menjadi perulangan `panels` — panel bisa hilang diam-diam bila daftar `panels` salah ketik | Sedang | Registry memvalidasi nama panel terhadap daftar komponen yang terdaftar dan melempar galat saat build, bukan diam. Test manual per jenis: buka satu penjualan tiap jenis, pastikan panel yang tampil sama persis dengan sebelum perubahan. |
+| R9 | Label harga dari backend belum sampai saat halaman pertama render | Rendah | Label ikut di payload Inertia awal, bukan permintaan terpisah — tidak ada jendela kosong |
 
 ---
 
 ## 6. Di Luar Lingkup
 
 - Memecah invoice jadi tabel/model terpisah per jenis
+- Memecah `Pages/Tours/` menjadi tujuh folder halaman (lihat §3.5 untuk alasannya)
 - Mengganti istilah "Tour" menjadi "Penjualan" di seluruh UI
 - Field dan validasi khusus per jenis (mis. guide wajib isi bahasa & area)
 - Alur tahapan berbeda per jenis penjualan
 - Perubahan apa pun pada modul Keuangan, ledger, atau Bill
 - Memecah `InvoicesPanel.vue` menjadi komponen per jenis
+
+### Proyek terpisah: perapian folder controller
+
+`app/Http/Controllers/` saat ini berisi **38 berkas datar** tanpa satu pun folder fitur — dari `FinanceReportController` (24 KB) sampai `TourHistoryController` (1 KB), hanya `Auth/` yang sudah terpisah. Merapikannya ke folder per fitur adalah kebutuhan yang sah dan sudah disepakati akan dikerjakan (D11).
+
+Namun ia **tidak masuk spec ini** karena menyentuh seluruh 13 fitur — Keuangan, Marketing, Produk, Supplier, Booking — yang sama sekali tidak berhubungan dengan jenis penjualan. Menggabungkannya berarti satu perubahan raksasa menyentuh hampir seluruh aplikasi production sekaligus, sementara test suite tidak cukup untuk mengamankannya.
+
+Dikerjakan setelah spec ini selesai, dengan spec dan jadwal rilisnya sendiri.
 
 ---
 
@@ -252,6 +334,8 @@ Kedua hasil dibandingkan baris per baris (skrip sederhana, bukan manual). **Tole
 - Fase 0–2 dirilis **sebagai satu paket**, karena keduanya sengaja tidak mengubah perilaku yang terlihat pengguna.
 - Setelah Fase 0–2 naik ke production, **amati dulu** sebelum melanjutkan ke Fase 3 — sales melanjutkan pekerjaan normal, dan invoice baru yang dibuat/diproforma/dikunci/disetujui pada periode ini adalah bukti hidup bahwa rumus baru berperilaku sama dengan rumus lama.
 - Fase 3 (pengali dapat diedit, label berubah) baru dirilis setelah jendela pengamatan itu bersih.
+- Fase 4 (label di PDF) menyusul setelah Fase 3 stabil.
+- Fase 5 (pemecahan `inquiryTypes.js` ke `sales-lines/`) **tidak bergantung pada Fase 3 maupun 4** dan tidak mengubah perilaku yang terlihat. Ia boleh dirilis kapan saja setelah Fase 2, termasuk berbarengan dengan jendela pengamatan — asalkan tidak digabung dalam satu rilis dengan Fase 3, agar bila ada panel yang hilang (R8) penyebabnya tidak tercampur dengan perubahan label.
 
 ### 7.7 Migrasi terputus di tengah jalan
 
