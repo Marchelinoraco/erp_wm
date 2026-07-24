@@ -698,10 +698,23 @@ class ApprovedInvoiceFrozenTest extends TestCase
         // Ubah pax tour secara drastis SETELAH invoice disetujui.
         $invoice->tour->update(['pax' => 99]);
 
+        // Penting: mengubah pax saja tidak memanggil syncProformaTotal(), jadi
+        // memeriksa total di sini tanpa berbuat apa-apa akan lolos meski
+        // penjaganya dihapus. Test harus benar-benar MENCOBA menyinkronkan
+        // lewat jalur yang dijaga, lalu membuktikan percobaan itu ditolak.
+        $this->actingAs($this->salesUser())
+            ->patch(route('invoices.baseline', $invoice))
+            ->assertSessionHasErrors('invoice');
+
         $this->assertEquals(
             5_000_000,
             $invoice->fresh()->total,
             'Total invoice yang sudah masuk Keuangan tidak boleh ikut berubah'
+        );
+        $this->assertEquals(
+            10,
+            $invoice->fresh()->pax,
+            'pax invoice tetap 10 seperti saat disetujui, bukan 99 dari tour'
         );
     }
 
@@ -740,7 +753,17 @@ class ApprovedInvoiceFrozenTest extends TestCase
             ->delete(route('invoices.destroy', $invoice))
             ->assertSessionHasErrors('invoice');
 
-        $this->assertNotNull($invoice->fresh(), 'Invoice yang sudah masuk Keuangan tidak boleh hilang');
+        // Invoice::find() menghormati SoftDeletingScope; $invoice->fresh() TIDAK
+        // (ia memakai newQueryWithoutScopes), sehingga fresh() akan tetap
+        // mengembalikan baris yang sudah ter-soft-delete dan asersinya jadi mati.
+        $this->assertNotNull(
+            Invoice::find($invoice->id),
+            'Invoice yang sudah masuk Keuangan tidak boleh hilang'
+        );
+        $this->assertNull(
+            $invoice->fresh()->deleted_at,
+            'Invoice tidak boleh ter-soft-delete'
+        );
     }
 
     public function test_item_tidak_bisa_diubah_setelah_invoice_disetujui(): void
