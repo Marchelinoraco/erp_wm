@@ -77,15 +77,73 @@ class CurrencyCharacterizationTest extends TestCase
         $tour    = $this->makeTour('hotel', ['pax' => 2]);
         $invoice = $this->makeInvoice($tour, 500_000);
 
-        $invoice->update(['baseline_total' => $invoice->total]);
+        $invoice = $this->approveInvoice($invoice);
+
+        $this->assertEquals(1, $invoice->exchange_rate);
+        $this->assertEquals(1_000_000, $invoice->total_idr);
+    }
+
+    public function test_proforma_idr_menyetel_kurs_satu_dan_mengisi_total_idr(): void
+    {
+        $tour    = $this->makeTour('tour', ['pax' => 4]);
+        $invoice = $this->makeInvoice($tour, 100); // isi awal apa saja, akan ditimpa proforma di bawah
+
+        // Paksa kurs menyimpang dari 1 dulu, supaya test benar-benar
+        // membuktikan updateProforma() yang MENYETEL ULANG ke 1 saat currency
+        // diisi IDR — bukan cuma kebetulan memakai nilai default kolom (yang
+        // juga 1).
+        $invoice->update(['exchange_rate' => 5]);
 
         $this->actingAs($this->salesUser())
-            ->post(route('invoices.approve', $invoice))
+            ->patch(route('invoices.proforma', $invoice), [
+                'currency'   => 'IDR',
+                'unit_price' => 250_000,
+            ])
             ->assertRedirect();
 
         $invoice->refresh();
 
-        $this->assertEquals(1, $invoice->exchange_rate);
-        $this->assertEquals(1_000_000, $invoice->total_idr);
+        $this->assertEquals(1, $invoice->exchange_rate, 'IDR selalu kurs 1 — updateProforma() menyetelnya ulang');
+        $this->assertEquals(1_000_000, $invoice->total, '250.000 × 4 pax');
+        $this->assertEquals(1_000_000, $invoice->total_idr, 'IDR mengisi total_idr langsung saat sinkronisasi');
+    }
+
+    /**
+     * WART YANG DIKARAKTERISASI, BUKAN DIRESTUI: begitu sebuah invoice pernah
+     * berstatus IDR (sehingga total_idr terisi oleh syncProformaTotal()), lalu
+     * mata uangnya dipindah ke non-IDR lewat updateProforma(), total_idr TIDAK
+     * ikut dikosongkan atau disinkronkan ulang. Ini karena syncProformaTotal()
+     * hanya menulis total_idr ketika currency saat ini IDR (lihat Invoice::
+     * syncProformaTotal()) — untuk mata uang lain kolom itu sengaja dibiarkan
+     * menunggu kurs pasti saat approve(). Efek sampingnya: kolom total_idr
+     * memuat NILAI IDR ERA LAMA yang basi, sementara `total` sudah mencerminkan
+     * angka USD yang baru. Beberapa laporan finance membaca total_idr — jadi
+     * nilai basi ini bisa memberi angka yang salah sampai invoice disetujui
+     * (approve() baru menghitung ulang total_idr dari kurs). Test ini MENCATAT
+     * kondisi itu apa adanya; ia bukan pernyataan bahwa perilaku ini benar.
+     */
+    public function test_ganti_mata_uang_dari_idr_ke_usd_meninggalkan_total_idr_lama_yang_basi(): void
+    {
+        $tour    = $this->makeTour('tour', ['pax' => 4]);
+        $invoice = $this->makeInvoice($tour, 250_000); // IDR — total_idr langsung terisi
+
+        $this->assertEquals(1_000_000, $invoice->total_idr, 'Prasyarat: total_idr sudah terisi era IDR');
+
+        $this->actingAs($this->salesUser())
+            ->patch(route('invoices.proforma', $invoice), [
+                'currency'   => 'USD',
+                'unit_price' => 300,
+            ])
+            ->assertRedirect();
+
+        $invoice->refresh();
+
+        $this->assertEquals('USD', $invoice->currency);
+        $this->assertEquals(1_200, $invoice->total, '300 × 4 pax — total sudah mencerminkan mata uang baru');
+        $this->assertEquals(
+            1_000_000,
+            $invoice->total_idr,
+            'total_idr TIDAK ikut berubah — nilai IDR era lama basi tertinggal di kolom ini'
+        );
     }
 }
