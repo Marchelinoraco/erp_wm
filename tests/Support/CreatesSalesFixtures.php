@@ -63,4 +63,25 @@ trait CreatesSalesFixtures
 
         return $invoice->fresh();
     }
+
+    /**
+     * Kunci patokan ke total saat ini lalu setujui invoice sebagai sales.
+     * Merangkum urutan yang berulang di banyak test karakterisasi: kunci
+     * baseline_total = total, POST invoices.approve, pastikan redirect (bukan
+     * ditolak), lalu kembalikan invoice yang sudah segar dari database.
+     *
+     * JANGAN dipakai bila baseline_total sengaja perlu berbeda dari total,
+     * atau bila approve-nya justru diharapkan GAGAL — kedua kasus itu tetap
+     * ditulis manual di masing-masing test.
+     */
+    protected function approveInvoice(Invoice $invoice, array $payload = []): Invoice
+    {
+        $invoice->update(['baseline_total' => $invoice->total]);
+
+        $this->actingAs($this->salesUser())
+            ->post(route('invoices.approve', $invoice), $payload)
+            ->assertRedirect();
+
+        return $invoice->fresh();
+    }
 }
