@@ -28,13 +28,7 @@ class ApprovalSideEffectsTest extends TestCase
 
         $this->assertNull($invoice->finance_number, 'Sebelum disetujui belum punya nomor keuangan');
 
-        $invoice->update(['baseline_total' => $invoice->total]);
-
-        $this->actingAs($this->salesUser())
-            ->post(route('invoices.approve', $invoice))
-            ->assertRedirect();
-
-        $invoice->refresh();
+        $invoice = $this->approveInvoice($invoice);
 
         $this->assertStringStartsWith('INV-' . now()->year . '-', $invoice->finance_number);
         $this->assertSame('sent', $invoice->status);
@@ -50,15 +44,11 @@ class ApprovalSideEffectsTest extends TestCase
         foreach (['guide', 'hotel'] as $index => $type) {
             $tour    = $this->makeTour($type);
             $invoice = $this->makeInvoice($tour, 500_000);
-            $invoice->update(['baseline_total' => $invoice->total]);
-
-            $this->actingAs($this->salesUser())
-                ->post(route('invoices.approve', $invoice))
-                ->assertRedirect();
+            $invoice = $this->approveInvoice($invoice);
 
             $this->assertSame(
                 sprintf('INV-%d-%04d', $year, $index + 1),
-                $invoice->fresh()->finance_number
+                $invoice->finance_number
             );
         }
     }
@@ -88,11 +78,7 @@ class ApprovalSideEffectsTest extends TestCase
             'unit_sell'    => $product->sell,
         ]);
 
-        $invoice->update(['baseline_total' => $invoice->total]);
-
-        $this->actingAs($this->salesUser())
-            ->post(route('invoices.approve', $invoice))
-            ->assertRedirect();
+        $invoice = $this->approveInvoice($invoice);
 
         $bill = Bill::where('tour_id', $tour->id)->firstOrFail();
 
@@ -116,11 +102,7 @@ class ApprovalSideEffectsTest extends TestCase
             'unit_sell'   => 150_000,
         ]);
 
-        $invoice->update(['baseline_total' => $invoice->total]);
-
-        $this->actingAs($this->salesUser())
-            ->post(route('invoices.approve', $invoice))
-            ->assertRedirect();
+        $invoice = $this->approveInvoice($invoice);
 
         $this->assertSame(0, Bill::where('tour_id', $tour->id)->count());
     }
