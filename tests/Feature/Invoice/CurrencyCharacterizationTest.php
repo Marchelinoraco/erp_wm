@@ -38,6 +38,13 @@ class CurrencyCharacterizationTest extends TestCase
         // Dokumen desain menyebutnya "dibiarkan kosong"; kenyataannya kolom
         // punya default 0. Efek praktisnya sama (laporan IDR tidak terdistorsi
         // kurs placeholder), tapi penulisan test harus mengikuti kenyataan.
+        // assertNotNull WAJIB mendahului: assertEquals(0, null) LOLOS di PHPUnit,
+        // jadi tanpa penjaga ini regresi ke null pada Fase 2 tidak akan tertangkap
+        // padahal justru itu yang ingin dikunci di sini.
+        $this->assertNotNull(
+            $invoice->total_idr,
+            'total_idr harus tetap ada sebagai 0, bukan berubah jadi null'
+        );
         $this->assertEquals(
             0,
             $invoice->total_idr,
@@ -50,7 +57,10 @@ class CurrencyCharacterizationTest extends TestCase
         $tour    = $this->makeTour('tour', ['pax' => 4]);
         $invoice = $this->makeInvoice($tour, 250, ['currency' => 'USD']);
 
-        $invoice->update(['baseline_total' => $invoice->total]);
+        // baseline_total sengaja DIBEDAKAN dari total. Server hanya mensyaratkan
+        // baseline_total > 0, dan dengan nilai yang berbeda test dapat membuktikan
+        // konversi memakai `total` — bukan `baseline_total` yang kebetulan sama.
+        $invoice->update(['baseline_total' => 1]);
 
         $this->actingAs($this->salesUser())
             ->post(route('invoices.approve', $invoice), ['exchange_rate' => 16_000])
