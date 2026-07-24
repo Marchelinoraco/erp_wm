@@ -872,7 +872,10 @@ class CurrencyCharacterizationTest extends TestCase
         $tour    = $this->makeTour('tour', ['pax' => 4]);
         $invoice = $this->makeInvoice($tour, 250, ['currency' => 'USD']);
 
-        $invoice->update(['baseline_total' => $invoice->total]);
+        // baseline_total sengaja DIBEDAKAN dari total. Server hanya mensyaratkan
+        // baseline_total > 0, dan dengan nilai yang berbeda test dapat membuktikan
+        // konversi memakai `total` — bukan `baseline_total` yang kebetulan sama.
+        $invoice->update(['baseline_total' => 1]);
 
         $this->actingAs($this->salesUser())
             ->post(route('invoices.approve', $invoice), ['exchange_rate' => 16_000])
