@@ -37,7 +37,7 @@ Setiap jenis penjualan (Tour, Hotel, Jasa Guide, Transport, MICE, Document, Tick
 |:---:|---|---|:---:|
 | — | Dokumentasi alur invoice yang berjalan | ✅ Selesai (24 Jul) | — |
 | — | Desain + protokol keamanan data | ✅ Selesai (24 Jul) | — |
-| 0 | Characterization test — kunci perilaku sekarang | ⬜ Belum mulai | Tidak |
+| 0 | Characterization test — kunci perilaku sekarang | ✅ Selesai (25 Jul) — 34 test, branch `test/karakterisasi-invoice` | Tidak |
 | 1 | Kontrak + registry + 7 aturan, hasil hitung identik | ⬜ Belum mulai | Tidak |
 | 2 | Migrasi kolom + backfill data lama | ⬜ Belum mulai | Tidak |
 | 3 | Pengali bisa diedit di invoice + label per jenis | ⬜ Belum mulai | **Ya** |
@@ -45,6 +45,13 @@ Setiap jenis penjualan (Tour, Hotel, Jasa Guide, Transport, MICE, Document, Tick
 | 5 | Definisi jenis penjualan dipecah per berkas di frontend | ⬜ Belum mulai | Tidak |
 
 **Syarat sebelum Fase 2 menyentuh production** (dari §7.8 dokumen desain): backup manual terverifikasi, migrasi diuji di salinan data production dengan nol selisih total invoice, dan test jaminan "invoice disetujui tidak pernah dihitung ulang" lolos.
+
+**Dua batasan yang ditemukan saat Fase 0 dan mengikat fase berikutnya:**
+
+- Perintah backfill Fase 2 **dilarang memanggil `syncProformaTotal()`** untuk baris mana pun. Penjaganya ada di controller, bukan di model — memanggil method itu langsung akan menulis ulang invoice yang sudah disetujui tanpa satu test pun memerah. Backfill wajib menulis kolom barunya secara langsung.
+- **`total` tidak selalu sama dengan `unit_price × pengali`.** Fitur biaya tambahan menambahkan nominal langsung ke invoice yang sudah disetujui, di luar jalur perhitungan mana pun. Aturan per jenis hanya boleh menghitung saat proforma disusun; menghitung ulang invoice yang sudah disetujui akan menghapus uang yang sudah ditagihkan ke customer.
+
+Keduanya terdokumentasi di §3.4.1, §7.4, dan risiko R10–R12 dokumen desain.
 
 ---
 
