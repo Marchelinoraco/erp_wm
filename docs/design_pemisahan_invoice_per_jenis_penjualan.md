@@ -105,7 +105,7 @@ Nilai-nilai di atas hanya berlaku sebagai **nilai awal saat invoice dibuat** (D3
 
 ### 3.2 Kenapa bentuk ini memberi isolasi
 
-Mengubah cara hitung Jasa Guide berarti mengedit **`GuideRule.php` saja**. Tidak ada `if ($type === 'guide')` yang tersebar di controller atau model — satu-satunya percabangan jenis ada di `SalesLineRuleRegistry::get($salesLine)`, dan itu pun cuma pemetaan string ke instance kelas, bukan logika bisnis.
+Mengubah cara hitung Jasa Guide berarti mengedit **`GuideRule.php` saja**. Tidak ada `if ($type === 'guide')` yang tersebar di controller atau model — satu-satunya percabangan jenis ada di `SalesLineRuleRegistry::for($salesLine)`, dan itu pun cuma pemetaan string ke instance kelas, bukan logika bisnis.
 
 Ini juga berarti menambah jenis penjualan ke-8 nanti adalah pekerjaan "tambah satu berkas", bukan "sunting berkas yang sudah ada di enam tempat".
 
@@ -121,12 +121,14 @@ $table->json('billing_quantities')->nullable()->after('sales_line');
 | `sales_line` | `tour`, `hotel`, `guide`, `rental`, `mice`, `document`, `ticketing` | saat invoice dibuat, dari `tour->type` **hanya sebagai nilai awal** — setelahnya lepas dari tour |
 | `billing_quantities` | `{"pax": 20}` atau `{"rooms": 3, "nights": 4}` | saat invoice dibuat (nilai awal dari rule), bisa diedit sales selama belum disetujui |
 
-Rumus baru di `Invoice::syncProformaTotal()`:
+Rumus baru di `Invoice::syncProformaTotal()` (pseudocode — `billing_quantities` perlu diubah dulu jadi array `Multiplier`, lihat §3.1 untuk bentuk aslinya):
 
 ```php
-$rule    = SalesLineRuleRegistry::get($this->sales_line);
-$total   = $rule->calculateTotal((float) $this->unit_price, $this->billing_quantities);
+$rule    = app(SalesLineRuleRegistry::class)->for($this->sales_line);
+$total   = $rule->calculateTotal((float) $this->unit_price, $multipliersFromBillingQuantities);
 ```
+
+> **Realisasi Fase 1 (sudah diimplementasikan):** `SalesLineRuleRegistry` adalah instance method `for()`, di-resolve lewat container (`app(SalesLineRuleRegistry::class)`) dan di-bind sebagai singleton — bukan static call `::get()`. Fase 1 memanggilnya dengan **satu** `Multiplier` (pax) untuk seluruh jenis, supaya hasilnya tetap identik dengan rumus lama. Baris di atas adalah rencana Fase 2: `billing_quantities` (array asosiatif JSON) perlu dikonversi dulu menjadi array objek `Multiplier` sebelum diteruskan ke `calculateTotal()`.
 
 **`tour.pax` berhenti menjadi pengali tagihan.** Ia kembali ke satu peran: ukuran rombongan untuk ditampilkan di PDF. Pengali tagihan yang sebenarnya hidup di `invoice.billing_quantities`, terpisah dan dapat diedit sendiri.
 

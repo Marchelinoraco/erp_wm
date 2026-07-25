@@ -34,10 +34,21 @@ class RuleLabelsAndMultipliersTest extends TestCase
         // Tour default: pax 10, tanggal 2026-08-01..05.
         $invoice = $this->makeInvoice($this->makeTour('tour', ['pax' => 10]), 500_000);
 
+        // Kunci pengali beda per jenis meski nilainya sama-sama dari pax —
+        // kunci inilah yang jadi field JSON billing_quantities di Fase 2,
+        // jadi wajib diuji eksplisit, bukan cuma nilainya.
+        $expectedKeys = [
+            TourRule::class      => 'pax',
+            MiceRule::class      => 'pax',
+            DocumentRule::class  => 'dokumen',
+            TicketingRule::class => 'tiket',
+        ];
+
         foreach ([new TourRule(), new MiceRule(), new DocumentRule(), new TicketingRule()] as $rule) {
             $m = $rule->defaultMultipliers($invoice);
 
             $this->assertCount(1, $m, get_class($rule));
+            $this->assertSame($expectedKeys[get_class($rule)], $m[0]->key, get_class($rule).' kunci pengali salah');
             $this->assertSame(10, $m[0]->value, get_class($rule).' harus memakai pax');
         }
     }
