@@ -8,7 +8,8 @@ Peta seluruh dokumentasi proyek. **Mulai dari [ikhtisar-proyek.md](ikhtisar-proy
 |---|---|
 | **[ikhtisar-proyek.md](ikhtisar-proyek.md)** | Gambaran umum & status proyek — titik masuk utama |
 | [`../CHANGELOG.md`](../CHANGELOG.md) | Riwayat perubahan yang terasa oleh pengguna, per tanggal |
-| **[design-system/](design-system/README.md)** | *Bagaimana tiap fitur bekerja* — dokumentasi per modul (alur bisnis, model data, route/controller, pola UI), ditulis dari pembacaan kode |
+| **fitur/** | Peta fitur — katalog status & dokumen per fitur (menggantikan `design-system/`, sedang dibangun) |
+| **[design-system/](design-system/README.md)** | *Bagaimana tiap fitur bekerja* — dokumentasi per modul (alur bisnis, model data, route/controller, pola UI), ditulis dari pembacaan kode. Sedang dimigrasi ke `fitur/`. |
 | **[logika-pembuatan-invoice/](logika-pembuatan-invoice/README.md)** | Alur pembuatan invoice dipecah per tahap, tiap kondisi bernomor rujukan dan ditandai ditegakkan di server atau hanya UI |
 | **[desain/](desain/README.md)** | Dokumen desain / usulan perubahan arsitektur (sebelum & selama implementasi) |
 | **[rencana/](rencana/README.md)** | Rencana implementasi bertahap (task-by-task) untuk fitur/refactor tertentu |

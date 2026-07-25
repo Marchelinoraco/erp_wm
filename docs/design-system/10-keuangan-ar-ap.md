@@ -1,6 +1,6 @@
 # Modul: Keuangan — Piutang (AR) & Hutang (AP)
 
-> Bagian dari sistem ERP Welcome Manado. Rujuk [00-fondasi-desain.md](00-fondasi-desain.md) untuk pola UI/warna bersama, dan [01-penjualan-tour.md](01-penjualan-tour.md) untuk alur pembuatan/approval invoice dari sisi sales (skema penomoran, alur 2-tahap Patokan → Rincian → Approve, Rincian Profit). Mencerminkan kode per 17 Jul 2026.
+> Bagian dari sistem ERP Welcome Manado. Rujuk [pola-ui-desain.md](../referensi/pola-ui-desain.md) untuk pola UI/warna bersama, dan [01-penjualan-tour.md](01-penjualan-tour.md) untuk alur pembuatan/approval invoice dari sisi sales (skema penomoran, alur 2-tahap Patokan → Rincian → Approve, Rincian Profit). Mencerminkan kode per 17 Jul 2026.
 
 ## Ringkasan
 

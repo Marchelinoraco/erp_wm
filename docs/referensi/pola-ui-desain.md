@@ -66,8 +66,8 @@ Struktur umum yang berulang di hampir semua halaman index (Tours, Customers, Pro
 
 ## Kontrol Akses di Level UI
 
-Sidebar (`AuthenticatedLayout.vue`, fungsi `navGroups`) merender menu berbeda **total** per role — bukan menyembunyikan sebagian item, tapi memilih satu dari beberapa daftar menu penuh (`guide/driver/tour_leader` → hanya "Jadwal Saya"; `travel_agent` → hanya "Produk Saya"; `operation` → hanya "Booking"; `admin/sales` → menu lengkap Penjualan+Operasional+Data Master; `accountant` ditambah grup Keuangan). Detail lengkap aturan akses per role ada di [roles-permissions.md](../referensi/roles-permissions.md) — dokumen itu sumber kebenaran untuk *siapa boleh apa*; dokumen modul di folder ini fokus ke *bagaimana fitur bekerja*.
+Sidebar (`AuthenticatedLayout.vue`, fungsi `navGroups`) merender menu berbeda **total** per role — bukan menyembunyikan sebagian item, tapi memilih satu dari beberapa daftar menu penuh (`guide/driver/tour_leader` → hanya "Jadwal Saya"; `travel_agent` → hanya "Produk Saya"; `operation` → hanya "Booking"; `admin/sales` → menu lengkap Penjualan+Operasional+Data Master; `accountant` ditambah grup Keuangan). Detail lengkap aturan akses per role ada di [roles-permissions.md](roles-permissions.md) — dokumen itu sumber kebenaran untuk *siapa boleh apa*; dokumen modul di [design-system/](../design-system/README.md) fokus ke *bagaimana fitur bekerja*.
 
 ## Daftar Modul
 
-Lihat [README.md](README.md) untuk indeks lengkap modul.
+Lihat [README.md](../design-system/README.md) untuk indeks lengkap modul.

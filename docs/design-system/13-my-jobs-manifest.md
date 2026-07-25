@@ -1,6 +1,6 @@
 # Modul: My Jobs (Tim Lapangan) & Manifest Publik
 
-> Bagian dari sistem ERP Welcome Manado. Rujuk [00-fondasi-desain.md](00-fondasi-desain.md) untuk pola UI/warna bersama, dan [01-penjualan-tour.md](01-penjualan-tour.md) untuk konsep assignment, masking data buyer, dan jadwal lapangan. Mencerminkan kode per 17 Jul 2026.
+> Bagian dari sistem ERP Welcome Manado. Rujuk [pola-ui-desain.md](../referensi/pola-ui-desain.md) untuk pola UI/warna bersama, dan [01-penjualan-tour.md](01-penjualan-tour.md) untuk konsep assignment, masking data buyer, dan jadwal lapangan. Mencerminkan kode per 17 Jul 2026.
 
 ## Ringkasan
 

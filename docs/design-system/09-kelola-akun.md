@@ -1,6 +1,6 @@
 # Modul: Kelola Akun
 
-> Bagian dari sistem ERP Welcome Manado. Rujuk [00-fondasi-desain.md](00-fondasi-desain.md) untuk pola UI/warna bersama, dan [roles-permissions.md](../referensi/roles-permissions.md) untuk detail lengkap hak akses tiap role. Mencerminkan kode per 17 Jul 2026.
+> Bagian dari sistem ERP Welcome Manado. Rujuk [pola-ui-desain.md](../referensi/pola-ui-desain.md) untuk pola UI/warna bersama, dan [roles-permissions.md](../referensi/roles-permissions.md) untuk detail lengkap hak akses tiap role. Mencerminkan kode per 17 Jul 2026.
 
 ## Ringkasan
 
@@ -37,7 +37,7 @@ Tabel `users` (`app/Models/User.php`), dibentuk dari migration dasar Laravel plu
 
 ## Halaman & Komponen (UI)
 
-`resources/js/Pages/Users/Index.vue` — satu halaman, mengikuti pola kartu+tabel standar (lihat [00-fondasi-desain.md](00-fondasi-desain.md)) dengan tambahan khusus modul ini:
+`resources/js/Pages/Users/Index.vue` — satu halaman, mengikuti pola kartu+tabel standar (lihat [pola-ui-desain.md](../referensi/pola-ui-desain.md)) dengan tambahan khusus modul ini:
 
 - **Kartu statistik per role, sekaligus filter** — grid 8 kartu (`grid-cols-2` di mobile s/d `lg:grid-cols-8`), tiap kartu menampilkan jumlah akun per role + dot warna + label. Kartu adalah `<button>` yang bisa **diklik untuk toggle filter** (`toggleFilter`) — klik ulang kartu yang sama membatalkan filter. Kartu aktif diberi `ring-2 ring-gray-400`.
 - **8 role & warna badge** (didefinisikan di konstanta `ROLES`, harus tetap sinkron manual dengan enum `users.role` di database):

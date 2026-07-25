@@ -2,7 +2,7 @@
 
 Dokumentasi teknis per modul fitur: alur bisnis, model data, route/controller, dan pola UI yang dipakai. Ditulis dari pembacaan langsung kode (bukan spekulasi) per 17 Jul 2026 — kalau ada perubahan kode signifikan, perbarui juga dokumen terkait.
 
-Mulai dari [00-fondasi-desain.md](00-fondasi-desain.md) — pola UI/warna/layout bersama yang tidak diulang di tiap dokumen modul.
+Mulai dari [pola-ui-desain.md](../referensi/pola-ui-desain.md) — pola UI/warna/layout bersama yang tidak diulang di tiap dokumen modul.
 
 ## Penjualan
 - [01 — Penjualan / Tour](01-penjualan-tour.md) — mesin inti: Tour/Rental/Jasa Guide/Visa-Paspor/Ticketing/MICE/Hotel, item produk, itinerary, quotation, invoice 2-tahap, biaya tambahan, penugasan lapangan, riwayat

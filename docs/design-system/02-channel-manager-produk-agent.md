@@ -1,6 +1,6 @@
 # Modul: Channel Manager & Produk Agent (Travel Agent Eksternal)
 
-> Bagian dari sistem ERP Welcome Manado. Rujuk [00-fondasi-desain.md](00-fondasi-desain.md) untuk pola UI/warna bersama. Mencerminkan kode per 17 Jul 2026.
+> Bagian dari sistem ERP Welcome Manado. Rujuk [pola-ui-desain.md](../referensi/pola-ui-desain.md) untuk pola UI/warna bersama. Mencerminkan kode per 17 Jul 2026.
 
 ## Ringkasan
 
@@ -11,7 +11,7 @@ Dua halaman yang membentuk satu alur dua sisi di atas tabel data yang sama (`pro
 
 Akun `travel_agent` dibuat dari modul Suppliers (checkbox "Jadikan Travel Agent (eksternal)" di form Supplier) — mengisi `suppliers.is_travel_agent = true` dan membuat `User` terkait (`role = travel_agent`, `supplier_id` mengarah ke supplier itu). Relasinya 1:1 (`Supplier::user()` — `hasOne`), sehingga satu supplier travel agent = satu akun login.
 
-**Sidebar**: karena `travel_agent` adalah salah satu role dengan menu sidebar penuh berbeda (lihat [00-fondasi-desain.md §Kontrol Akses](00-fondasi-desain.md#kontrol-akses-di-level-ui)), akun ini hanya melihat satu item menu: "Produk Saya". Sebaliknya "Channel Manager" muncul di grup **Data Master** untuk admin/sales, di antara Produk, Suppliers, dan Rekening.
+**Sidebar**: karena `travel_agent` adalah salah satu role dengan menu sidebar penuh berbeda (lihat [pola-ui-desain.md §Kontrol Akses](../referensi/pola-ui-desain.md#kontrol-akses-di-level-ui)), akun ini hanya melihat satu item menu: "Produk Saya". Sebaliknya "Channel Manager" muncul di grup **Data Master** untuk admin/sales, di antara Produk, Suppliers, dan Rekening.
 
 ## Alur Bisnis
 

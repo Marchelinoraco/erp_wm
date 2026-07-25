@@ -1,6 +1,6 @@
 # Modul: Keuangan — Pembukuan & Laporan
 
-> Bagian dari sistem ERP Welcome Manado. Rujuk [00-fondasi-desain.md](00-fondasi-desain.md) untuk pola UI/warna bersama, dan [10-keuangan-ar-ap.md](10-keuangan-ar-ap.md) untuk pencatatan pembayaran invoice/bill yang mendasari sebagian angka di laporan ini. Mencerminkan kode per 17 Jul 2026.
+> Bagian dari sistem ERP Welcome Manado. Rujuk [pola-ui-desain.md](../referensi/pola-ui-desain.md) untuk pola UI/warna bersama, dan [10-keuangan-ar-ap.md](10-keuangan-ar-ap.md) untuk pencatatan pembayaran invoice/bill yang mendasari sebagian angka di laporan ini. Mencerminkan kode per 17 Jul 2026.
 
 ## Ringkasan
 

@@ -1,6 +1,6 @@
 # Modul: Keuangan — Aset Tetap, Koreksi Fiskal & Hutang/Pinjaman
 
-> Bagian dari sistem ERP Welcome Manado. Rujuk [00-fondasi-desain.md](00-fondasi-desain.md) untuk pola UI/warna bersama. Mencerminkan kode per 17 Jul 2026.
+> Bagian dari sistem ERP Welcome Manado. Rujuk [pola-ui-desain.md](../referensi/pola-ui-desain.md) untuk pola UI/warna bersama. Mencerminkan kode per 17 Jul 2026.
 
 ## Ringkasan
 
@@ -88,7 +88,7 @@ Semua route di atas berada dalam grup `Route::middleware('role:admin,accountant'
 - **`Finance/FiscalCorrection.vue`** — lima kartu berurutan: Laba Rugi Komersial → tabel perbandingan penyusutan komersial vs fiskal (dengan peringatan aset tanpa kelompok fiskal) → daftar koreksi manual (dipisah Positif/Negatif, masing-masing dengan tambah/edit-inline/hapus) → ringkasan rekonsiliasi PKP → kartu PPh Badan Terutang (warna berubah amber kalau ada pajak terutang). Dropdown tahun & rezim pajak di header memicu navigasi ulang (`router.get` dengan `preserveState: false`) karena semua angka dihitung server-side.
 - **`Finance/Loans.vue`** — kartu Modal Disetor (edit inline angka tunggal) di atas, tiga kartu ringkasan (pokok awal, outstanding, cicilan/bulan), form tambah, lalu daftar pinjaman **dikelompokkan per jenis** dengan progress bar pelunasan per baris dan subtotal per grup. Baris non-aktif ditandai badge abu "Non-aktif" tapi tetap tampil (tidak disembunyikan).
 
-Ketiga halaman mengikuti pola layout & kartu standar di [00-fondasi-desain.md](00-fondasi-desain.md) (kartu `bg-white rounded-xl border shadow-sm`, `fmtRp` untuk uang) — tidak ada pola UI baru yang perlu didokumentasikan terpisah, kecuali kebiasaan **edit inline di dalam baris tabel** (bukan dialog modal) yang konsisten dipakai di ketiga halaman ini.
+Ketiga halaman mengikuti pola layout & kartu standar di [pola-ui-desain.md](../referensi/pola-ui-desain.md) (kartu `bg-white rounded-xl border shadow-sm`, `fmtRp` untuk uang) — tidak ada pola UI baru yang perlu didokumentasikan terpisah, kecuali kebiasaan **edit inline di dalam baris tabel** (bukan dialog modal) yang konsisten dipakai di ketiga halaman ini.
 
 ## Yang Perlu Diperhatikan
 
