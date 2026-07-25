@@ -192,6 +192,21 @@ Karena itu `SalesLineRule::calculateTotal()` **tidak boleh** dipakai untuk mengh
 
 Ini juga menjelaskan mengapa §7.5 (bandingkan total sebelum vs sesudah backfill) tidak cukup sendirian: pergeseran akibat penghitungan ulang terjadi **setelah** backfill, pada sinkronisasi berikutnya — bukan saat migrasi berjalan.
 
+### 3.4.2 Kewajiban serah-terima ke Fase 3 — ditemukan saat review akhir Fase 2
+
+Fase 2 hanya membackfill `sales_line` untuk invoice yang **sudah ada** saat perintah backfill dijalankan (`whereNull('sales_line')`). Tidak ada kode di Fase 2 yang mengisi `sales_line` saat invoice **baru** dibuat — hook `creating` pada `Invoice` hanya menetapkan `number`.
+
+Akibatnya: setiap invoice yang dibuat **setelah** backfill Fase 2 tetapi **sebelum** Fase 3 dirilis akan punya `sales_line = NULL`. Ini aman sepanjang Fase 2–awal Fase 3, karena `syncProformaTotal()` masih membaca `tour->type` langsung, bukan `sales_line` (lihat §3.3.1) — kolom itu belum dibaca siapa pun.
+
+**Tapi ini menjadi kewajiban nyata begitu Fase 3 mengalihkan `syncProformaTotal()` untuk membaca `$this->sales_line`** (pseudocode §3.3). Rumus baru itu akan menerima `NULL` untuk setiap invoice yang dibuat selama jendela pengamatan §7.6 — dan `SalesLineRuleRegistry::for(null)` tidak terdefinisi perilakunya.
+
+**Fase 3 wajib mengerjakan dua hal sebelum mengalihkan sumber pembacaan**, bukan hanya satu:
+
+1. Mengisi `sales_line` saat invoice **baru** dibuat (di `InvoiceController::store()` atau hook `creating`), bukan hanya soal UI pengali yang sudah direncanakan.
+2. Menjalankan ulang `invoices:backfill-sales-line` (idempoten, aman) tepat sebelum rilis, untuk menutup invoice yang lahir selama jendela pengamatan antara backfill Fase 2 dan rilis Fase 3.
+
+Tidak ada satu pun dari dua langkah ini yang otomatis terjadi hanya karena Fase 2 sudah selesai — keduanya perlu eksplisit masuk rencana Fase 3.
+
 ### 3.5 Definisi jenis penjualan di frontend
 
 #### Kondisi sekarang
