@@ -132,6 +132,29 @@ $total   = $rule->calculateTotal((float) $this->unit_price, $multipliersFromBill
 
 **`tour.pax` berhenti menjadi pengali tagihan.** Ia kembali ke satu peran: ukuran rombongan untuk ditampilkan di PDF. Pengali tagihan yang sebenarnya hidup di `invoice.billing_quantities`, terpisah dan dapat diedit sendiri.
 
+> **Batas cakupan Fase 2 — ditemukan saat merancang urutan backfill, sebelum Fase 2 ditulis.** Skema di atas menggambarkan **keadaan akhir** setelah Fase 3, bukan yang dikerjakan Fase 2. Lihat §3.3.1 untuk alasannya dan batas cakupan Fase 2 yang sesungguhnya.
+
+### 3.3.1 Kenapa `billing_quantities` TIDAK diisi di Fase 2
+
+Ditemukan saat merancang urutan backfill Fase 2, sebelum kode ditulis.
+
+**Data production nyata: 11 dari 14 invoice masih berstatus draft** (per audit `lib/erp_wm.sql`). Invoice draft masih aktif disunting — `updateProforma()` dan `lockBaseline()` masih bisa dipanggil, dan `syncProformaTotal()` masih membaca ulang `tour.pax` setiap kali. Fase 0 secara eksplisit mengunci sifat ini sebagai perilaku resmi yang harus dipertahankan:
+
+> `test_mengubah_pax_tour_menggeser_total_invoice_draft` — mengubah `pax` tour lalu menyimpan ulang proforma **harus** menggeser total invoice draft.
+
+Kalau backfill Fase 2 mengisi `billing_quantities` (mis. `{"pax": 10}`) untuk invoice draft yang sudah ada, dan `syncProformaTotal()` mulai membaca pengali dari kolom itu, maka nilai `10` itu **beku** pada angka saat backfill dijalankan. Perubahan `pax` tour sesudahnya tidak lagi tercermin — sifat yang baru saja dikunci Fase 0 diam-diam berhenti berlaku, khusus untuk invoice draft yang ada saat backfill. Itu pelanggaran "nol perubahan perilaku" yang nyata, bukan hipotetis, untuk 11 invoice production sungguhan.
+
+**Keputusan (disetujui manusia):** Fase 2 dipersempit menjadi murni penambahan skema:
+
+- Migrasi menambah kedua kolom (`sales_line`, `billing_quantities`), tetap seperti §3.3.
+- Backfill **hanya** mengisi `sales_line` — snapshot label jenis penjualan (`tour.type` saat backfill dijalankan). Kolom ini tidak pernah dibaca `calculateTotal()`, jadi mengisinya tidak berisiko menggeser angka apa pun.
+- `billing_quantities` **dibiarkan `null` untuk semua invoice** — lama maupun yang baru dibuat selama Fase 2 berjalan.
+- `syncProformaTotal()` **tidak diubah** dari Fase 1: tetap mengirim satu `Multiplier('pax', ...)` yang di-hardcode. Kolom `billing_quantities` ada di skema tapi belum dikonsumsi oleh perhitungan apa pun.
+
+Konsumsi `billing_quantities` yang sesungguhnya — pengali hari untuk Guide, kamar×malam untuk Hotel, dan kemampuan sales mengeditnya — baru dimulai di **Fase 3**, bergandengan dengan pekerjaan UI yang memang sudah dijadwalkan di sana. Itu sekaligus tempat yang tepat: Fase 3 adalah fase pertama yang boleh mengubah perilaku terlihat (lihat §4), sehingga mengaitkan pengisian nyata `billing_quantities` dengan fase itu tidak menambah risiko baru — hanya memindahkan sesuatu yang sudah semestinya menunggu di sana.
+
+Ini membuat Fase 2 seaman mungkin: perubahan skema + satu kolom label yang tidak memengaruhi angka apa pun, nol perubahan pada jalur perhitungan.
+
 ### 3.4 Yang TIDAK berubah
 
 - Tiga tahap alur (`baseline` → `detail` → `approved`) — sama untuk ketujuh jenis
@@ -243,7 +266,7 @@ Tidak ada tumpang tindih: backend memegang segala yang menyangkut uang, frontend
 |---|---|:---:|
 | 0 | Characterization test — kunci perilaku SEKARANG untuk ketujuh jenis, sebelum kode produksi disentuh | Tidak |
 | 1 | Kontrak + registry + 7 rule ditulis, dipanggil dari `syncProformaTotal()` tapi **menghasilkan angka identik** dengan rumus lama | Tidak |
-| 2 | Migrasi kolom + backfill data lama + `syncProformaTotal()` sepenuhnya lewat registry | Tidak (lihat §7) |
+| 2 | Migrasi kolom (`sales_line`, `billing_quantities`) + backfill **hanya** `sales_line` + `syncProformaTotal()` TETAP pengali pax hardcoded seperti Fase 1 — lihat §3.3.1 | Tidak (lihat §7) |
 | 3 | Pengali `billing_quantities` bisa diedit langsung di panel invoice + label harga mengikuti jenis (dikirim dari backend, D10) | **Ya** |
 | 4 | Label jenis penjualan ikut tercetak di PDF invoice | **Ya** |
 | 5 | `lib/inquiryTypes.js` dipecah ke `sales-lines/*.js`; `Edit.vue` beralih dari `v-if` per tipe ke perulangan `panels` | Tidak |
@@ -336,7 +359,7 @@ Sudah diverifikasi langsung ke kode: `syncProformaTotal()` dipanggil di tiga tem
 > Konsekuensi langsung untuk §7.7: perintah backfill yang ditulis sebagai
 > `Invoice::each(fn ($i) => $i->syncProformaTotal())` — bentuk yang paling wajar terpikir — akan **menulis ulang `total` dan `pax` invoice yang sudah disetujui di production, dan seluruh test Fase 0 tetap hijau.** Gerbang ini tidak akan menangkapnya.
 >
-> Karena itu backfill Fase 2 **wajib** menulis kolom barunya secara langsung (`update(['sales_line' => …, 'billing_quantities' => …])`) dan **dilarang** memanggil `syncProformaTotal()` untuk baris mana pun. Test karakterisasi mencatat perilaku tak-terjaga ini secara eksplisit agar sifatnya terlihat, bukan tersembunyi.
+> Karena itu backfill Fase 2 **wajib** menulis kolom barunya secara langsung (`update(['sales_line' => …])` — lihat §3.3.1 untuk alasan `billing_quantities` sengaja tidak diisi Fase 2) dan **dilarang** memanggil `syncProformaTotal()` untuk baris mana pun. Test karakterisasi mencatat perilaku tak-terjaga ini secara eksplisit agar sifatnya terlihat, bukan tersembunyi.
 
 Fase 0 menambahkan test regresi eksplisit untuk mengunci jaminan ini:
 
