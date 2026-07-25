@@ -536,7 +536,7 @@ Expected: PASS, 34/34 — persis seperti sebelum Fase 2 dimulai.
 - [ ] **Step 2: Jalankan gerbang identitas Fase 1**
 
 Run: `php artisan test tests/Feature/SalesLine tests/Unit/SalesLine`
-Expected: PASS — seluruh test Fase 1 (16 test) **plus** test baru Fase 2 (12 test dari Task 1+2) dari direktori yang sama, karena berkas Fase 2 sengaja diletakkan di `tests/Feature/SalesLine/`. Total pada direktori ini: 28.
+Expected: PASS — seluruh test Fase 1 (16 test) **plus** test baru Fase 2 (13 test dari Task 1+2 — Task 1 punya 6 setelah perbaikan §7.7, bukan 5) dari direktori yang sama, karena berkas Fase 2 sengaja diletakkan di `tests/Feature/SalesLine/`. Total pada direktori ini: 29.
 
 - [ ] **Step 3: Buktikan tidak ada satu pun berkas Fase 0/Fase 1 yang berubah**
 
