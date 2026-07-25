@@ -167,10 +167,12 @@ class CalculateTotalTest extends TestCase
 
     public function test_mengembalikan_float_tanpa_pembulatan(): void
     {
-        // Angka ganjil membuktikan tidak ada round() yang menyelinap masuk.
-        $total = $this->rule()->calculateTotal(333_333, [new Multiplier('pax', 'Peserta', 3)]);
+        // Input berpecahan NYATA — bukan angka yang kebetulan bulat sempurna.
+        // round($x) atau round($x, 2) akan mengubah 333.335 menjadi 333/333.33,
+        // sehingga round() yang menyelinap masuk pasti tertangkap test ini.
+        $total = $this->rule()->calculateTotal(333.335, [new Multiplier('pax', 'Peserta', 1)]);
 
-        $this->assertSame(999_999.0, $total);
+        $this->assertSame(333.335, $total);
     }
 }
 ```
