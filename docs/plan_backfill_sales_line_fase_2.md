@@ -79,6 +79,7 @@ Buat `tests/Feature/SalesLine/InvoiceSalesLineMigrationTest.php`:
 
 namespace Tests\Feature\SalesLine;
 
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -129,6 +130,27 @@ class InvoiceSalesLineMigrationTest extends TestCase
 
         $this->assertTrue(Schema::hasColumn('invoices', 'sales_line'));
         $this->assertTrue(Schema::hasColumn('invoices', 'billing_quantities'));
+    }
+
+    public function test_migrasi_pulih_dari_kolom_yang_setengah_selesai(): void
+    {
+        // Skenario §7.7 yang sesungguhnya: migrasi terputus PERSIS di antara
+        // dua kolom — satu sudah ada, satu belum. Guard per kolom harus
+        // independen: kolom yang hilang ditambahkan, kolom yang sudah ada
+        // TIDAK boleh memicu error "column already exists".
+        Schema::table('invoices', function (Blueprint $table) {
+            $table->dropColumn('billing_quantities');
+        });
+        $this->assertTrue(Schema::hasColumn('invoices', 'sales_line'));
+        $this->assertFalse(Schema::hasColumn('invoices', 'billing_quantities'));
+
+        $migration = require database_path(
+            'migrations/2026_07_25_000000_add_sales_line_and_billing_quantities_to_invoices.php'
+        );
+        $migration->up();
+
+        $this->assertTrue(Schema::hasColumn('invoices', 'sales_line'), 'Kolom yang sudah ada tidak boleh error');
+        $this->assertTrue(Schema::hasColumn('invoices', 'billing_quantities'), 'Kolom yang hilang harus ditambahkan');
     }
 
     public function test_down_membersihkan_kedua_kolom(): void
@@ -206,12 +228,12 @@ return new class extends Migration
 - [ ] **Step 4: Jalankan test untuk memastikan lulus**
 
 Run: `php artisan test --filter=InvoiceSalesLineMigrationTest`
-Expected: PASS, 5 test
+Expected: PASS, 6 test
 
 - [ ] **Step 5: Jalankan seluruh suite untuk memastikan tidak ada regresi**
 
 Run: `php artisan test`
-Expected: PASS semua — 118 test lama + 5 test baru = 123
+Expected: PASS semua — 118 test lama + 6 test baru = 124
 
 - [ ] **Step 6: Commit**
 
@@ -476,7 +498,7 @@ Expected: PASS, 7 test
 - [ ] **Step 5: Jalankan seluruh suite**
 
 Run: `php artisan test`
-Expected: PASS semua — 123 test dari Task 1 + 7 test baru = 130
+Expected: PASS semua — 124 test dari Task 1 + 7 test baru = 131
 
 - [ ] **Step 6: Commit**
 
@@ -524,7 +546,7 @@ Expected: keluaran kosong. Bila ada satu baris pun, Task 1/2 diam-diam menyentuh
 - [ ] **Step 4: Jalankan seluruh suite sekali lagi sebagai gerbang akhir**
 
 Run: `php artisan test`
-Expected: PASS semua, 130 test.
+Expected: PASS semua, 131 test.
 
 - [ ] **Step 5: Commit penanda selesai (jika ada perubahan tertunda)**
 
@@ -553,7 +575,7 @@ Yang harus terbukti oleh test, bukan oleh keyakinan:
 | Backfill tidak pernah memanggil `syncProformaTotal()` | `test_tidak_pernah_memanggil_sync_proforma_total` |
 | Fase 0 (34 test) dan Fase 1 (16 test) sama sekali tidak tersentuh | Task 3, `git diff` kosong |
 
-**Definisi selesai untuk plan ini:** seluruh 130 test hijau, `git diff` terhadap berkas Fase 0/Fase 1 kosong.
+**Definisi selesai untuk plan ini:** seluruh 131 test hijau, `git diff` terhadap berkas Fase 0/Fase 1 kosong.
 
 **Definisi selesai untuk Fase 2 secara keseluruhan (di luar plan ini, langkah operasional §7.8):**
 
