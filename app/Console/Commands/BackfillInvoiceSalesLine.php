@@ -7,7 +7,7 @@ use Illuminate\Console\Command;
 
 /**
  * Backfill Fase 2 pemisahan aturan invoice per jenis penjualan — lihat
- * docs/design_pemisahan_invoice_per_jenis_penjualan.md §3.3.1.
+ * docs/desain/pemisahan-invoice-per-jenis.md §3.3.1.
  *
  * HANYA mengisi sales_line. billing_quantities SENGAJA dibiarkan null —
  * mengisinya untuk invoice draft yang ada akan membekukan pengali pax pada

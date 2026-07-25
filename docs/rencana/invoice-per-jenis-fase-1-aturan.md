@@ -8,7 +8,7 @@
 
 **Tech Stack:** Laravel 13, PHP 8.3+, PHPUnit, SQLite in-memory.
 
-**Spec:** [`docs/design_pemisahan_invoice_per_jenis_penjualan.md`](design_pemisahan_invoice_per_jenis_penjualan.md) — Fase 1 pada §4, arsitektur §3.1–§3.1.1, batasan §3.4.1/§7.4.
+**Spec:** [`docs/desain/pemisahan-invoice-per-jenis.md`](../desain/pemisahan-invoice-per-jenis.md) — Fase 1 pada §4, arsitektur §3.1–§3.1.1, batasan §3.4.1/§7.4.
 
 **Cakupan repo:** Seluruh perubahan pada `erp_wm`, branch `feat/aturan-invoice-per-jenis` (sudah dibuat dari `dev`).
    

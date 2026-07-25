@@ -8,7 +8,7 @@ return new class extends Migration
 {
     /**
      * Fase 2 pemisahan aturan invoice per jenis penjualan — lihat
-     * docs/design_pemisahan_invoice_per_jenis_penjualan.md §3.3.
+     * docs/desain/pemisahan-invoice-per-jenis.md §3.3.
      *
      * Migrasi ini HANYA menambah dua kolom nullable. Tidak ada kolom dihapus,
      * diganti nama, atau diubah tipe — down() aman tanpa kehilangan data
