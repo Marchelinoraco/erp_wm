@@ -29,3 +29,7 @@ Thumbs.db
 
 .superpowers/
 __pycache__/
+
+# Dump database (data production — jangan pernah masuk git)
+*.sql
+/lib/erp_wm.sql

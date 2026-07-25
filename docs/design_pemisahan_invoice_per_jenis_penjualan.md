@@ -139,6 +139,34 @@ $total   = $rule->calculateTotal((float) $this->unit_price, $this->billing_quant
 - Panel Vue 1.282 baris — **tidak dipecah**. Perubahan pada Fase 3 hanya mengganti label statis dan menambah input pengali; struktur komponen tetap.
 - `Pages/Tours/` tetap satu folder dengan tiga halaman bersama (`Index`, `Create`, `Edit`) — lihat §3.5 untuk alasannya
 
+### 3.4.1 Penulis `total` yang BUKAN `syncProformaTotal()` — wajib dibaca sebelum Fase 1
+
+Ditemukan saat review akhir Fase 0, dan **tidak** disadari saat dokumen ini pertama ditulis.
+
+Ada **dua** penulis `invoices.total` di seluruh `app/`, bukan satu:
+
+| Penulis | Menyentuh invoice | Dijaga `ensureNotApproved()`? |
+|---|---|---|
+| `Invoice::syncProformaTotal()` | hanya yang belum disetujui | Ya, lewat ketiga pemanggilnya di controller |
+| **`CostRequestController::appendAdditionalCharge()`** | **hanya yang SUDAH disetujui** | **Tidak — memang disengaja** |
+
+Jalur kedua adalah fitur biaya tambahan saat tour berjalan. Ia sengaja memilih invoice yang sudah disetujui (`whereNotNull('approved_at')`) dan menambahkan langsung:
+
+```php
+$mainInvoice->total     = (float) $mainInvoice->total + $amount;
+$mainInvoice->total_idr = (float) $mainInvoice->total_idr + $amount;
+```
+
+Nominalnya juga disisipkan sebagai baris `description_lines` bertanda `label: 'Additional'` dengan kunci `amount` — kunci yang dibaca `invoice.blade.php` untuk memisahkan baris berbiaya dari baris deskripsi biasa.
+
+**Akibat yang mengikat rancangan aturan per jenis:**
+
+> Begitu satu biaya tambahan disetujui, **`total` tidak lagi sama dengan `unit_price × pengali`.** Invoice itu memuat angka yang tidak dapat diturunkan ulang dari aturan mana pun.
+
+Karena itu `SalesLineRule::calculateTotal()` **tidak boleh** dipakai untuk menghitung ulang invoice yang sudah disetujui — bukan hanya karena terkunci, tetapi karena hasilnya akan **menghapus uang yang sudah ditagihkan ke customer**. Aturan hanya menghitung saat proforma disusun; sesudah disetujui, `total` adalah angka final yang hanya boleh bertambah lewat jalur biaya tambahan.
+
+Ini juga menjelaskan mengapa §7.5 (bandingkan total sebelum vs sesudah backfill) tidak cukup sendirian: pergeseran akibat penghitungan ulang terjadi **setelah** backfill, pada sinkronisasi berikutnya — bukan saat migrasi berjalan.
+
 ### 3.5 Definisi jenis penjualan di frontend
 
 #### Kondisi sekarang
@@ -235,6 +263,9 @@ Fase 0–2 sengaja tidak mengubah satu pun yang dilihat pengguna — kalau ada y
 | R7 | Sistem sudah dipakai production — lihat §7 | — | Bagian tersendiri |
 | R8 | Fase 5 mengubah `Edit.vue` dari `v-if` per tipe menjadi perulangan `panels` — panel bisa hilang diam-diam bila daftar `panels` salah ketik | Sedang | Registry memvalidasi nama panel terhadap daftar komponen yang terdaftar dan melempar galat saat build, bukan diam. Test manual per jenis: buka satu penjualan tiap jenis, pastikan panel yang tampil sama persis dengan sebelum perubahan. |
 | R9 | Label harga dari backend belum sampai saat halaman pertama render | Rendah | Label ikut di payload Inertia awal, bukan permintaan terpisah — tidak ada jendela kosong |
+| R10 | Aturan menghitung ulang invoice yang memuat biaya tambahan → **menghapus uang yang sudah ditagihkan** | **Tinggi** | §3.4.1 — `calculateTotal()` hanya dipakai saat proforma; invoice yang sudah disetujui tidak pernah dihitung ulang. Dikunci test karakterisasi. |
+| R11 | Backfill Fase 2 memanggil `syncProformaTotal()` dan menulis ulang invoice yang sudah disetujui | **Tinggi** | §7.4 — backfill wajib menulis kolom baru secara langsung; dilarang memanggil `syncProformaTotal()`. Sifat tak-terjaganya dicatat test karakterisasi. |
+| R12 | `total_idr` basi saat mata uang diganti IDR → non-IDR sebelum disetujui | Sedang | `syncProformaTotal()` hanya menulis `total_idr` untuk IDR, sehingga nilai era-IDR tertinggal di kolom yang dibaca lima laporan keuangan. Dikunci test karakterisasi Fase 0. |
 
 ---
 
@@ -296,7 +327,14 @@ Sebelum migrasi menyentuh database production sungguhan:
 
 ### 7.4 Invoice yang sudah disetujui tidak pernah tersentuh — dan ini diuji, bukan diasumsikan
 
-Sudah diverifikasi langsung ke kode: `syncProformaTotal()` dipanggil di tiga tempat (`updateProforma`, `lockBaseline`, `approve`), dan ketiganya didahului `ensureNotApproved()`. Invoice dengan `approved_at` terisi tidak akan pernah masuk jalur perhitungan ulang — baik dengan rumus lama maupun baru.
+Sudah diverifikasi langsung ke kode: `syncProformaTotal()` dipanggil di tiga tempat (`updateProforma`, `lockBaseline`, `approve`), dan ketiganya didahului `ensureNotApproved()`. Invoice dengan `approved_at` terisi tidak akan pernah masuk jalur perhitungan ulang **lewat ketiga rute HTTP itu** — baik dengan rumus lama maupun baru.
+
+> **Batas jaminan ini — dikoreksi setelah review akhir Fase 0.** Penjaganya ada di **controller**, bukan di model. `Invoice::syncProformaTotal()` sendiri tidak memeriksa `is_approved` sama sekali.
+>
+> Konsekuensi langsung untuk §7.7: perintah backfill yang ditulis sebagai
+> `Invoice::each(fn ($i) => $i->syncProformaTotal())` — bentuk yang paling wajar terpikir — akan **menulis ulang `total` dan `pax` invoice yang sudah disetujui di production, dan seluruh test Fase 0 tetap hijau.** Gerbang ini tidak akan menangkapnya.
+>
+> Karena itu backfill Fase 2 **wajib** menulis kolom barunya secara langsung (`update(['sales_line' => …, 'billing_quantities' => …])`) dan **dilarang** memanggil `syncProformaTotal()` untuk baris mana pun. Test karakterisasi mencatat perilaku tak-terjaga ini secara eksplisit agar sifatnya terlihat, bukan tersembunyi.
 
 Fase 0 menambahkan test regresi eksplisit untuk mengunci jaminan ini:
 
