@@ -13,7 +13,7 @@ $pax   = (int) ($this->tour?->pax ?? $this->pax ?? 1);
 $total = (float) $this->unit_price * max($pax, 1);
 ```
 
-Rumus ini benar untuk tour (dijual per orang), tetapi dipaksakan pada jenis yang ditagih dengan cara berbeda — guide per hari, hotel per kamar per malam, rental per unit per hari. Sudah didokumentasikan sebagai temuan di [`docs/logika-pembuatan-invoice/10-temuan.md` §10.4](logika-pembuatan-invoice/10-temuan.md).
+Rumus ini benar untuk tour (dijual per orang), tetapi dipaksakan pada jenis yang ditagih dengan cara berbeda — guide per hari, hotel per kamar per malam, rental per unit per hari. Sudah didokumentasikan sebagai temuan di [`docs/logika-pembuatan-invoice/10-temuan.md` §10.4](../logika-pembuatan-invoice/10-temuan.md).
 
 Akibatnya sales terpaksa membagi nominal supaya `unit_price × pax` menghasilkan angka yang benar — dan angka hasil bagi itu tersimpan permanen, bukan angka asli dari daftar harga.
 

@@ -30,8 +30,8 @@ Untuk pekerjaan bertahap yang belum selesai, tambahkan entri di **Sedang Dikerja
 
 Setiap jenis penjualan (Tour, Hotel, Jasa Guide, Transport, MICE, Document, Ticketing) mendapat aturan hitung tagihannya sendiri, sehingga mengubah cara hitung satu jenis tidak mengganggu jenis lain. Sekaligus memperbaiki kolom "Harga / pax" yang dipaksakan pada jenis yang sebenarnya ditagih per hari atau per unit.
 
-- Desain: [`docs/design_pemisahan_invoice_per_jenis_penjualan.md`](docs/design_pemisahan_invoice_per_jenis_penjualan.md)
-- Rencana Fase 0: [`docs/plan_karakterisasi_invoice_fase_0.md`](docs/plan_karakterisasi_invoice_fase_0.md)
+- Desain: [`docs/desain/pemisahan-invoice-per-jenis.md`](docs/desain/pemisahan-invoice-per-jenis.md)
+- Rencana Fase 0: [`docs/rencana/invoice-per-jenis-fase-0-karakterisasi.md`](docs/rencana/invoice-per-jenis-fase-0-karakterisasi.md)
 
 | Fase | Isi | Status | Terasa oleh pengguna? |
 |:---:|---|---|:---:|

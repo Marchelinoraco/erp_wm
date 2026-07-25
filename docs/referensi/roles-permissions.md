@@ -41,7 +41,7 @@ Akses penuh ke **semua route berikut** (selalu ikut disertakan di setiap grup ro
 
 **Tidak bisa**: apa pun di bawah `/finance/*` kecuali rekening pembayaran & PDF invoice di atas (jurnal, buku besar, neraca, laba rugi, aset tetap, fiskal, pinjaman, transaksi manual, approve/reject biaya tambahan, catat pembayaran AR/AP resmi) — itu murni wilayah akuntan. Tidak bisa Kelola Akun (users).
 
-> ⚠️ **Belum aktif**: rencana "sales hanya melihat tour miliknya sendiri" (lihat [docs/plan_tour_ownership.md](plan_tour_ownership.md)) sudah disetujui tapi **belum diimplementasikan** — saat ini semua sales melihat & bisa mengedit **semua** tour tanpa kecuali.
+> ⚠️ **Belum aktif**: rencana "sales hanya melihat tour miliknya sendiri" (lihat [docs/rencana/tour-ownership.md](../rencana/tour-ownership.md)) sudah disetujui tapi **belum diimplementasikan** — saat ini semua sales melihat & bisa mengedit **semua** tour tanpa kecuali.
 
 ## 3. Accountant (Akuntansi)
 

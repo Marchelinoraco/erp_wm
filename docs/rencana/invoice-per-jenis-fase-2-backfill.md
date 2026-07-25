@@ -8,7 +8,7 @@
 
 **Tech Stack:** Laravel 13, PHPUnit, SQLite in-memory untuk test (mengikuti pola seluruh Fase 0–1).
 
-**Spec:** [`docs/design_pemisahan_invoice_per_jenis_penjualan.md`](design_pemisahan_invoice_per_jenis_penjualan.md) — §3.3 (skema), §3.3.1 (batas cakupan Fase 2), §4 (baris Fase 2), §7 (protokol keamanan data lengkap).
+**Spec:** [`docs/desain/pemisahan-invoice-per-jenis.md`](../desain/pemisahan-invoice-per-jenis.md) — §3.3 (skema), §3.3.1 (batas cakupan Fase 2), §4 (baris Fase 2), §7 (protokol keamanan data lengkap).
 
 **Cakupan repo:** `erp_wm`, branch `feat/backfill-sales-line-fase-2` (sudah dibuat dari `dev`, sudah membawa koreksi desain §3.3.1).
 
@@ -193,7 +193,7 @@ return new class extends Migration
 {
     /**
      * Fase 2 pemisahan aturan invoice per jenis penjualan — lihat
-     * docs/design_pemisahan_invoice_per_jenis_penjualan.md §3.3.
+     * docs/desain/pemisahan-invoice-per-jenis.md §3.3.
      *
      * Migrasi ini HANYA menambah dua kolom nullable. Tidak ada kolom dihapus,
      * diganti nama, atau diubah tipe — down() aman tanpa kehilangan data
@@ -444,7 +444,7 @@ use Illuminate\Console\Command;
 
 /**
  * Backfill Fase 2 pemisahan aturan invoice per jenis penjualan — lihat
- * docs/design_pemisahan_invoice_per_jenis_penjualan.md §3.3.1.
+ * docs/desain/pemisahan-invoice-per-jenis.md §3.3.1.
  *
  * HANYA mengisi sales_line. billing_quantities SENGAJA dibiarkan null —
  * mengisinya untuk invoice draft yang ada akan membekukan pengali pax pada

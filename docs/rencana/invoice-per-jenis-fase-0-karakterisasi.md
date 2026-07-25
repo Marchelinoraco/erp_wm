@@ -8,7 +8,7 @@
 
 **Tech Stack:** Laravel 13, PHPUnit, SQLite in-memory, Inertia.
 
-**Spec:** [`docs/design_pemisahan_invoice_per_jenis_penjualan.md`](design_pemisahan_invoice_per_jenis_penjualan.md) — Fase 0 pada §4, dan jaminan §7.4.
+**Spec:** [`docs/desain/pemisahan-invoice-per-jenis.md`](../desain/pemisahan-invoice-per-jenis.md) — Fase 0 pada §4, dan jaminan §7.4.
 
 ---
 
