@@ -19,6 +19,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(BrevoGateway::class, BrevoClient::class);
+        $this->app->singleton(\App\Services\SalesLine\SalesLineRuleRegistry::class);
     }
 
     /**

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Services\SalesLine\Multiplier;
+use App\Services\SalesLine\SalesLineRuleRegistry;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -98,19 +100,27 @@ class Invoice extends Model
     }
 
     /**
-     * Hitung ulang total proforma (mata uang invoice). total = unit_price × pax.
-     * total_idr hanya di-set untuk IDR (kurs 1); untuk mata uang lain nilai IDR
-     * ditetapkan saat disetujui (approve) agar laporan IDR tak terdistorsi kurs
-     * placeholder sebelum kurs pasti diinput.
+     * Hitung ulang total proforma lewat aturan jenis penjualan (Fase 1: pengali
+     * pax, hasil identik rumus lama). total_idr hanya di-set untuk IDR (kurs 1);
+     * untuk mata uang lain nilai IDR ditetapkan saat disetujui (approve) agar
+     * laporan IDR tak terdistorsi kurs placeholder sebelum kurs pasti diinput.
      */
     public function syncProformaTotal(): void
     {
-        $pax   = (int) ($this->tour?->pax ?? $this->pax ?? 1);
-        $total = (float) $this->unit_price * max($pax, 1);
+        $pax  = max((int) ($this->tour?->pax ?? $this->pax ?? 1), 1);
+        $rule = app(SalesLineRuleRegistry::class)->for($this->tour?->type ?? 'tour');
+
+        // Fase 1: pengali tetap pax untuk SEMUA jenis, supaya total identik
+        // dengan rumus lama (unit_price × pax). Fase 2 mengganti sumber pengali
+        // ke kolom billing_quantities agar guide dihitung per hari, hotel per
+        // kamar × malam, dst.
+        $total = $rule->calculateTotal((float) $this->unit_price, [
+            new Multiplier('pax', 'Peserta', $pax),
+        ]);
 
         // Simpan pax yang dipakai menghitung total — PDF menampilkan pax invoice,
         // jadi keduanya harus selalu berasal dari angka yang sama.
-        $updates = ['total' => $total, 'pax' => max($pax, 1)];
+        $updates = ['total' => $total, 'pax' => $pax];
         if (($this->currency ?: 'IDR') === 'IDR') {
             $updates['total_idr'] = $total;
         }
