@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\SalesLine;
 
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -52,6 +53,27 @@ class InvoiceSalesLineMigrationTest extends TestCase
 
         $this->assertTrue(Schema::hasColumn('invoices', 'sales_line'));
         $this->assertTrue(Schema::hasColumn('invoices', 'billing_quantities'));
+    }
+
+    public function test_migrasi_pulih_dari_kolom_yang_setengah_selesai(): void
+    {
+        // Skenario §7.7 yang sesungguhnya: migrasi terputus PERSIS di antara
+        // dua kolom — satu sudah ada, satu belum. Guard per kolom harus
+        // independen: kolom yang hilang ditambahkan, kolom yang sudah ada
+        // TIDAK boleh memicu error "column already exists".
+        Schema::table('invoices', function (Blueprint $table) {
+            $table->dropColumn('billing_quantities');
+        });
+        $this->assertTrue(Schema::hasColumn('invoices', 'sales_line'));
+        $this->assertFalse(Schema::hasColumn('invoices', 'billing_quantities'));
+
+        $migration = require database_path(
+            'migrations/2026_07_25_000000_add_sales_line_and_billing_quantities_to_invoices.php'
+        );
+        $migration->up();
+
+        $this->assertTrue(Schema::hasColumn('invoices', 'sales_line'), 'Kolom yang sudah ada tidak boleh error');
+        $this->assertTrue(Schema::hasColumn('invoices', 'billing_quantities'), 'Kolom yang hilang harus ditambahkan');
     }
 
     public function test_down_membersihkan_kedua_kolom(): void
