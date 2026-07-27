@@ -26,7 +26,7 @@ class FinanceController extends Controller
         // Satu daftar utk semua invoice — termasuk draft/proforma yang belum
         // disetujui sales, supaya admin/akuntan bisa lihat status invoice apa
         // pun yang sudah dibuat sales, bukan cuma yang sudah masuk Keuangan.
-        $invoices = Invoice::with(['tour:id,code,customer_id', 'tour.customer:id,name', 'payments'])
+        $invoices = Invoice::with(['tour:id,code,customer_id,type', 'tour.customer:id,name', 'payments'])
             ->orderBy('number')
             ->get();
 

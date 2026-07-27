@@ -43,8 +43,10 @@ class FinanceIndexInvoicesTest extends TestCase
                 ->has('invoices', 2)
                 ->where('invoices.0.id', $draft->id)
                 ->where('invoices.0.status', 'draft')
+                ->where('invoices.0.tour.type', 'tour')
                 ->where('invoices.1.id', $approved->id)
                 ->where('invoices.1.status', 'sent')
+                ->where('invoices.1.tour.type', 'hotel')
                 ->missing('outstanding_invoices')
                 ->missing('paid_invoices'));
     }
