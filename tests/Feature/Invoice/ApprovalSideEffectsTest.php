@@ -21,35 +21,27 @@ class ApprovalSideEffectsTest extends TestCase
     use RefreshDatabase;
     use CreatesSalesFixtures;
 
-    public function test_nomor_keuangan_terbit_saat_disetujui(): void
+    public function test_finance_number_tidak_lagi_diisi_saat_disetujui(): void
     {
         $tour    = $this->makeTour('tour');
         $invoice = $this->makeInvoice($tour, 500_000);
 
-        $this->assertNull($invoice->finance_number, 'Sebelum disetujui belum punya nomor keuangan');
+        $this->assertNull($invoice->finance_number);
 
         $invoice = $this->approveInvoice($invoice);
 
-        $this->assertStringStartsWith('INV-' . now()->year . '-', $invoice->finance_number);
+        $this->assertNull($invoice->finance_number, 'finance_number pensiun — satu nomor (number) dipakai semua sisi, lihat spec 2026-07-27');
         $this->assertSame('sent', $invoice->status);
         $this->assertNotNull($invoice->approved_at);
     }
 
-    public function test_nomor_keuangan_tidak_membedakan_jenis_penjualan(): void
+    public function test_finance_number_tetap_null_untuk_semua_jenis_penjualan(): void
     {
-        // Berbeda dari `number` yang mengandung kode tipe, finance_number urut
-        // global mengikuti urutan masuk Keuangan.
-        $year = now()->year;
-
-        foreach (['guide', 'hotel'] as $index => $type) {
+        foreach (['guide', 'hotel', 'rental'] as $type) {
             $tour    = $this->makeTour($type);
-            $invoice = $this->makeInvoice($tour, 500_000);
-            $invoice = $this->approveInvoice($invoice);
+            $invoice = $this->approveInvoice($this->makeInvoice($tour, 500_000));
 
-            $this->assertSame(
-                sprintf('INV-%d-%04d', $year, $index + 1),
-                $invoice->finance_number
-            );
+            $this->assertNull($invoice->finance_number, "finance_number harus tetap null utk jenis {$type}");
         }
     }
 

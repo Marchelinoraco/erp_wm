@@ -375,8 +375,7 @@ const CAT_LABEL = {
                         <div class="flex items-start justify-between gap-4">
                             <div>
                                 <div class="flex items-center gap-2 flex-wrap">
-                                    <span class="font-mono text-sm font-semibold text-gray-800">{{ inv.finance_number ?? inv.number }}</span>
-                                    <span v-if="inv.finance_number" class="font-mono text-xs text-gray-400">{{ inv.number }}</span>
+                                    <span class="font-mono text-sm font-semibold text-gray-800">{{ inv.number }}</span>
                                     <span class="text-xs px-2 py-0.5 rounded-full font-medium"
                                         :class="INV_STATUS[inv.status]?.cls">
                                         {{ INV_STATUS[inv.status]?.label }}
@@ -525,7 +524,7 @@ const CAT_LABEL = {
                                     <template v-if="cr.review_notes"> — {{ cr.review_notes }}</template>
                                 </p>
                                 <p v-if="cr.invoice" class="text-xs text-blue-700 mt-1">
-                                    📄 Ditambahkan ke invoice {{ cr.invoice.finance_number ?? cr.invoice.number }} sebagai biaya tambahan
+                                    📄 Ditambahkan ke invoice {{ cr.invoice.number }} sebagai biaya tambahan
                                 </p>
                             </div>
                             <div class="text-right shrink-0">
@@ -575,7 +574,7 @@ const CAT_LABEL = {
                                     Tgl: {{ fmtDate(bill.date) }}
                                     <template v-if="bill.due_date"> · Jatuh tempo: {{ fmtDate(bill.due_date) }}</template>
                                     <template v-if="bill.invoice_item?.invoice">
-                                        · 📋 Dari Rincian Profit {{ bill.invoice_item.invoice.finance_number ?? bill.invoice_item.invoice.number }}
+                                        · 📋 Dari Rincian Profit {{ bill.invoice_item.invoice.number }}
                                     </template>
                                 </p>
                             </div>
@@ -882,7 +881,7 @@ const CAT_LABEL = {
                             Tour ini belum punya invoice IDR yang disetujui — tidak bisa menagih biaya tambahan ke customer.
                         </p>
                         <p v-else class="text-[11px] text-gray-400">
-                            Menambahkan baris "Additional" ke invoice {{ mainInvoice.finance_number ?? mainInvoice.number }} — total tagihan customer bertambah otomatis, invoice tidak diganti nomor barunya.
+                            Menambahkan baris "Additional" ke invoice {{ mainInvoice.number }} — total tagihan customer bertambah otomatis, invoice tidak diganti nomor barunya.
                         </p>
                         <div v-if="approveCrForm.bill_customer" class="space-y-1.5">
                             <Label>Nominal Tagihan ke Customer (IDR)</Label>

@@ -21,7 +21,7 @@
     <tbody>
         <tr>
             <td class="sub" style="width:110px;">No. Invoice</td>
-            <td style="width:38%;"><b>{{ $invoice->finance_number ?? $invoice->number }}</b>@if($invoice->finance_number) <span class="sub">({{ $invoice->number }})</span>@endif</td>
+            <td style="width:38%;"><b>{{ $invoice->number }}</b></td>
             <td class="sub" style="width:110px;">Customer</td>
             <td>{{ $tour->customer?->name ?? '—' }}</td>
         </tr>

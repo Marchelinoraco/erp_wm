@@ -161,8 +161,6 @@ class InvoiceController extends Controller
                 'status'         => 'sent',
                 'approved_at'    => now(),
                 'approved_by'    => auth()->id(),
-                // Nomor keuangan gapless — urut sesuai urutan masuk Keuangan
-                'finance_number' => $invoice->finance_number ?? Invoice::nextFinanceNumber(),
             ]);
 
             // Item bersupplier di Rincian Profit langsung tercatat sebagai Bill
@@ -176,8 +174,9 @@ class InvoiceController extends Controller
         $invoice->tour?->histories()->create([
             'type'            => 'note',
             'status_snapshot' => $invoice->tour->status,
-            'description'     => 'Invoice ' . $invoice->number . ' disetujui & masuk Keuangan sebagai '
-                . $invoice->finance_number . ' (' . $money . $idrEq . ').',
+            // finance_number pensiun — satu nomor (number) saja yang disebut di sini
+            'description'     => 'Invoice ' . $invoice->number . ' disetujui & masuk Keuangan ('
+                . $money . $idrEq . ').',
             'created_by'      => auth()->user()?->name ?? 'Sistem',
         ]);
 
@@ -253,7 +252,7 @@ class InvoiceController extends Controller
         $profit  = $revenue - $totalCost;
         $margin  = $revenue > 0 ? round($profit / $revenue * 100, 1) : 0;
 
-        $number = $invoice->finance_number ?? $invoice->number;
+        $number = $invoice->number;
 
         return Pdf::stream('finance.profit_breakdown', [
             'invoice'   => $invoice,
