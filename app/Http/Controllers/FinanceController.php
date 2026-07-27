@@ -23,15 +23,10 @@ class FinanceController extends Controller
         $apTotal = Bill::sum('amount');
         $apPaid  = BillPayment::sum('amount');
 
-        $outstandingInvoices = Invoice::approved()
-            ->with(['tour:id,code,customer_id', 'tour.customer:id,name', 'payments'])
-            ->whereIn('status', ['sent', 'partial'])
-            ->orderBy('number')
-            ->get();
-
-        $paidInvoices = Invoice::approved()
-            ->with(['tour:id,code,customer_id', 'tour.customer:id,name', 'payments'])
-            ->where('status', 'paid')
+        // Satu daftar utk semua invoice — termasuk draft/proforma yang belum
+        // disetujui sales, supaya admin/akuntan bisa lihat status invoice apa
+        // pun yang sudah dibuat sales, bukan cuma yang sudah masuk Keuangan.
+        $invoices = Invoice::with(['tour:id,code,customer_id', 'tour.customer:id,name', 'payments'])
             ->orderBy('number')
             ->get();
 
@@ -69,8 +64,7 @@ class FinanceController extends Controller
             'ar_received'          => (float) $arReceived,
             'ap_total'             => (float) $apTotal,
             'ap_paid'              => (float) $apPaid,
-            'outstanding_invoices' => $outstandingInvoices,
-            'paid_invoices'        => $paidInvoices,
+            'invoices'             => $invoices,
             'unpaid_bills'         => $unpaidBills,
             'confirmed_tours'      => $confirmedTours,
         ]);
