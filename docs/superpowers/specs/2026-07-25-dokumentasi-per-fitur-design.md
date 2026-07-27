@@ -102,7 +102,7 @@ Tabel sekali-lihat, dikelompokkan per domain:
 
 | Fitur | Peran | Status | Dokumen |
 |---|---|---|---|
-| Invoice | admin, sales, accountant | ✅ Berjalan (refactor per-jenis 🟡 di dev) | [invoice.md](invoice.md) |
+| Invoice | admin, sales, accountant | ✅ Berjalan (refactor per-jenis 🟡 di dev) | [invoice.md](../../fitur/invoice.md) |
 
 **Taksonomi status:**
 - **✅ Berjalan** — sudah di production
