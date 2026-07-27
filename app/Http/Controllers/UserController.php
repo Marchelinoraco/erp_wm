@@ -13,7 +13,7 @@ class UserController extends Controller
     public function index()
     {
         $users = User::orderBy('role')->orderBy('name')
-            ->get(['id', 'name', 'email', 'role', 'created_at']);
+            ->get(['id', 'name', 'email', 'phone', 'role', 'created_at']);
 
         return Inertia::render('Users/Index', [
             'users' => $users,
@@ -25,6 +25,7 @@ class UserController extends Controller
         $data = $request->validate([
             'name'     => 'required|string|max:255',
             'email'    => 'required|email|unique:users,email',
+            'phone'    => 'nullable|string|max:30',
             'password' => 'required|string|min:8',
             'role'     => 'required|in:admin,sales,accountant,operation,travel_agent,guide,driver,tour_leader',
         ]);
@@ -32,6 +33,7 @@ class UserController extends Controller
         User::create([
             'name'     => $data['name'],
             'email'    => $data['email'],
+            'phone'    => ($data['phone'] ?? '') ?: null,
             'password' => Hash::make($data['password']),
             'role'     => $data['role'],
         ]);
@@ -44,12 +46,14 @@ class UserController extends Controller
         $data = $request->validate([
             'name'     => 'required|string|max:255',
             'email'    => ['required', 'email', Rule::unique('users', 'email')->ignore($user->id)],
+            'phone'    => 'nullable|string|max:30',
             'role'     => 'required|in:admin,sales,accountant,operation,travel_agent,guide,driver,tour_leader',
             'password' => 'nullable|string|min:8',
         ]);
 
         $user->name  = $data['name'];
         $user->email = $data['email'];
+        $user->phone = ($data['phone'] ?? '') ?: null;
         $user->role  = $data['role'];
 
         if (! empty($data['password'])) {

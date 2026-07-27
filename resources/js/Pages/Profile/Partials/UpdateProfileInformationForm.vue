@@ -18,6 +18,7 @@ const user = usePage().props.auth.user;
 const form = useForm({
     name: user.name,
     email: user.email,
+    phone: user.phone ?? '',
 });
 </script>
 
@@ -26,7 +27,7 @@ const form = useForm({
         <header>
             <h2 class="text-lg font-medium text-gray-900">Informasi Profil</h2>
             <p class="mt-1 text-sm text-muted-foreground">
-                Perbarui nama dan alamat email akun kamu.
+                Perbarui nama, email, dan nomor WhatsApp akun kamu.
             </p>
         </header>
 
@@ -41,6 +42,12 @@ const form = useForm({
                 <Label for="email">Email</Label>
                 <Input id="email" type="email" v-model="form.email" required autocomplete="username" />
                 <p v-if="form.errors.email" class="text-sm text-destructive">{{ form.errors.email }}</p>
+            </div>
+
+            <div class="space-y-1.5">
+                <Label for="phone">Nomor WhatsApp</Label>
+                <Input id="phone" type="tel" v-model="form.phone" placeholder="Mis. 081234567890" autocomplete="tel" />
+                <p v-if="form.errors.phone" class="text-sm text-destructive">{{ form.errors.phone }}</p>
             </div>
 
             <div v-if="mustVerifyEmail && user.email_verified_at === null">
