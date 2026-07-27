@@ -51,9 +51,9 @@ Katalog status seluruh fitur ERP Welcome Manado, satu baris per fitur, menaut ke
 
 | Fitur | Peran | Status | Dokumen |
 |---|---|---|---|
-| Keuangan — AR/AP | admin, accountant | ✅ Berjalan | [keuangan-ar-ap.md](keuangan-ar-ap.md) *(kerangka)* |
-| Keuangan — Pembukuan | admin, accountant | ✅ Berjalan | [keuangan-pembukuan.md](keuangan-pembukuan.md) *(kerangka)* |
-| Keuangan — Aset Tetap, Fiskal & Pinjaman | admin, accountant | ✅ Berjalan | [keuangan-aset-fiskal-pinjaman.md](keuangan-aset-fiskal-pinjaman.md) *(kerangka)* |
+| Keuangan — AR/AP | admin, accountant | ✅ Berjalan | [keuangan-ar-ap.md](keuangan-ar-ap.md) |
+| Keuangan — Pembukuan | admin, accountant | ✅ Berjalan | [keuangan-pembukuan.md](keuangan-pembukuan.md) |
+| Keuangan — Aset Tetap, Fiskal & Pinjaman | admin, accountant | ✅ Berjalan | [keuangan-aset-fiskal-pinjaman.md](keuangan-aset-fiskal-pinjaman.md) |
 
 ## Komunikasi
 

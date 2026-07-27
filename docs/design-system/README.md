@@ -22,9 +22,9 @@ Mulai dari [pola-ui-desain.md](../referensi/pola-ui-desain.md) — pola UI/warna
 - [09 — Kelola Akun](09-kelola-akun.md) — manajemen user & role (admin only)
 
 ## Keuangan
-- [10 — AR & AP](10-keuangan-ar-ap.md) — dashboard piutang/hutang, pembayaran invoice/bill, approval biaya tambahan
-- [11 — Pembukuan & Laporan](11-keuangan-pembukuan.md) — Arus Kas, Jurnal, Buku Besar, Rekap, Neraca, Laba Rugi, Transaksi manual, Kategori
-- [12 — Aset Tetap, Fiskal & Pinjaman](12-keuangan-aset-fiskal-pinjaman.md) — penyusutan, koreksi PPh Badan, registry hutang
+- ~~10 — AR & AP~~ — bermigrasi ke [fitur/keuangan-ar-ap.md](../fitur/keuangan-ar-ap.md)
+- ~~11 — Pembukuan & Laporan~~ — bermigrasi ke [fitur/keuangan-pembukuan.md](../fitur/keuangan-pembukuan.md)
+- ~~12 — Aset Tetap, Fiskal & Pinjaman~~ — bermigrasi ke [fitur/keuangan-aset-fiskal-pinjaman.md](../fitur/keuangan-aset-fiskal-pinjaman.md)
 
 ## Tim Lapangan
 - [13 — My Jobs & Manifest](13-my-jobs-manifest.md) — jadwal tugas guide/driver/tour leader + halaman manifest publik

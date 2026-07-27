@@ -32,7 +32,7 @@ Fondasi MVP (M1–M7) **selesai seluruhnya**, lalu sistem terus berkembang melam
 
 **Berkembang setelah MVP** (lihat CHANGELOG untuk tanggalnya):
 
-- **Keuangan meluas jauh melampaui AR/AP** — kini mencakup pembukuan penuh: Jurnal, Buku Besar, Laba/Rugi akuntansi, Neraca, Aset Tetap, Hutang, dan Koreksi Fiskal. (Spec MVP lama menyatakan "jangan bangun general ledger"; kenyataannya modul ini sudah dibangun — lihat [design-system/11](design-system/11-keuangan-pembukuan.md) & [design-system/12](design-system/12-keuangan-aset-fiskal-pinjaman.md).)
+- **Keuangan meluas jauh melampaui AR/AP** — kini mencakup pembukuan penuh: Jurnal, Buku Besar, Laba/Rugi akuntansi, Neraca, Aset Tetap, Hutang, dan Koreksi Fiskal. (Spec MVP lama menyatakan "jangan bangun general ledger"; kenyataannya modul ini sudah dibangun — lihat [fitur/keuangan-pembukuan.md](fitur/keuangan-pembukuan.md) & [fitur/keuangan-aset-fiskal-pinjaman.md](fitur/keuangan-aset-fiskal-pinjaman.md).)
 - **Invoice 2-tahap** (patokan → rincian → setujui → masuk Keuangan) dengan nomor gapless `INV-<tahun>-NNNN` ditetapkan saat disetujui.
 - **Multi-mata-uang** pada invoice proforma, dengan kurs bisa berbeda per pembayaran (DP vs pelunasan).
 - **Biaya tambahan** — Sales mengajukan saat tour berjalan, akuntan verifikasi → tercatat sebagai Bill, dan tampil sebagai baris "Additional" pada invoice.
@@ -84,7 +84,7 @@ Ringkas: `admin/sales` = penjualan penuh · `accountant` = Keuangan · `guide/dr
 | Piutang (AR) | `SUM(invoices.total) − SUM(invoice_payments.amount)` |
 | Hutang (AP) | `SUM(bills.amount) − SUM(bill_payments.amount)` |
 
-Di atas AR/AP, modul keuangan menyediakan pembukuan (Jurnal, Buku Besar, Laba/Rugi, Neraca, Aset Tetap, Hutang, Koreksi Fiskal). Detail: [design-system/10–12](design-system/10-keuangan-ar-ap.md).
+Di atas AR/AP, modul keuangan menyediakan pembukuan (Jurnal, Buku Besar, Laba/Rugi, Neraca, Aset Tetap, Hutang, Koreksi Fiskal). Detail: [fitur/keuangan-ar-ap.md](fitur/keuangan-ar-ap.md), [fitur/keuangan-pembukuan.md](fitur/keuangan-pembukuan.md), [fitur/keuangan-aset-fiskal-pinjaman.md](fitur/keuangan-aset-fiskal-pinjaman.md).
 
 ---
 
