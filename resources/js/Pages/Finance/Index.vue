@@ -1,7 +1,13 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Head, Link } from '@inertiajs/vue3'
+import { ref, computed } from 'vue'
 import { fmtRp, fmtCur } from '@/lib/fmt'
+import { INQUIRY_TYPES, TYPE_BADGE } from '@/lib/inquiryTypes'
+import { Input } from '@/Components/ui/input'
+import {
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/Components/ui/select'
 
 const props = defineProps({
     ar_total:             Number,
@@ -32,6 +38,34 @@ const BILL_STATUS = {
     unpaid:  { label: 'Belum Bayar', cls: 'bg-red-100 text-red-600' },
     partial: { label: 'Partial',     cls: 'bg-yellow-100 text-yellow-700' },
     paid:    { label: 'Lunas',       cls: 'bg-green-100 text-green-700' },
+}
+
+// --- Filter tabel invoice: pencarian + status (chip) + tipe penjualan (dropdown) ---
+const search       = ref('')
+const statusFilter = ref(null) // salah satu key INV_STATUS, atau null = semua
+const typeFilter   = ref('all') // salah satu key INQUIRY_TYPES, atau 'all'
+
+function toggleStatus(status) {
+    statusFilter.value = statusFilter.value === status ? null : status
+}
+
+const filteredInvoices = computed(() => {
+    const q = search.value.trim().toLowerCase()
+    return props.invoices.filter(inv => {
+        const matchesSearch = !q
+            || inv.number.toLowerCase().includes(q)
+            || (inv.tour?.code ?? '').toLowerCase().includes(q)
+            || (inv.tour?.customer?.name ?? '').toLowerCase().includes(q)
+        const matchesStatus = !statusFilter.value || inv.status === statusFilter.value
+        const matchesType   = typeFilter.value === 'all' || inv.tour?.type === typeFilter.value
+        return matchesSearch && matchesStatus && matchesType
+    })
+})
+
+function clearFilters() {
+    search.value = ''
+    statusFilter.value = null
+    typeFilter.value = 'all'
 }
 </script>
 
@@ -138,10 +172,61 @@ const BILL_STATUS = {
             <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
                 <div class="px-5 py-4 border-b flex items-center justify-between">
                     <h2 class="text-sm font-semibold text-gray-800">Invoice</h2>
-                    <span class="text-xs text-gray-400">{{ invoices.length }} invoice</span>
+                    <span class="text-xs text-gray-400">
+                        {{ filteredInvoices.length }} dari {{ invoices.length }} invoice
+                    </span>
                 </div>
+
+                <!-- Toolbar filter -->
+                <div v-if="invoices.length" class="px-5 py-3 border-b space-y-2.5">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="relative flex-1 min-w-[14rem]">
+                            <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="7" /><path stroke-linecap="round" d="m21 21-4.35-4.35" />
+                            </svg>
+                            <Input v-model="search" placeholder="Cari nomor, kode tour, atau customer..." class="pl-9" />
+                        </div>
+                        <Select v-model="typeFilter">
+                            <SelectTrigger class="w-48"><SelectValue placeholder="Semua Tipe" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Semua Tipe</SelectItem>
+                                <SelectItem v-for="(cfg, key) in INQUIRY_TYPES" :key="key" :value="key">
+                                    {{ cfg.label }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <button
+                            v-for="s in ['draft', 'sent', 'partial', 'paid']" :key="s"
+                            type="button"
+                            class="cursor-pointer text-xs px-2.5 py-1 rounded-full font-medium border transition-colors"
+                            :class="statusFilter === s
+                                ? [INV_STATUS[s].cls, 'ring-2 ring-offset-1 ring-gray-400 border-transparent']
+                                : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'"
+                            @click="toggleStatus(s)"
+                        >
+                            {{ INV_STATUS[s].label }}
+                        </button>
+                        <button
+                            v-if="search || statusFilter || typeFilter !== 'all'"
+                            type="button"
+                            class="cursor-pointer text-xs text-gray-400 hover:text-gray-600 hover:underline ml-1"
+                            @click="clearFilters"
+                        >
+                            Hapus filter
+                        </button>
+                    </div>
+                </div>
+
                 <div v-if="!invoices.length" class="px-5 py-8 text-center text-sm text-gray-400">
                     Belum ada invoice.
+                </div>
+                <div v-else-if="!filteredInvoices.length" class="px-5 py-12 text-center">
+                    <p class="text-sm text-gray-400">Tidak ada invoice yang cocok dengan filter.</p>
+                    <button type="button" class="cursor-pointer mt-2 text-xs font-medium text-primary hover:underline" @click="clearFilters">
+                        Hapus pencarian & filter
+                    </button>
                 </div>
                 <div v-else class="overflow-x-auto">
                     <table class="w-full text-sm">
@@ -158,11 +243,17 @@ const BILL_STATUS = {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
-                            <tr v-for="inv in invoices" :key="inv.id" class="hover:bg-gray-50">
+                            <tr v-for="inv in filteredInvoices" :key="inv.id" class="hover:bg-gray-50">
                                 <td class="px-4 py-3 font-mono text-xs">
                                     <span class="font-medium text-gray-700">{{ inv.number }}</span>
                                 </td>
-                                <td class="px-4 py-3 font-mono text-xs text-gray-600">{{ inv.tour?.code ?? '—' }}</td>
+                                <td class="px-4 py-3 font-mono text-xs text-gray-600">
+                                    {{ inv.tour?.code ?? '—' }}
+                                    <span v-if="inv.tour?.type" class="ml-1 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-sans font-medium"
+                                        :class="TYPE_BADGE[inv.tour.type] ?? 'bg-gray-100 text-gray-600'">
+                                        {{ INQUIRY_TYPES[inv.tour.type]?.label ?? inv.tour.type }}
+                                    </span>
+                                </td>
                                 <td class="px-4 py-3 text-gray-700">{{ inv.tour?.customer?.name ?? '—' }}</td>
                                 <td class="px-4 py-3 text-gray-500 text-xs">{{ fmtDate(inv.date) }}</td>
                                 <td class="px-4 py-3 text-right font-medium text-gray-800">
