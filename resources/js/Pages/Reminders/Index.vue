@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
-import { Head, Link, useForm, router } from '@inertiajs/vue3'
-import { ref } from 'vue'
+import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3'
+import { ref, computed } from 'vue'
 import { confirm } from '@/lib/confirm'
 import { Button } from '@/Components/ui/button'
 import { Input } from '@/Components/ui/input'
@@ -15,10 +15,26 @@ import {
 } from '@/Components/ui/dialog'
 
 const props = defineProps({
-    reminders: Array,
-    tours:     Array,
-    stats:     Object,
+    reminders:     Array,
+    tours:         Array,
+    stats:         Object,
+    salesAccounts: { type: Array, default: () => [] },
+    filterUserId:  { type: [Number, String, null], default: null },
 })
+
+const page = usePage()
+const isAdmin = computed(() => page.props.auth.user?.role === 'admin')
+
+// --- Filter per akun sales (admin only) ---
+const filterValue = ref(props.filterUserId ? String(props.filterUserId) : 'all')
+function applyFilter(value) {
+    filterValue.value = value
+    router.get(route('reminders.index'), value === 'all' ? {} : { user_id: value }, {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    })
+}
 
 // --- Add form ---
 const showAdd  = ref(false)
@@ -110,9 +126,22 @@ const PIPELINE_LABEL = {
     <Head title="Reminder" />
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-3">
                 <h2 class="text-xl font-semibold">Reminder Inquiry</h2>
-                <Button size="sm" @click="showAdd = true">+ Tambah Reminder</Button>
+                <div class="flex items-center gap-2">
+                    <Select v-if="isAdmin" :model-value="filterValue" @update:model-value="applyFilter">
+                        <SelectTrigger class="w-48">
+                            <SelectValue placeholder="Semua akun" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Semua akun</SelectItem>
+                            <SelectItem v-for="s in salesAccounts" :key="s.id" :value="String(s.id)">
+                                {{ s.name }}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Button size="sm" @click="showAdd = true">+ Tambah Reminder</Button>
+                </div>
             </div>
         </template>
 
@@ -189,6 +218,9 @@ const PIPELINE_LABEL = {
                                     </span>
                                     <span :class="['rounded-full px-2 py-0.5 text-xs font-medium', badgeClass(r)]">
                                         {{ badgeLabel(r) }}
+                                    </span>
+                                    <span v-if="isAdmin && r.user" class="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                                        👤 {{ r.user.name }}
                                     </span>
                                 </div>
 
