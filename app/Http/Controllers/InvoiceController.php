@@ -252,7 +252,7 @@ class InvoiceController extends Controller
         $profit  = $revenue - $totalCost;
         $margin  = $revenue > 0 ? round($profit / $revenue * 100, 1) : 0;
 
-        $number = $invoice->finance_number ?? $invoice->number;
+        $number = $invoice->number;
 
         return Pdf::stream('finance.profit_breakdown', [
             'invoice'   => $invoice,
