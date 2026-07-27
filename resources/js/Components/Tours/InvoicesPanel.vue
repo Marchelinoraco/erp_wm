@@ -59,13 +59,20 @@ watch(
                 currency:          inv.currency || 'IDR',
                 unit_price:        Number(inv.unit_price) || 0,
                 guest_name:        inv.guest_name || '',
-                // Baris tanpa amount = "Baris Deskripsi" (Hotel/Transport, dll, tampilan saja).
+                // Dibedakan lewat KEHADIRAN key amount, bukan truthy-nya — baris
+                // "Biaya Tambahan" yang baru diketik labelnya tapi nominalnya
+                // masih 0 tetap harus dikenali sebagai baris biaya (bukan
+                // turun jadi baris deskripsi biasa dan kehilangan input
+                // nominalnya) setelah tersimpan lalu reload. saveProforma()
+                // selalu mengirim key amount untuk additional_lines (termasuk
+                // saat 0) dan tidak pernah mengirimnya untuk description_lines
+                // biasa, jadi kehadiran key ini aman dipakai sebagai penanda.
                 description_lines: Array.isArray(inv.description_lines)
-                    ? inv.description_lines.filter(l => !l.amount).map(l => ({ label: l.label ?? '', date: l.date ?? '', detail: l.detail ?? '' }))
+                    ? inv.description_lines.filter(l => l.amount === undefined || l.amount === null).map(l => ({ label: l.label ?? '', date: l.date ?? '', detail: l.detail ?? '' }))
                     : [],
                 // Baris dengan amount = "Biaya Tambahan" — ikut menambah total di luar harga/pax.
                 additional_lines: Array.isArray(inv.description_lines)
-                    ? inv.description_lines.filter(l => l.amount).map(l => ({ label: l.label ?? '', detail: l.detail ?? '', amount: Number(l.amount) || 0 }))
+                    ? inv.description_lines.filter(l => l.amount !== undefined && l.amount !== null).map(l => ({ label: l.label ?? '', detail: l.detail ?? '', amount: Number(l.amount) || 0 }))
                     : [],
                 // Kosong di server = tampilkan semua rekening aktif → checkbox mulai tercentang semua
                 bank_account_ids: Array.isArray(inv.bank_account_ids) && inv.bank_account_ids.length
