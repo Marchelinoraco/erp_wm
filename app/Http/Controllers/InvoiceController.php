@@ -82,6 +82,7 @@ class InvoiceController extends Controller
             'description_lines.*.label'  => 'nullable|string|max:255',
             'description_lines.*.date'   => 'nullable|string|max:255',
             'description_lines.*.detail' => 'nullable|string|max:1000',
+            'description_lines.*.amount' => 'nullable|numeric|min:0',
             'bank_account_ids'           => 'nullable|array',
             'bank_account_ids.*'         => 'integer|exists:bank_accounts,id',
             'notes'                      => 'nullable|string',

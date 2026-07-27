@@ -118,6 +118,12 @@ class Invoice extends Model
             new Multiplier('pax', 'Peserta', $pax),
         ]);
 
+        // Biaya tambahan (Additional) yang sales tempel sendiri di tahap
+        // proforma — baris description_lines yang punya `amount` — ikut masuk
+        // total, di luar harga/pax. Baris deskripsi biasa (Hotel/Transport
+        // tanpa amount) tidak ikut menambah, hanya tampilan.
+        $total += collect($this->description_lines ?? [])->sum(fn ($l) => (float) ($l['amount'] ?? 0));
+
         // Simpan pax yang dipakai menghitung total — PDF menampilkan pax invoice,
         // jadi keduanya harus selalu berasal dari angka yang sama.
         $updates = ['total' => $total, 'pax' => $pax];
