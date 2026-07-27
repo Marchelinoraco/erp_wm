@@ -77,4 +77,32 @@ class ReminderDigestTest extends TestCase
         $this->artisan('reminders:digest')->assertSuccessful();
         Mail::assertQueued(ReminderDigestMail::class, 1);
     }
+
+    public function test_digest_mencc_semua_admin_di_email_sales(): void
+    {
+        Mail::fake();
+
+        $admin1 = $this->makeUser('Admin Satu', 'admin');
+        $admin2 = $this->makeUser('Admin Dua', 'admin');
+        $salesA = $this->makeUser('Sales A');
+        Reminder::create(['user_id' => $salesA->id, 'title' => 'Follow up', 'remind_at' => today(), 'is_done' => false]);
+
+        $this->artisan('reminders:digest')->assertSuccessful();
+
+        Mail::assertQueued(ReminderDigestMail::class, fn (ReminderDigestMail $mail) =>
+            $mail->hasTo($salesA->email) && $mail->hasCc($admin1->email) && $mail->hasCc($admin2->email));
+    }
+
+    public function test_digest_tidak_mencc_admin_di_email_dirinya_sendiri(): void
+    {
+        Mail::fake();
+
+        $admin = $this->makeUser('Admin Satu', 'admin');
+        Reminder::create(['user_id' => $admin->id, 'title' => 'Follow up admin', 'remind_at' => today(), 'is_done' => false]);
+
+        $this->artisan('reminders:digest')->assertSuccessful();
+
+        Mail::assertQueued(ReminderDigestMail::class, fn (ReminderDigestMail $mail) =>
+            $mail->hasTo($admin->email) && empty($mail->cc));
+    }
 }

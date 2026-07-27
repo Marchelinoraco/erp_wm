@@ -25,6 +25,10 @@ class SendReminderDigest extends Command
             ->get()
             ->groupBy('user_id');
 
+        // Admin di-cc di tiap email digest sales — supaya bisa memantau follow-up
+        // semua akun tanpa perlu login sebagai sales itu (lihat juga Reminders/Index.vue).
+        $adminEmails = User::where('role', 'admin')->pluck('email');
+
         $sent = 0;
 
         foreach ($due as $userId => $reminders) {
@@ -34,7 +38,10 @@ class SendReminderDigest extends Command
                 continue;
             }
 
-            Mail::to($user->email)->queue(new ReminderDigestMail($user, $reminders));
+            // Kecualikan admin dari cc-nya sendiri supaya tidak dobel terima.
+            $cc = $adminEmails->reject(fn ($email) => $email === $user->email)->values()->all();
+
+            Mail::to($user->email)->cc($cc)->queue(new ReminderDigestMail($user, $reminders));
 
             Reminder::whereIn('id', $reminders->pluck('id'))->update(['notified_at' => now()]);
 
