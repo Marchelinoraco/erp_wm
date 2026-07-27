@@ -4,18 +4,28 @@ namespace App\Http\Controllers;
 
 use App\Models\Reminder;
 use App\Models\Tour;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class ReminderController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $user = auth()->user();
 
-        $reminders = Reminder::where('user_id', $user->id)
-            ->with('tour:id,code,title,status')
-            ->orderBy('is_done')
+        $query = Reminder::with('tour:id,code,title,status');
+
+        if ($user->isAdmin()) {
+            $query->with('user:id,name');
+            if ($request->filled('user_id')) {
+                $query->where('user_id', $request->integer('user_id'));
+            }
+        } else {
+            $query->where('user_id', $user->id);
+        }
+
+        $reminders = $query->orderBy('is_done')
             ->orderBy('remind_at')
             ->get()
             ->append(['is_overdue', 'is_today']);
@@ -33,9 +43,13 @@ class ReminderController extends Controller
         ];
 
         return Inertia::render('Reminders/Index', [
-            'reminders' => $reminders,
-            'tours'     => $tours,
-            'stats'     => $stats,
+            'reminders'     => $reminders,
+            'tours'         => $tours,
+            'stats'         => $stats,
+            'salesAccounts' => $user->isAdmin()
+                ? User::whereIn('role', ['admin', 'sales'])->orderBy('name')->get(['id', 'name'])
+                : [],
+            'filterUserId'  => $user->isAdmin() ? $request->integer('user_id') ?: null : null,
         ]);
     }
 
@@ -55,7 +69,7 @@ class ReminderController extends Controller
 
     public function update(Request $request, Reminder $reminder)
     {
-        abort_unless($reminder->user_id === auth()->id(), 403);
+        abort_unless(auth()->user()->isAdmin() || $reminder->user_id === auth()->id(), 403);
 
         $data = $request->validate([
             'tour_id'   => 'nullable|exists:tours,id',
@@ -72,14 +86,14 @@ class ReminderController extends Controller
 
     public function done(Reminder $reminder)
     {
-        abort_unless($reminder->user_id === auth()->id(), 403);
+        abort_unless(auth()->user()->isAdmin() || $reminder->user_id === auth()->id(), 403);
         $reminder->update(['is_done' => true]);
         return redirect()->back()->with('success', 'Reminder ditandai selesai.');
     }
 
     public function destroy(Reminder $reminder)
     {
-        abort_unless($reminder->user_id === auth()->id(), 403);
+        abort_unless(auth()->user()->isAdmin() || $reminder->user_id === auth()->id(), 403);
         $reminder->delete();
         return redirect()->back()->with('success', 'Reminder dihapus.');
     }
