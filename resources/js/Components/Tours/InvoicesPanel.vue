@@ -36,7 +36,7 @@ const dateLabel = computed(() => {
 })
 
 // ── Form state (keyed by invoice id) ────────────────────────────────────────────
-const proformaForms = reactive({})   // { currency, unit_price, description_lines[], notes }
+const proformaForms = reactive({})   // { currency, unit_price, description_lines[], additional_lines[], notes }
 const exchangeForms = reactive({})   // kurs input (non-IDR)
 const dueForms      = reactive({})   // jatuh tempo
 const itemForms     = reactive({})   // rincian profit (keyed by item id)
@@ -59,8 +59,20 @@ watch(
                 currency:          inv.currency || 'IDR',
                 unit_price:        Number(inv.unit_price) || 0,
                 guest_name:        inv.guest_name || '',
+                // Dibedakan lewat KEHADIRAN key amount, bukan truthy-nya — baris
+                // "Biaya Tambahan" yang baru diketik labelnya tapi nominalnya
+                // masih 0 tetap harus dikenali sebagai baris biaya (bukan
+                // turun jadi baris deskripsi biasa dan kehilangan input
+                // nominalnya) setelah tersimpan lalu reload. saveProforma()
+                // selalu mengirim key amount untuk additional_lines (termasuk
+                // saat 0) dan tidak pernah mengirimnya untuk description_lines
+                // biasa, jadi kehadiran key ini aman dipakai sebagai penanda.
                 description_lines: Array.isArray(inv.description_lines)
-                    ? inv.description_lines.map(l => ({ label: l.label ?? '', date: l.date ?? '', detail: l.detail ?? '' }))
+                    ? inv.description_lines.filter(l => l.amount === undefined || l.amount === null).map(l => ({ label: l.label ?? '', date: l.date ?? '', detail: l.detail ?? '' }))
+                    : [],
+                // Baris dengan amount = "Biaya Tambahan" — ikut menambah total di luar harga/pax.
+                additional_lines: Array.isArray(inv.description_lines)
+                    ? inv.description_lines.filter(l => l.amount !== undefined && l.amount !== null).map(l => ({ label: l.label ?? '', detail: l.detail ?? '', amount: Number(l.amount) || 0 }))
                     : [],
                 // Kosong di server = tampilkan semua rekening aktif → checkbox mulai tercentang semua
                 bank_account_ids: Array.isArray(inv.bank_account_ids) && inv.bank_account_ids.length
@@ -112,11 +124,13 @@ const STAGE_BADGE = {
     approved: { label: 'Sudah di Keuangan',  cls: 'bg-green-100 text-green-700' },
 }
 
-// Total proforma (mata uang invoice) = harga/pax × pax
+// Total proforma (mata uang invoice) = harga/pax × pax + biaya tambahan
 function proformaTotal(invId) {
     const f = proformaForms[invId]
     if (!f) return 0
-    return (Number(f.unit_price) || 0) * Math.max(tourPax.value, 1)
+    const base = (Number(f.unit_price) || 0) * Math.max(tourPax.value, 1)
+    const additional = (f.additional_lines ?? []).reduce((s, l) => s + (Number(l.amount) || 0), 0)
+    return base + additional
 }
 // Tipe "tour" (inbound/outbound): profit = tagihan customer (harga/pax × pax,
 // IDR) − total cost item. Tipe lain: profit per item (sell − cost).
@@ -272,7 +286,18 @@ function createInvoice() {
 }
 function saveProforma(invId) {
     errorMsg.value = ''
-    router.patch(route('invoices.proforma', invId), proformaForms[invId], reload)
+    const f = proformaForms[invId]
+    // Backend hanya mengenal satu field description_lines — baris "Biaya
+    // Tambahan" ditandai lewat amount, digabung di sini sebelum dikirim.
+    const payload = {
+        ...f,
+        description_lines: [
+            ...f.description_lines,
+            ...f.additional_lines.map(l => ({ label: l.label, date: '', detail: l.detail, amount: Number(l.amount) || 0 })),
+        ],
+    }
+    delete payload.additional_lines
+    router.patch(route('invoices.proforma', invId), payload, reload)
 }
 function selectedBankNames(inv) {
     const ids = Array.isArray(inv.bank_account_ids) && inv.bank_account_ids.length
@@ -292,6 +317,13 @@ function addLine(invId) {
 }
 function removeLine(invId, idx) {
     proformaForms[invId].description_lines.splice(idx, 1)
+    saveProforma(invId)
+}
+function addAdditionalLine(invId) {
+    proformaForms[invId].additional_lines.push({ label: '', detail: '', amount: '' })
+}
+function removeAdditionalLine(invId, idx) {
+    proformaForms[invId].additional_lines.splice(idx, 1)
     saveProforma(invId)
 }
 function lockBaseline(inv) {
@@ -781,6 +813,30 @@ function addProduct(product, extra = {}) {
                         </div>
                     </div>
 
+                    <!-- Biaya tambahan (di luar harga/pax) -->
+                    <div class="rounded-md border">
+                        <div class="flex items-center justify-between px-3 py-2 border-b bg-blue-50/30">
+                            <span class="text-xs font-semibold uppercase text-muted-foreground">Biaya Tambahan (di luar harga/pax)</span>
+                            <Button size="sm" variant="outline" @click="addAdditionalLine(inv.id)">+ Biaya</Button>
+                        </div>
+                        <div v-if="proformaForms[inv.id].additional_lines.length === 0" class="px-3 py-4 text-center text-xs text-muted-foreground">
+                            Belum ada biaya tambahan. Klik "+ Biaya" untuk menambah (mis. biaya dokumen, izin khusus).
+                        </div>
+                        <div v-else class="divide-y">
+                            <div v-for="(ln, idx) in proformaForms[inv.id].additional_lines" :key="idx"
+                                class="flex flex-wrap items-start gap-2 px-3 py-2">
+                                <input type="text" v-model="ln.label" @blur="saveProforma(inv.id)" placeholder="Label (mis. Dokumen)"
+                                    class="w-32 border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                                <input type="text" v-model="ln.detail" @blur="saveProforma(inv.id)" placeholder="Keterangan"
+                                    class="flex-1 min-w-[10rem] border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                                <input type="number" v-model="ln.amount" @blur="saveProforma(inv.id)" min="0" placeholder="Nominal"
+                                    class="w-36 border rounded px-2 py-1 text-right text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary" />
+                                <button type="button" @click="removeAdditionalLine(inv.id, idx)"
+                                    class="text-muted-foreground hover:text-destructive transition-colors" title="Hapus baris">✕</button>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Harga per pax -->
                     <div class="flex flex-wrap items-end gap-3 rounded-md bg-muted/20 px-4 py-3">
                         <div class="space-y-1">
@@ -790,6 +846,7 @@ function addProduct(product, extra = {}) {
                         </div>
                         <div class="text-sm pb-1">
                             × <span class="font-medium">{{ tourPax || 1 }} pax</span>
+                            <span v-if="proformaForms[inv.id].additional_lines.some(l => Number(l.amount) > 0)"> + biaya tambahan</span>
                             =
                             <span class="font-mono font-semibold">{{ fmtCur(proformaTotal(inv.id), proformaForms[inv.id].currency) }}</span>
                         </div>

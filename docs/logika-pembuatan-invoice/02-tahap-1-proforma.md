@@ -27,6 +27,7 @@ Tahap ini tidak mensyaratkan `baseline_total` bernilai apa pun. Proforma tetap b
 | `description_lines.*.label` | `nullable\|string\|max:255` | |
 | `description_lines.*.date` | `nullable\|string\|max:255` | teks bebas, **bukan** tanggal tervalidasi |
 | `description_lines.*.detail` | `nullable\|string\|max:1000` | |
+| `description_lines.*.amount` | `nullable\|numeric\|min:0` | kehadiran field ini yang membedakan baris "Biaya Tambahan" dari baris deskripsi biasa — lihat [2.5](#25-baris-deskripsi) |
 | `bank_account_ids` | `nullable\|array` | |
 | `bank_account_ids.*` | `integer\|exists:bank_accounts,id` | |
 | `notes` | `nullable\|string` | bila tidak dikirim, nilai lama dipertahankan |
@@ -36,10 +37,10 @@ Perhatikan `unit_price` boleh 0 — validasi mengizinkannya. Yang menolak total 
 ## 2.3 Rumus total
 
 ```
-total = unit_price × pax
+total = (unit_price × pax) + Σ description_lines[].amount
 ```
 
-Dihitung di `Invoice::syncProformaTotal()`, dipanggil di akhir `updateProforma()`.
+Dihitung di `Invoice::syncProformaTotal()`, dipanggil di akhir `updateProforma()`. Suku kedua adalah jumlah seluruh baris "Biaya Tambahan" (lihat [2.5](#25-baris-deskripsi)) — bila tidak ada satu pun baris yang punya `amount`, rumus kembali identik dengan versi lama (`unit_price × pax`).
 
 ### Kondisi sumber `pax`
 
@@ -74,14 +75,21 @@ Alasan K-16 tertulis di komentar `syncProformaTotal()`: agar laporan IDR tidak t
 
 ## 2.5 Baris deskripsi
 
-Baris deskripsi adalah teks bebas yang muncul di PDF customer. Sifatnya:
+`description_lines` menyimpan DUA jenis baris berbeda dalam satu array JSON yang sama, dibedakan lewat **kehadiran field `amount`** (bukan nilainya):
 
-- Disimpan sebagai JSON (`description_lines` di-cast `array`)
+| Jenis | Field `amount` | Efek ke total | UI |
+|---|---|---|---|
+| Baris Deskripsi (Hotel, Transport, dll) | tidak ada | murni tampilan, tidak memengaruhi nominal | bagian "Baris Deskripsi" (`addLine`/`removeLine`) |
+| Biaya Tambahan | ada (termasuk `0`) | ikut dijumlahkan ke `total` — lihat [2.3](#23-rumus-total) | bagian "Biaya Tambahan" (`addAdditionalLine`/`removeAdditionalLine`) |
+
+Sifat bersama kedua jenis:
+
+- Disimpan sebagai JSON (`description_lines` di-cast `array`), digabung jadi satu array oleh `saveProforma()` di sisi Vue sebelum dikirim
 - Diindeks ulang dengan `array_values()` supaya kunci array selalu rapat setelah penghapusan
-- Field `date` bertipe **string**, bukan tanggal — tidak divalidasi sebagai tanggal dan tidak diurai
-- Menambah baris di UI (`addLine`) tidak langsung menyimpan; menghapus baris (`removeLine`) langsung memanggil `saveProforma`
+- Field `date` bertipe **string**, bukan tanggal — tidak divalidasi sebagai tanggal dan tidak diurai (Biaya Tambahan tidak memakai field ini sama sekali)
+- Menambah baris di UI (`addLine`/`addAdditionalLine`) tidak langsung menyimpan; menghapus baris (`removeLine`/`removeAdditionalLine`) langsung memanggil `saveProforma`
 
-Baris ini murni tampilan. Tidak ada satu pun yang memengaruhi nominal.
+Biaya Tambahan bebas ditambah/diedit oleh sales sendiri selama invoice belum disetujui — tidak ada review akuntan di tahap ini. Ini berbeda dari mekanisme "Additional" pasca-persetujuan di `CostRequestController::appendAdditionalCharge()`, yang menulis langsung ke `total`/`total_idr` (bukan lewat `syncProformaTotal()`) dan hanya berjalan untuk invoice yang sudah disetujui lewat alur review akuntan.
 
 ## 2.6 Rekening bank
 
