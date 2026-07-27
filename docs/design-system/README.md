@@ -9,7 +9,7 @@ Mulai dari [pola-ui-desain.md](../referensi/pola-ui-desain.md) — pola UI/warna
 - [02 — Channel Manager & Produk Agent](02-channel-manager-produk-agent.md) — review harga dari travel agent eksternal + halaman "Produk Saya"
 
 ## Operasional
-- [03 — Booking](03-booking.md) — eksekusi pemesanan ke supplier setelah tour confirmed
+- ~~03 — Booking~~ — bermigrasi ke [fitur/booking.md](../fitur/booking.md)
 - [04 — Reminder](04-reminder.md) — pengingat follow-up per akun sales
 
 ## Data Master
@@ -27,7 +27,7 @@ Mulai dari [pola-ui-desain.md](../referensi/pola-ui-desain.md) — pola UI/warna
 - ~~12 — Aset Tetap, Fiskal & Pinjaman~~ — bermigrasi ke [fitur/keuangan-aset-fiskal-pinjaman.md](../fitur/keuangan-aset-fiskal-pinjaman.md)
 
 ## Tim Lapangan
-- [13 — My Jobs & Manifest](13-my-jobs-manifest.md) — jadwal tugas guide/driver/tour leader + halaman manifest publik
+- ~~13 — My Jobs & Manifest~~ — bermigrasi ke [fitur/penugasan-lapangan.md](../fitur/penugasan-lapangan.md)
 
 ---
 

@@ -44,8 +44,8 @@ Katalog status seluruh fitur ERP Welcome Manado, satu baris per fitur, menaut ke
 
 | Fitur | Peran | Status | Dokumen |
 |---|---|---|---|
-| Booking | admin, sales, operation | ✅ Berjalan | [booking.md](booking.md) *(kerangka)* |
-| Penugasan Lapangan (Assignment / My Jobs / Manifest) | admin, sales, guide, driver, tour_leader | ✅ Berjalan | [penugasan-lapangan.md](penugasan-lapangan.md) *(kerangka)* |
+| Booking | admin, sales, operation | ✅ Berjalan | [booking.md](booking.md) |
+| Penugasan Lapangan (Assignment / My Jobs / Manifest) | admin, sales, guide, driver, tour_leader | ✅ Berjalan | [penugasan-lapangan.md](penugasan-lapangan.md) |
 
 ## Keuangan
 

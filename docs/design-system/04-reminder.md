@@ -49,7 +49,7 @@ Validasi `store`/`update`: `tour_id` nullable (harus ada di `tours` kalau diisi)
 ## Halaman & Komponen (UI)
 
 - **`Reminders/Index.vue`** — layout `max-w-3xl` (lebih sempit dari halaman list biasa karena isinya daftar kartu vertikal, bukan tabel lebar).
-- **Banner "booking pending"** di atas halaman — reuse pola yang sama dengan `Dashboard.vue`: tampil kalau `$page.props.pendingBookings > 0`, link ke `bookings.index` (lihat [03-booking.md](03-booking.md)). Menunjukkan dua modul ini saling terhubung di level shared-prop meski fitur intinya independen.
+- **Banner "booking pending"** di atas halaman — reuse pola yang sama dengan `Dashboard.vue`: tampil kalau `$page.props.pendingBookings > 0`, link ke `bookings.index` (lihat [../fitur/booking.md](../fitur/booking.md)). Menunjukkan dua modul ini saling terhubung di level shared-prop meski fitur intinya independen.
 - **Kartu statistik** (4 kolom): Terlambat (merah/`destructive`), Hari ini (oranye), Akan datang (biru), Selesai (abu netral).
 - **Daftar reminder** — tiap item kartu dengan **border-kiri berwarna sesuai status** (`statusClass`): selesai → border abu + `opacity-60` + judul dicoret; terlambat → border merah + latar merah tipis; hari ini → border oranye + latar oranye tipis; akan datang (default) → border biru + latar biru tipis. Badge label sejalan: "Selesai"/"Terlambat"/"Hari ini"/"Akan datang".
 - **Checkbox lingkaran** di kiri tiap kartu (hanya tampil kalau belum selesai) — klik langsung memanggil `reminders.done` tanpa dialog konfirmasi. Item selesai menampilkan ikon centang statis sebagai gantinya.
