@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Invoice;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Backfill kode tipe penjualan pada invoice.number yang masih format lama
@@ -55,13 +56,22 @@ class BackfillInvoiceNumberTypeCode extends Command
             $typeCode = $invoice->tour?->resolveTypeCode() ?? '11';
 
             $prefix = "INV-{$year}-{$typeCode}-";
-            $latest = Invoice::withTrashed()
-                ->where('number', 'like', $prefix . '%')
-                ->orderByDesc('number')
-                ->value('number');
-            $next = $latest ? ((int) substr($latest, strlen($prefix))) + 1 : 1;
 
-            $invoice->update(['number' => $prefix . str_pad($next, 4, '0', STR_PAD_LEFT)]);
+            // Dibungkus transaksi + lockForUpdate seperti Invoice::nextNumber(),
+            // karena command ini bisa berjalan bersamaan dengan sales membuat
+            // invoice baru (tipe & tahun sama) lewat InvoiceController::store() —
+            // tanpa lock, dua proses bisa berebut "nomor terakhir" yang sama dan
+            // menabrak UNIQUE constraint kolom number.
+            DB::transaction(function () use ($invoice, $prefix) {
+                $latest = Invoice::withTrashed()
+                    ->where('number', 'like', $prefix . '%')
+                    ->lockForUpdate()
+                    ->orderByDesc('number')
+                    ->first()?->number;
+                $next = $latest ? ((int) substr($latest, strlen($prefix))) + 1 : 1;
+
+                $invoice->update(['number' => $prefix . str_pad($next, 4, '0', STR_PAD_LEFT)]);
+            });
             $count++;
         }
 
