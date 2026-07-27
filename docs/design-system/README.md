@@ -13,10 +13,10 @@ Mulai dari [pola-ui-desain.md](../referensi/pola-ui-desain.md) — pola UI/warna
 - [04 — Reminder](04-reminder.md) — pengingat follow-up per akun sales
 
 ## Data Master
-- [05 — Customers](05-customers.md) — termasuk tipe customer *Buyer* (travel agent pembeli tour)
-- [06 — Produk & Harga](06-produk.md) — katalog produk internal + periode harga
-- [07 — Suppliers](07-suppliers.md) — termasuk keterkaitan ke akun `travel_agent`
-- [08 — Rekening](08-rekening.md) — Bank Account (tampil di PDF invoice) vs Cash Account (akun kas pencatatan)
+- ~~05 — Customers~~ — bermigrasi ke [fitur/customer.md](../fitur/customer.md)
+- ~~06 — Produk & Harga~~ — bermigrasi ke [fitur/produk.md](../fitur/produk.md)
+- ~~07 — Suppliers~~ — bermigrasi ke [fitur/supplier.md](../fitur/supplier.md)
+- ~~08 — Rekening~~ — bermigrasi ke [fitur/rekening-bank.md](../fitur/rekening-bank.md)
 
 ## Administrasi
 - [09 — Kelola Akun](09-kelola-akun.md) — manajemen user & role (admin only)

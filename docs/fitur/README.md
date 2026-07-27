@@ -29,10 +29,10 @@ Katalog status seluruh fitur ERP Welcome Manado, satu baris per fitur, menaut ke
 
 | Fitur | Peran | Status | Dokumen |
 |---|---|---|---|
-| Customer | admin, sales | ✅ Berjalan | [customer.md](customer.md) *(kerangka)* |
-| Produk | admin, sales | ✅ Berjalan | [produk.md](produk.md) *(kerangka)* |
-| Supplier | admin, sales | ✅ Berjalan | [supplier.md](supplier.md) *(kerangka)* |
-| Rekening Bank | admin, sales, accountant | ✅ Berjalan | [rekening-bank.md](rekening-bank.md) *(kerangka)* |
+| Customer | admin, sales | ✅ Berjalan | [customer.md](customer.md) |
+| Produk | admin, sales | ✅ Berjalan | [produk.md](produk.md) |
+| Supplier | admin, sales | ✅ Berjalan | [supplier.md](supplier.md) |
+| Rekening Bank | admin, sales, accountant | ✅ Berjalan | [rekening-bank.md](rekening-bank.md) |
 
 ## Channel & Agent
 
