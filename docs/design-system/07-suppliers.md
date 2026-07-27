@@ -4,7 +4,7 @@
 
 ## Ringkasan
 
-Data master pemasok — sumber `supplier_id` untuk `products` (modul Products), titik kumpul untuk **Booking** dan **Bill** per pemasok di modul Penjualan/Keuangan (lihat [01-penjualan-tour.md](01-penjualan-tour.md)), dan sekaligus tempat mengaktifkan akun **Travel Agent eksternal** — pemasok yang diberi login sendiri untuk mengelola produk & harganya lewat portal "Produk Saya", direview oleh admin/sales lewat Channel Manager. Dikelola lewat `SupplierController`. Dipakai oleh **admin & sales**.
+Data master pemasok — sumber `supplier_id` untuk `products` (modul Products), titik kumpul untuk **Booking** dan **Bill** per pemasok di modul Penjualan/Keuangan (lihat [../fitur/penjualan-tour.md](../fitur/penjualan-tour.md) dan [../fitur/booking.md](../fitur/booking.md)), dan sekaligus tempat mengaktifkan akun **Travel Agent eksternal** — pemasok yang diberi login sendiri untuk mengelola produk & harganya lewat portal "Produk Saya", direview oleh admin/sales lewat Channel Manager. Dikelola lewat `SupplierController`. Dipakai oleh **admin & sales**.
 
 ## Alur Bisnis
 
@@ -37,7 +37,7 @@ Akun travel agent ini yang login ke menu **"Produk Saya"** (`role:travel_agent` 
 
 ### 5. Titik temu dengan modul lain
 
-Supplier tidak berdiri sendiri — ia jadi kunci pengelompokan di beberapa alur modul Penjualan/Keuangan (dijelaskan detail di [01-penjualan-tour.md](01-penjualan-tour.md), bukan diulang di sini):
+Supplier tidak berdiri sendiri — ia jadi kunci pengelompokan di beberapa alur modul Penjualan/Keuangan (dijelaskan detail di [../fitur/penjualan-tour.md](../fitur/penjualan-tour.md), bukan diulang di sini):
 - `Product::supplier()` — tiap produk terikat satu supplier (nullable, `nullOnDelete`).
 - `TourBooking::supplier()` — tugas Booking otomatis dikelompokkan per `supplier_id` dari item tour saat status jadi `confirmed`.
 - `Bill::supplier()` — Bill (AP) tercatat per supplier, baik lewat `Bill::createMissingFromInvoice()` (otomatis dari Rincian Profit invoice) maupun Cost Request yang di-approve akuntan.

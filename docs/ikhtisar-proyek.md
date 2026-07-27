@@ -58,7 +58,7 @@ Fondasi MVP (M1–M7) **selesai seluruhnya**, lalu sistem terus berkembang melam
 
 ## 4. Jenis penjualan
 
-Tujuh jenis, masing-masing dengan perilaku costing/tagihan sendiri: **Tour, Rental (Transport), Jasa Guide, Visa/Document, Ticketing, MICE, Hotel.** Kode tour dan nomor invoice mengikuti jenis penjualannya. Detail per jenis: [design-system/01](design-system/01-penjualan-tour.md) dan [logika-pembuatan-invoice/08](logika-pembuatan-invoice/08-perbedaan-per-tipe.md).
+Tujuh jenis, masing-masing dengan perilaku costing/tagihan sendiri: **Tour, Rental (Transport), Jasa Guide, Visa/Document, Ticketing, MICE, Hotel.** Kode tour dan nomor invoice mengikuti jenis penjualannya. Detail per jenis: [fitur/penjualan-tour.md](fitur/penjualan-tour.md) dan [logika-pembuatan-invoice/08](logika-pembuatan-invoice/08-perbedaan-per-tipe.md).
 
 ---
 

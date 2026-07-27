@@ -6,7 +6,7 @@
 
 Data master untuk seluruh item yang bisa dijual di dalam tour/inquiry — hotel, transport, guide, restaurant, attraction, venue, equipment, produk agent, dan lainnya. Satu tabel `products` melayani semua tipe (mirip pola `tours` di modul Penjualan — satu model, kolom `type` yang membedakan). Dikelola oleh **admin & sales** lewat menu Data Master → Produk.
 
-Produk dipakai lewat **snapshot**, bukan referensi live: saat sales menambahkan item ke tour, `TourItem::fromProduct()` menyalin `unit_cost`/`unit_sell`/`currency` dari produk ke baris `tour_items` (lihat [01-penjualan-tour.md](01-penjualan-tour.md) §2) — jadi perubahan harga produk di kemudian hari tidak mengubah tour yang sudah dibuat.
+Produk dipakai lewat **snapshot**, bukan referensi live: saat sales menambahkan item ke tour, `TourItem::fromProduct()` menyalin `unit_cost`/`unit_sell`/`currency` dari produk ke baris `tour_items` (lihat [../fitur/penjualan-tour.md](../fitur/penjualan-tour.md) §2) — jadi perubahan harga produk di kemudian hari tidak mengubah tour yang sudah dibuat.
 
 ## Alur Bisnis
 

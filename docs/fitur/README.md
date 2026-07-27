@@ -20,10 +20,10 @@ Katalog status seluruh fitur ERP Welcome Manado, satu baris per fitur, menaut ke
 
 | Fitur | Peran | Status | Dokumen |
 |---|---|---|---|
-| Penjualan Tour (Tour/Rental/Guide/Visa-Paspor/Ticketing/MICE/Hotel) | admin, sales | ✅ Berjalan | [penjualan-tour.md](penjualan-tour.md) *(kerangka)* |
-| Quotation | admin, sales | ✅ Berjalan | [quotation.md](quotation.md) *(kerangka)* |
-| Invoice | admin, sales, accountant | ✅ Berjalan (refactor per-jenis 🟡 di `dev`) | [invoice.md](invoice.md) *(kerangka)* |
-| Template MICE | admin, sales | ✅ Berjalan | [mice-template.md](mice-template.md) *(kerangka)* |
+| Penjualan Tour (Tour/Rental/Guide/Visa-Paspor/Ticketing/MICE/Hotel) | admin, sales | ✅ Berjalan | [penjualan-tour.md](penjualan-tour.md) |
+| Quotation | admin, sales | ✅ Berjalan | [quotation.md](quotation.md) |
+| Invoice | admin, sales, accountant | ✅ Berjalan (refactor per-jenis 🟡 di `dev`) | [invoice.md](invoice.md) |
+| Template MICE | admin, sales | ✅ Berjalan | [mice-template.md](mice-template.md) |
 
 ## Master Data
 

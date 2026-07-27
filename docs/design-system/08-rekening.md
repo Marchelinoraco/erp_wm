@@ -33,7 +33,7 @@ Ini **bukan** observer/event Eloquent — murni dipanggil manual di dalam method
 `CashAccount` juga punya jalur pembuatan sendiri di modul Keuangan (`FinanceLedgerController::storeCashAccount`, route `finance.cash-accounts.store`) — dipakai untuk akun kas murni (`type = 'cash'`, mis. "Kas Tunai Kantor") yang tidak punya rekening bank sama sekali. Jadi tidak semua `CashAccount` berasal dari `BankAccount`; keduanya independen di level data, hanya disatukan otomatis untuk kasus rekening bank.
 
 ### 3. Dipakai di mana
-- **`BankAccount`** (`scopeActive`, urut `sort_order`) — ditampilkan di PDF invoice (jumlah rekening yang ditampilkan diatur per-invoice lewat `bank_account_ids` JSON, lihat §3 di [01-penjualan-tour.md](01-penjualan-tour.md)) dan sebagai daftar yang dikelola di halaman `Finance/BankAccounts.vue`.
+- **`BankAccount`** (`scopeActive`, urut `sort_order`) — ditampilkan di PDF invoice (jumlah rekening yang ditampilkan diatur per-invoice lewat `bank_account_ids` JSON, lihat §2 di [../fitur/invoice.md](../fitur/invoice.md)) dan sebagai daftar yang dikelola di halaman `Finance/BankAccounts.vue`.
 - **`CashAccount`** (`scopeActive`) — dropdown "Akun Kas" di panel pembayaran invoice (`InvoicesPanel.vue`, field `cash_account_id` per pembayaran) dan pembayaran bill di Keuangan; juga dipakai di laporan Keuangan (Buku Kas, Neraca Saldo, Rekap) sebagai baris per akun.
 
 ### 4. Aturan hapus

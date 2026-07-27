@@ -9,7 +9,7 @@ Reminder adalah pengingat follow-up sederhana **per akun** — daftar tugas bert
 ## Alur Bisnis
 
 ### 1. Kepemilikan ketat per user
-`ReminderController::index` memfilter `Reminder::where('user_id', $user->id)` — setiap user hanya melihat reminder miliknya sendiri, tidak ada reminder bersama/tim. Ini **berbeda** dari modul Tour yang belum punya pembatasan kepemilikan sama sekali (lihat [01-penjualan-tour.md §Yang Perlu Diperhatikan](01-penjualan-tour.md)): di sini setiap aksi ubah (`update`, `done`, `destroy`) dijaga eksplisit dengan `abort_unless($reminder->user_id === auth()->id(), 403)`.
+`ReminderController::index` memfilter `Reminder::where('user_id', $user->id)` — setiap user hanya melihat reminder miliknya sendiri, tidak ada reminder bersama/tim. Ini **berbeda** dari modul Tour yang belum punya pembatasan kepemilikan sama sekali (lihat [../fitur/penjualan-tour.md §4](../fitur/penjualan-tour.md)): di sini setiap aksi ubah (`update`, `done`, `destroy`) dijaga eksplisit dengan `abort_unless($reminder->user_id === auth()->id(), 403)`.
 
 ### 2. Status turunan dari tanggal, bukan kolom
 Selain `is_done` (kolom boolean, murni ditentukan user), model punya dua accessor computed:

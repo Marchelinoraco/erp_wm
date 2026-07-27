@@ -4,7 +4,7 @@
 
 ## Ringkasan
 
-Data master pelanggan — satu tabel `customers` sederhana (tanpa relasi ke tabel master lain) yang jadi sumber `customer_id` untuk tour di modul [01-penjualan-tour](01-penjualan-tour.md). Dikelola lewat CRUD standar (`CustomerController`), ditambah satu halaman khusus **Riwayat** (`Customers/Show.vue`) yang merangkum semua inquiry/tour milik satu customer beserta timeline perubahan statusnya. Dipakai oleh **admin & sales**.
+Data master pelanggan — satu tabel `customers` sederhana (tanpa relasi ke tabel master lain) yang jadi sumber `customer_id` untuk tour di modul [penjualan-tour.md](../fitur/penjualan-tour.md). Dikelola lewat CRUD standar (`CustomerController`), ditambah satu halaman khusus **Riwayat** (`Customers/Show.vue`) yang merangkum semua inquiry/tour milik satu customer beserta timeline perubahan statusnya. Dipakai oleh **admin & sales**.
 
 ## Alur Bisnis
 
@@ -79,4 +79,4 @@ Tabel `customers` (didefinisikan di `database/migrations/2026_06_06_000000_creat
 
 - Konstanta `TYPE_LABELS`/`TYPE_VARIANTS` didefinisikan ulang secara terpisah di `Index.vue` dan `Show.vue` (tidak di-share lewat satu file util) — kalau menambah tipe baru, keduanya harus diubah manual.
 - Tipe `buyer` di kolom `type` yang berbentuk `string` biasa (bukan DB enum) berarti valid/tidaknya nilai sepenuhnya bergantung pada validasi Laravel di controller — tidak ada constraint di level database.
-- Total revenue di halaman Riwayat adalah estimasi dari `tour_items` (harga jual item), **bukan** angka invoice riil — beda dengan cara profit tour tipe `tour` dihitung setelah invoice approved (lihat §2 di [01-penjualan-tour.md](01-penjualan-tour.md)).
+- Total revenue di halaman Riwayat adalah estimasi dari `tour_items` (harga jual item), **bukan** angka invoice riil — beda dengan cara profit tour tipe `tour` dihitung setelah invoice approved (lihat §2 di [../fitur/penjualan-tour.md](../fitur/penjualan-tour.md)).

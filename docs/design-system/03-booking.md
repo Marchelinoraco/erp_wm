@@ -4,7 +4,7 @@
 
 ## Ringkasan
 
-Booking Operasional adalah jembatan antara Penjualan (tour yang sudah `confirmed`) dan Keuangan (utang/AP ke supplier). Satu baris `tour_bookings` = satu tugas "eksekusi pemesanan ke satu supplier" untuk sebuah tour. Baris-baris ini **dibuat otomatis** saat tour berubah status jadi `confirmed` (lihat `TourController::generateBookings`, dibahas di [01-penjualan-tour.md §1](01-penjualan-tour.md)) — modul ini murni halaman kerja untuk **mengeksekusi** tugas tersebut, bukan tempat entri awal. Dipakai oleh **admin, sales, dan operation** — dan untuk role `operation`, ini satu-satunya halaman yang bisa diakses sama sekali (lihat `AuthenticatedLayout.vue`, cabang `role === 'operation'` hanya berisi menu "Booking").
+Booking Operasional adalah jembatan antara Penjualan (tour yang sudah `confirmed`) dan Keuangan (utang/AP ke supplier). Satu baris `tour_bookings` = satu tugas "eksekusi pemesanan ke satu supplier" untuk sebuah tour. Baris-baris ini **dibuat otomatis** saat tour berubah status jadi `confirmed` (lihat `TourController::generateBookings`, dibahas di [../fitur/penjualan-tour.md §2](../fitur/penjualan-tour.md)) — modul ini murni halaman kerja untuk **mengeksekusi** tugas tersebut, bukan tempat entri awal. Dipakai oleh **admin, sales, dan operation** — dan untuk role `operation`, ini satu-satunya halaman yang bisa diakses sama sekali (lihat `AuthenticatedLayout.vue`, cabang `role === 'operation'` hanya berisi menu "Booking").
 
 ## Alur Bisnis
 
@@ -65,8 +65,8 @@ Semua route di bawah `role:admin,sales,operation` (`routes/web.php` baris ~193-1
 
 ## Yang Perlu Diperhatikan
 
-- **Tidak ada pengecekan kepemilikan** di level controller — sama seperti modul Tour (lihat [01-penjualan-tour.md §Yang Perlu Diperhatikan](01-penjualan-tour.md)), hanya dijaga middleware role di level route group.
+- **Tidak ada pengecekan kepemilikan** di level controller — sama seperti modul Tour (lihat [../fitur/penjualan-tour.md §4](../fitur/penjualan-tour.md)), hanya dijaga middleware role di level route group.
 - **Kategori `agent` tidak pernah dihasilkan otomatis** — hanya bisa muncul lewat tambah booking manual, karena daftar `$allowed` di `generateBookings()` tidak menyertakannya.
-- **`est_cost` berbasis `line_cost`** (sisi modal `tour_items`), bukan `line_sell` — angka ini murni referensi biaya ke supplier, terpisah dari kalkulasi profit di panel Invoice/Costing (lihat [01-penjualan-tour.md §2](01-penjualan-tour.md)).
+- **`est_cost` berbasis `line_cost`** (sisi modal `tour_items`), bukan `line_sell` — angka ini murni referensi biaya ke supplier, terpisah dari kalkulasi profit di panel Invoice/Costing (lihat [../fitur/penjualan-tour.md §2](../fitur/penjualan-tour.md)).
 - **Guard Bill selalu cek `payments()->count() === 0`** sebelum mengubah/menghapus Bill terkait — baik saat `syncBill` (update nominal) maupun `detachBill` (hapus) — supaya data Bill yang sudah tersentuh pembayaran di Keuangan tidak pernah berubah/hilang diam-diam dari sisi Booking.
 - `bookings.store` (tambah manual) tidak memvalidasi status tour di backend — kalau dipanggil langsung ke tour non-`confirmed`, tetap akan berhasil; hanya UI yang secara praktis membatasi lewat tour mana saja yang ditampilkan di halaman ini.
