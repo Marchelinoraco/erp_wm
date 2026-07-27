@@ -43,6 +43,25 @@ class ProfileTest extends TestCase
         $this->assertNull($user->email_verified_at);
     }
 
+    public function test_user_can_update_their_own_phone_number(): void
+    {
+        $user = User::factory()->create(['phone' => null]);
+
+        $response = $this
+            ->actingAs($user)
+            ->patch('/profile', [
+                'name'  => $user->name,
+                'email' => $user->email,
+                'phone' => '081234567890',
+            ]);
+
+        $response
+            ->assertSessionHasNoErrors()
+            ->assertRedirect('/profile');
+
+        $this->assertSame('081234567890', $user->refresh()->phone);
+    }
+
     public function test_email_verification_status_is_unchanged_when_the_email_address_is_unchanged(): void
     {
         $user = User::factory()->create();

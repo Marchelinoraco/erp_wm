@@ -35,7 +35,7 @@ function roleConfig(value) {
 
 // --- Add ---
 const showAdd = ref(false)
-const addForm = useForm({ name: '', email: '', password: '', role: 'sales' })
+const addForm = useForm({ name: '', email: '', phone: '', password: '', role: 'sales' })
 function submitAdd() {
     addForm.post(route('users.store'), {
         onSuccess: () => { showAdd.value = false; addForm.reset(); addForm.role = 'sales' },
@@ -44,11 +44,12 @@ function submitAdd() {
 
 // --- Edit ---
 const editTarget = ref(null)
-const editForm   = useForm({ name: '', email: '', password: '', role: 'sales' })
+const editForm   = useForm({ name: '', email: '', phone: '', password: '', role: 'sales' })
 function openEdit(u) {
     editTarget.value = u
     editForm.name     = u.name
     editForm.email    = u.email
+    editForm.phone    = u.phone ?? ''
     editForm.password = ''
     editForm.role     = u.role
 }
@@ -169,6 +170,7 @@ function formatDate(d) {
                             <tr class="border-b bg-gray-50/80">
                                 <th class="px-4 py-3 text-left font-medium text-muted-foreground">Nama</th>
                                 <th class="px-4 py-3 text-left font-medium text-muted-foreground">Email</th>
+                                <th class="px-4 py-3 text-left font-medium text-muted-foreground">WhatsApp</th>
                                 <th class="px-4 py-3 text-left font-medium text-muted-foreground">Role</th>
                                 <th class="px-4 py-3 text-left font-medium text-muted-foreground">Dibuat</th>
                                 <th class="px-4 py-3"></th>
@@ -178,7 +180,7 @@ function formatDate(d) {
                             <template v-for="group in grouped" :key="group.role">
                                 <!-- Group header -->
                                 <tr class="bg-gray-50/60">
-                                    <td colspan="5" class="px-4 py-1.5">
+                                    <td colspan="6" class="px-4 py-1.5">
                                         <span class="inline-flex items-center gap-1.5">
                                             <span :class="['h-1.5 w-1.5 rounded-full', group.config.dot]"></span>
                                             <span class="text-xs font-semibold text-gray-600">{{ group.config.label }} ({{ group.users.length }})</span>
@@ -201,6 +203,7 @@ function formatDate(d) {
                                         </div>
                                     </td>
                                     <td class="px-4 py-3 text-muted-foreground">{{ u.email }}</td>
+                                    <td class="px-4 py-3 text-muted-foreground">{{ u.phone || '—' }}</td>
                                     <td class="px-4 py-3">
                                         <span :class="['rounded-full px-2.5 py-0.5 text-xs font-semibold', group.config.color]">
                                             {{ group.config.label }}
@@ -246,7 +249,7 @@ function formatDate(d) {
                             </template>
 
                             <tr v-if="filteredUsers.length === 0">
-                                <td colspan="5" class="px-4 py-12 text-center">
+                                <td colspan="6" class="px-4 py-12 text-center">
                                     <p class="text-sm text-muted-foreground">
                                         {{ users.length === 0 ? 'Belum ada akun.' : 'Tidak ada akun yang cocok.' }}
                                     </p>
@@ -283,6 +286,11 @@ function formatDate(d) {
                         <Label>Email <span class="text-destructive">*</span></Label>
                         <Input v-model="addForm.email" type="email" placeholder="email@example.com" />
                         <p v-if="addForm.errors.email" class="text-xs text-destructive">{{ addForm.errors.email }}</p>
+                    </div>
+                    <div class="space-y-1.5">
+                        <Label>Nomor WhatsApp</Label>
+                        <Input v-model="addForm.phone" type="tel" placeholder="Mis. 081234567890" />
+                        <p v-if="addForm.errors.phone" class="text-xs text-destructive">{{ addForm.errors.phone }}</p>
                     </div>
                     <div class="space-y-1.5">
                         <Label>Password <span class="text-destructive">*</span></Label>
@@ -326,6 +334,11 @@ function formatDate(d) {
                         <Label>Email <span class="text-destructive">*</span></Label>
                         <Input v-model="editForm.email" type="email" />
                         <p v-if="editForm.errors.email" class="text-xs text-destructive">{{ editForm.errors.email }}</p>
+                    </div>
+                    <div class="space-y-1.5">
+                        <Label>Nomor WhatsApp</Label>
+                        <Input v-model="editForm.phone" type="tel" placeholder="Mis. 081234567890" />
+                        <p v-if="editForm.errors.phone" class="text-xs text-destructive">{{ editForm.errors.phone }}</p>
                     </div>
                     <div class="space-y-1.5">
                         <Label>Password Baru <span class="text-muted-foreground text-xs font-normal">(kosongkan jika tidak diganti)</span></Label>
