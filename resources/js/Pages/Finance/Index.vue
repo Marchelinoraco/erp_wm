@@ -8,8 +8,7 @@ const props = defineProps({
     ar_received:          Number,
     ap_total:             Number,
     ap_paid:              Number,
-    outstanding_invoices: Array,
-    paid_invoices:        { type: Array, default: () => [] },
+    invoices:             Array,
     unpaid_bills:         Array,
     confirmed_tours:      { type: Array, default: () => [] },
 })
@@ -135,14 +134,14 @@ const BILL_STATUS = {
                 </div>
             </div>
 
-            <!-- Invoice Belum Lunas -->
+            <!-- Invoice — semua status (draft/proforma sampai lunas) dalam satu daftar -->
             <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
                 <div class="px-5 py-4 border-b flex items-center justify-between">
-                    <h2 class="text-sm font-semibold text-gray-800">Invoice Belum Lunas</h2>
-                    <span class="text-xs text-gray-400">{{ outstanding_invoices.length }} invoice</span>
+                    <h2 class="text-sm font-semibold text-gray-800">Invoice</h2>
+                    <span class="text-xs text-gray-400">{{ invoices.length }} invoice</span>
                 </div>
-                <div v-if="!outstanding_invoices.length" class="px-5 py-8 text-center text-sm text-gray-400">
-                    Tidak ada invoice outstanding.
+                <div v-if="!invoices.length" class="px-5 py-8 text-center text-sm text-gray-400">
+                    Belum ada invoice.
                 </div>
                 <div v-else class="overflow-x-auto">
                     <table class="w-full text-sm">
@@ -159,7 +158,7 @@ const BILL_STATUS = {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
-                            <tr v-for="inv in outstanding_invoices" :key="inv.id" class="hover:bg-gray-50">
+                            <tr v-for="inv in invoices" :key="inv.id" class="hover:bg-gray-50">
                                 <td class="px-4 py-3 font-mono text-xs">
                                     <span class="font-medium text-gray-700">{{ inv.number }}</span>
                                 </td>
@@ -168,15 +167,25 @@ const BILL_STATUS = {
                                 <td class="px-4 py-3 text-gray-500 text-xs">{{ fmtDate(inv.date) }}</td>
                                 <td class="px-4 py-3 text-right font-medium text-gray-800">
                                     {{ fmtCur(inv.total, inv.currency) }}
-                                    <span v-if="inv.currency && inv.currency !== 'IDR'" class="block text-xs text-gray-400">
+                                    <!-- total_idr cuma pasti valid utk mata uang asing SETELAH disetujui
+                                         (lihat Invoice::syncProformaTotal()) — draft mata uang asing
+                                         belum punya nilai IDR yang benar, jadi jangan ditampilkan. -->
+                                    <span v-if="inv.approved_at && inv.currency && inv.currency !== 'IDR'" class="block text-xs text-gray-400">
                                         ≈ {{ fmtRp(inv.total_idr) }}
                                     </span>
                                 </td>
-                                <td class="px-4 py-3 text-right font-semibold text-orange-600">
-                                    {{ fmtCur(inv.total - inv.payments.reduce((s, p) => s + Number(p.amount), 0), inv.currency) }}
-                                    <span v-if="inv.currency && inv.currency !== 'IDR'" class="block text-xs text-orange-400">
-                                        ≈ {{ fmtRp(inv.total_idr - inv.payments.reduce((s, p) => s + Number(p.amount_idr ?? p.amount), 0)) }}
-                                    </span>
+                                <td class="px-4 py-3 text-right">
+                                    <!-- Pembayaran/DP cuma bisa dicatat setelah invoice disetujui
+                                         (lihat InvoicesPanel.vue) — draft belum punya "sisa". -->
+                                    <template v-if="inv.approved_at">
+                                        <span class="font-semibold text-orange-600">
+                                            {{ fmtCur(inv.total - inv.payments.reduce((s, p) => s + Number(p.amount), 0), inv.currency) }}
+                                        </span>
+                                        <span v-if="inv.currency && inv.currency !== 'IDR'" class="block text-xs text-orange-400">
+                                            ≈ {{ fmtRp(inv.total_idr - inv.payments.reduce((s, p) => s + Number(p.amount_idr ?? p.amount), 0)) }}
+                                        </span>
+                                    </template>
+                                    <span v-else class="text-gray-300">—</span>
                                 </td>
                                 <td class="px-4 py-3 text-center">
                                     <span class="text-xs px-2 py-0.5 rounded-full font-medium"
@@ -185,63 +194,10 @@ const BILL_STATUS = {
                                     </span>
                                 </td>
                                 <td class="px-4 py-3 text-right">
+                                    <!-- Halaman Detail Keuangan per-tour hanya mengelola invoice yang
+                                         sudah disetujui — utk draft, link ini sengaja tidak ditampilkan. -->
                                     <Link
-                                        v-if="inv.tour"
-                                        :href="route('finance.tour', inv.tour.id)"
-                                        class="text-xs text-blue-600 hover:underline"
-                                    >Detail</Link>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Invoice Lunas -->
-            <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
-                <div class="px-5 py-4 border-b flex items-center justify-between">
-                    <h2 class="text-sm font-semibold text-gray-800">Invoice Lunas</h2>
-                    <span class="text-xs text-gray-400">{{ paid_invoices.length }} invoice</span>
-                </div>
-                <div v-if="!paid_invoices.length" class="px-5 py-8 text-center text-sm text-gray-400">
-                    Belum ada invoice lunas.
-                </div>
-                <div v-else class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
-                            <tr>
-                                <th class="px-4 py-2.5 text-left">Nomor</th>
-                                <th class="px-4 py-2.5 text-left">Tour</th>
-                                <th class="px-4 py-2.5 text-left">Customer</th>
-                                <th class="px-4 py-2.5 text-left">Tanggal</th>
-                                <th class="px-4 py-2.5 text-right">Total</th>
-                                <th class="px-4 py-2.5 text-center">Status</th>
-                                <th class="px-4 py-2.5"></th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            <tr v-for="inv in paid_invoices" :key="inv.id" class="hover:bg-gray-50">
-                                <td class="px-4 py-3 font-mono text-xs">
-                                    <span class="font-medium text-gray-700">{{ inv.number }}</span>
-                                </td>
-                                <td class="px-4 py-3 font-mono text-xs text-gray-600">{{ inv.tour?.code ?? '—' }}</td>
-                                <td class="px-4 py-3 text-gray-700">{{ inv.tour?.customer?.name ?? '—' }}</td>
-                                <td class="px-4 py-3 text-gray-500 text-xs">{{ fmtDate(inv.date) }}</td>
-                                <td class="px-4 py-3 text-right font-medium text-gray-800">
-                                    {{ fmtCur(inv.total, inv.currency) }}
-                                    <span v-if="inv.currency && inv.currency !== 'IDR'" class="block text-xs text-gray-400">
-                                        ≈ {{ fmtRp(inv.total_idr) }}
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3 text-center">
-                                    <span class="text-xs px-2 py-0.5 rounded-full font-medium"
-                                        :class="INV_STATUS[inv.status]?.cls ?? 'bg-gray-100 text-gray-600'">
-                                        {{ INV_STATUS[inv.status]?.label ?? inv.status }}
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3 text-right">
-                                    <Link
-                                        v-if="inv.tour"
+                                        v-if="inv.tour && inv.approved_at"
                                         :href="route('finance.tour', inv.tour.id)"
                                         class="text-xs text-blue-600 hover:underline"
                                     >Detail</Link>
