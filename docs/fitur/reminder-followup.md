@@ -23,7 +23,7 @@ Dipicu langsung dari `TourController` (pemanggilan method biasa, **bukan** Obser
 Reminder otomatis tampil di daftar `Reminders/Index.vue` persis seperti reminder manual — tidak ada badge/marker UI yang membedakan keduanya (diverifikasi: `Index.vue` tidak memproses `notes` atau `notified_at` secara khusus); satu-satunya sinyal "ini otomatis" adalah teks `notes` yang diawali `'Dibuat otomatis'`, dipakai murni sebagai penanda internal oleh `handleStatusChangeReminder` untuk menutup rantai lama.
 
 ### 3. Digest email harian
-
+ 
 Command terjadwal `reminders:digest` (`app/Console/Commands/SendReminderDigest.php`, didaftarkan di `routes/console.php` via `Schedule::command('reminders:digest')->dailyAt('07:00')->timezone('Asia/Makassar')`) berjalan tiap hari jam 07:00 WITA. Query-nya mengambil semua reminder `is_done = false` dengan `remind_at <= today()` yang **belum** masuk digest hari ini (`notified_at` null atau `< today()` — anti-dobel bila command dijalankan lebih dari sekali sehari), dikelompokkan per `user_id`. Untuk tiap user ditemukan, dikirim satu `ReminderDigestMail` (lewat `Mail::to($user->email)->queue(...)`) berisi daftar reminder jatuh tempo/terlewat miliknya (termasuk yang manual maupun otomatis — tidak dibedakan), lalu semua reminder yang masuk email itu ditandai `notified_at = now()`. Perilaku ini diverifikasi lewat `tests/Feature/ReminderDigestTest.php` (satu email per sales, hanya reminder due miliknya, tidak dobel kirim di hari yang sama).
 
 ### 4. Log "email terkirim" (jalur terpisah, bukan reminder masa depan)
