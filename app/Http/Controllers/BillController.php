@@ -47,6 +47,10 @@ class BillController extends Controller
 
     public function destroy(Bill $bill)
     {
+        // Ikut hapus payments-nya — kalau tidak, BillPayment::sum('amount') di
+        // FinanceController tetap menghitung pembayaran bill yang sudah tidak ada,
+        // membuat Hutang (AP) jadi salah/minus.
+        $bill->payments()->delete();
         $bill->delete();
 
         return redirect()->back();
