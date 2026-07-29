@@ -7,6 +7,7 @@ const props = defineProps({
     pipeline:          Array,
     totalTours:        Number,
     totalConfirmed:    Number,
+    canViewFinance:    Boolean,
     confirmedSell:     Number,
     actualCost:        Number,
     realProfit:        Number,
@@ -57,14 +58,14 @@ function fmtDate(d) {
                         <p class="text-3xl font-bold mt-1 text-green-700">{{ totalConfirmed }}</p>
                         <p class="text-xs text-muted-foreground mt-1">total terkonfirmasi</p>
                     </div>
-                    <div class="bg-white rounded-lg border p-5 shadow-sm">
+                    <div v-if="canViewFinance" class="bg-white rounded-lg border p-5 shadow-sm">
                         <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Profit Riil</p>
                         <p class="text-2xl font-bold mt-1" :class="realProfit >= 0 ? 'text-green-700' : 'text-red-600'">
                             {{ fmtRp(realProfit) }}
                         </p>
                         <p class="text-xs text-muted-foreground mt-1">confirmed: jual − biaya aktual</p>
                     </div>
-                    <div class="bg-white rounded-lg border p-5 shadow-sm">
+                    <div v-if="canViewFinance" class="bg-white rounded-lg border p-5 shadow-sm">
                         <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Diterima Bulan Ini</p>
                         <p class="text-2xl font-bold mt-1 text-blue-700">{{ fmtRp(cashInMonth) }}</p>
                         <p class="text-xs text-muted-foreground mt-1">
@@ -150,7 +151,7 @@ function fmtDate(d) {
                         </div>
 
                         <!-- Ringkasan Keuangan (M6 — Riil) -->
-                        <div class="bg-white rounded-lg border shadow-sm p-5">
+                        <div v-if="canViewFinance" class="bg-white rounded-lg border shadow-sm p-5">
                             <div class="flex items-center justify-between mb-3">
                                 <h3 class="font-semibold">Ringkasan Keuangan</h3>
                                 <Link :href="route('finance.index')" class="text-xs text-primary hover:underline">
