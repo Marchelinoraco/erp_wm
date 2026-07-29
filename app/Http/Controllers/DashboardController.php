@@ -33,12 +33,24 @@ class DashboardController extends Controller
             'total'  => $countByStatus[$s] ?? 0,
         ]);
 
-        // ── PERKIRAAN — nilai jual confirmed (snapshot tour_items) ──
-        $confirmedSell = (float) DB::table('tour_items')
-            ->join('tours', 'tours.id', '=', 'tour_items.tour_id')
-            ->where('tours.status', 'confirmed')
-            ->when($user->isSales(), fn ($q) => $this->applyTourOwnership($q, $user))
-            ->sum('tour_items.line_sell');
+        // ── PERKIRAAN — nilai jual confirmed ──
+        // Tour tipe 'tour' TIDAK memakai tour_items.line_sell (kolom itu sengaja
+        // diabaikan untuk tipe ini — lihat
+        // docs/logika-pembuatan-invoice/08-perbedaan-per-tipe.md §8.3/§8.4).
+        // Begitu tour tipe 'tour' punya invoice disetujui, sell-nya diambil dari
+        // invoice.total_idr; selain itu (tipe lain, atau tour tanpa invoice
+        // disetujui) tetap dari tour_items seperti semula.
+        $confirmedSell = (float) Tour::where('status', 'confirmed')
+            ->when($user->isSales(), fn ($q) => $this->tourOwnershipFilter($q, $user))
+            ->with(['items:id,tour_id,line_sell', 'invoices' => fn ($q) => $q->approved()])
+            ->get(['id', 'type'])
+            ->sum(function (Tour $tour) {
+                if ($tour->type === 'tour' && $tour->invoices->isNotEmpty()) {
+                    return (float) $tour->invoices->sum('total_idr');
+                }
+
+                return (float) $tour->items->sum('line_sell');
+            });
 
         // ── RIIL (M6) — biaya aktual dari bills tour confirmed ──
         $actualCost = (float) DB::table('bills')
