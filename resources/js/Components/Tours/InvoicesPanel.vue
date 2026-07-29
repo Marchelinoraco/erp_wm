@@ -22,11 +22,13 @@ const invoices = computed(() => props.tour.invoices ?? [])
 const tourPax  = computed(() => Number(props.tour.pax) || 0)
 
 // "Harga / pax" cocok untuk tour paket, tapi guide/rental/document/ticketing
-// sebenarnya ditagih per hari/unit/dokumen/tiket, bukan per kepala — label
+// sebenarnya ditagih per hari/dokumen/tiket, bukan per kepala — label
 // disesuaikan supaya jujur terhadap apa yang dikalikan. Rumus (unit_price ×
 // tourPax) tidak berubah — lihat docs/logika-pembuatan-invoice/10-temuan.md §10.4.
+// Kata-kata di sini mengikuti label resmi SalesLineRuleRegistry::unitPriceLabel()
+// (app/Services/SalesLine/*Rule.php) — rental/Transport resminya "hari", bukan "unit".
 const BILLING_UNIT_LABELS = {
-    guide: 'hari', rental: 'unit', document: 'dokumen', ticketing: 'tiket',
+    guide: 'hari', rental: 'hari', document: 'dokumen', ticketing: 'tiket',
 }
 const billingUnit = computed(() => BILLING_UNIT_LABELS[props.tour.type] ?? 'pax')
 

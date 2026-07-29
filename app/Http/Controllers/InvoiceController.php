@@ -6,6 +6,7 @@ use App\Models\BankAccount;
 use App\Models\Bill;
 use App\Models\Invoice;
 use App\Models\Tour;
+use App\Services\SalesLine\SalesLineRuleRegistry;
 use App\Support\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -325,6 +326,7 @@ class InvoiceController extends Controller
             // Pax milik INVOICE (bukan tour) — invoice suplemen biaya tambahan
             // pakai pax 1 agar baris "harga × pax" cocok dengan totalnya.
             'pax'          => (int) ($invoice->pax ?? $invoice->tour?->pax ?? 0),
+            'billingUnit'  => $this->billingUnitNoun($invoice->tour?->type),
             'paid'         => $paid,
             'outstanding'  => $outstanding,
         ])->render();
@@ -332,6 +334,20 @@ class InvoiceController extends Controller
         $mpdf->WriteHTML($html);
 
         return $mpdf;
+    }
+
+    /**
+     * Kata benda pengali untuk baris "Price : ... × N ___" di PDF customer —
+     * diturunkan dari label resmi SalesLineRuleRegistry (satu sumber kebenaran,
+     * lihat docs/logika-pembuatan-invoice/10-temuan.md §10.4) supaya tidak ada
+     * kata "pax" yang dipaksakan untuk tipe yang ditagih per hari/dokumen/tiket.
+     */
+    private function billingUnitNoun(?string $tourType): string
+    {
+        $label = app(SalesLineRuleRegistry::class)->for($tourType ?? 'tour')->unitPriceLabel();
+        $parts = explode('/', $label);
+
+        return trim(end($parts));
     }
 
     /**
