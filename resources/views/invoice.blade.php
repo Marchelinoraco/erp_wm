@@ -237,7 +237,7 @@
                                 <td class="s">:</td>
                                 <td>
                                     @if($unitPrice > 0)
-                                        {{ $fmt($unitPrice) }}@if($pax > 0) &times; {{ $pax }} pax @endif
+                                        {{ $fmt($unitPrice) }}@if($pax > 0) &times; {{ $pax }} {{ $billingUnit ?? 'pax' }} @endif
                                     @endif
                                 </td>
                             </tr>
