@@ -16,13 +16,27 @@ class SyncProformaThroughRegistryTest extends TestCase
 
     public function test_hasil_identik_dengan_rumus_lama_unit_price_kali_pax(): void
     {
-        // Rumus lama untuk ketujuh jenis: total = unit_price × pax. Fase 1 tidak
-        // boleh menggesernya, apa pun jenisnya.
-        foreach (self::SALES_TYPES as $type) {
+        // Rumus lama: total = unit_price × pax. Sejak Fase 3 hanya `rental`
+        // yang dikecualikan (D6, dikunci di test berikutnya); enam jenis lain
+        // tidak boleh bergeser sedikit pun.
+        foreach (array_diff(self::SALES_TYPES, ['rental']) as $type) {
             $invoice = $this->makeInvoice($this->makeTour($type, ['pax' => 4]), 1_250_000);
 
             $this->assertEquals(5_000_000, $invoice->total, "Jenis {$type}");
         }
+    }
+
+    public function test_rental_memakai_komposisi_baris_bernominal(): void
+    {
+        // Pasangan dari test di atas: membuktikan `rental` dikecualikan karena
+        // aturannya, bukan karena luput dari cakupan test.
+        $invoice = $this->makeInvoice($this->makeTour('rental', ['pax' => 4]), 1_250_000, [
+            'description_lines' => [
+                ['label' => 'Innova', 'date' => '2026-07-25', 'detail' => '', 'amount' => 1_050_000],
+            ],
+        ]);
+
+        $this->assertEquals(1_050_000, $invoice->total);
     }
 
     public function test_syncProformaTotal_benar_benar_memakai_registry(): void

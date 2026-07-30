@@ -30,8 +30,21 @@ class ProfitFormulaCharacterizationTest extends TestCase
             'sell' => 400_000,
         ]);
 
-        $tour    = $this->makeTour($type, ['pax' => 10]);
-        $invoice = $this->makeInvoice($tour, $unitPrice);
+        $tour = $this->makeTour($type, ['pax' => 10]);
+
+        // Sejak Fase 3, total rental disusun dari baris bernominal — unit_price
+        // diabaikan. Tanpa baris ini totalnya Rp0 dan invoice tidak bisa
+        // disetujui (approve menolak baseline_total ≤ 0), sehingga test tak
+        // pernah sampai ke rumus profit yang justru jadi pokok berkas ini.
+        // Nominalnya disamakan dengan unit_price × pax supaya tagihan tetap
+        // 10jt seperti sebelumnya dan yang diuji benar-benar tidak bergeser.
+        $barisRental = $type === 'rental' ? [
+            'description_lines' => [
+                ['label' => 'Sewa unit', 'date' => '2026-07-22', 'detail' => '', 'amount' => $unitPrice * 10],
+            ],
+        ] : [];
+
+        $invoice = $this->makeInvoice($tour, $unitPrice, $barisRental);
 
         InvoiceItem::create([
             'invoice_id'   => $invoice->id,

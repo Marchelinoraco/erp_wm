@@ -1728,7 +1728,12 @@ Expected: PASS, 4 test.
 - [ ] **Step 5: Jalankan regresi invoice yang sudah disetujui (R2, R6)**
 
 Run: `php artisan test --filter="ApprovedInvoiceFrozenTest|ProformaTotalCharacterizationTest|AdditionalChargeCharacterizationTest|CurrencyCharacterizationTest|PaxSourceCharacterizationTest|StageGateCharacterizationTest"`
-Expected: PASS semua. Ini yang mengunci D8/R2 (invoice disetujui tidak dihitung ulang) dan R6 (`baseline_total` tetap konsisten).
+
+**KOREKSI 30 Jul 2026 — harapan asli step ini salah.** Tertulis "PASS semua", padahal MUSTAHIL: `ProformaTotalCharacterizationTest` mengunci `total = unit_price × pax` untuk **ketujuh** jenis, dan Task 6 sengaja mematahkan itu untuk `rental`. Docblock test itu sendiri sudah meramalkannya ("Test di berkas ini SENGAJA akan gagal saat itu"). Yang benar:
+
+- `ApprovedInvoiceFrozenTest`, `AdditionalChargeCharacterizationTest`, `CurrencyCharacterizationTest`, `PaxSourceCharacterizationTest`, `StageGateCharacterizationTest` → **PASS**, tanpa disentuh. Inilah yang benar-benar mengunci D8/R2 dan R6.
+- `ProformaTotalCharacterizationTest` dan `SyncProformaThroughRegistryTest` → **GAGAL untuk rental**, dan itu buktinya perubahan mengenai sasaran. Keduanya diarahkan ulang: enam jenis tetap dikunci ke rumus lama, `rental` dikunci **eksplisit** ke aturan baru lewat test tersendiri — bukan sekadar dikeluarkan dari daftar, supaya tidak ada jenis yang lolos tanpa pengawasan.
+- `ProfitFormulaCharacterizationTest` → gagal **403**, bukan selisih angka. Sebabnya bukan rumus profit: fixture rental-nya kini bertotal Rp0, dan `InvoiceController::approve():144` menolak `baseline_total ≤ 0`, jadi invoice tak pernah disetujui dan `profitPdf()` menolak dengan 403. Penolakan itu **perilaku yang benar** — invoice Rp0 memang tidak boleh disetujui. Fixture-nya diberi baris bernominal senilai `unit_price × pax` supaya tagihannya tetap 10jt dan yang diuji (rumus profit) tidak ikut bergeser.
 
 - [ ] **Step 6: Test penuh**
 
