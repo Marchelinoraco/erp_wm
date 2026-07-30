@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\SalesLine\SalesLineRuleRegistry;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
@@ -261,10 +262,14 @@ class Tour extends Model
     // sell = tagihan customer (total_idr invoice), cost = item invoice (rincian
     // profit) — sesuai rumus Profit = tagihan − cost, bukan sell/unit per item.
 
-    /** Tipe tour dengan invoice approved → profit berbasis tagihan invoice. */
+    /**
+     * Sumber angka profit: aturan jenis penjualan yang menentukan, bukan
+     * perbandingan tipe di sini. CostingPanel.vue membaca aturan yang sama
+     * lewat prop `salesLine`, jadi label dan angka mustahil berselisih.
+     */
     private function usesInvoiceProfit(): bool
     {
-        return $this->type === 'tour'
+        return app(SalesLineRuleRegistry::class)->for($this->type ?? 'tour')->profitFromRevenue()
             && $this->invoices->whereNotNull('approved_at')->isNotEmpty();
     }
 
