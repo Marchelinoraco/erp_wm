@@ -43,23 +43,18 @@ class DashboardController extends Controller
 
         if ($canViewFinance) {
             // ── PERKIRAAN — nilai jual confirmed ──
-            // Tour tipe 'tour' TIDAK memakai tour_items.line_sell (kolom itu sengaja
-            // diabaikan untuk tipe ini — lihat
-            // docs/logika-pembuatan-invoice/08-perbedaan-per-tipe.md §8.3/§8.4).
-            // Begitu tour tipe 'tour' punya invoice disetujui, sell-nya diambil dari
-            // invoice.total_idr; selain itu (tipe lain, atau tour tanpa invoice
-            // disetujui) tetap dari tour_items seperti semula.
+            // Dari mana sell diambil (tagihan invoice vs tour_items) adalah
+            // aturan per jenis penjualan, dan Tour::total_sell sudah memutuskan
+            // itu lewat SalesLineRuleRegistry. Dashboard menjumlah saja — dulu
+            // ia mengulang aturannya dengan tangan dan bisa berselisih dengan
+            // panel sales tanpa ada yang menyadarinya.
+            // Eager load di bawah memuat justru yang dibutuhkan atribut itu,
+            // jadi tidak ada query tambahan per tour.
             $confirmedSell = (float) Tour::where('status', 'confirmed')
                 ->when($user->isSales(), fn ($q) => $this->tourOwnershipFilter($q, $user))
                 ->with(['items:id,tour_id,line_sell', 'invoices' => fn ($q) => $q->approved()])
                 ->get(['id', 'type'])
-                ->sum(function (Tour $tour) {
-                    if ($tour->type === 'tour' && $tour->invoices->isNotEmpty()) {
-                        return (float) $tour->invoices->sum('total_idr');
-                    }
-
-                    return (float) $tour->items->sum('line_sell');
-                });
+                ->sum(fn (Tour $tour) => $tour->total_sell);
 
             // ── RIIL (M6) — biaya aktual dari bills tour confirmed ──
             $actualCost = (float) DB::table('bills')

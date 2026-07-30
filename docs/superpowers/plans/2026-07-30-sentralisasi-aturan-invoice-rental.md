@@ -1367,6 +1367,20 @@ spec SS1.2 menyebut tiga, dua sisanya ditemukan saat review.
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
 
+### Task 4d: Dashboard menjumlah, tidak menghitung ulang aturan
+
+**Ditambahkan 30 Jul 2026**, ditemukan oleh grep verifikasi Task 4b — tempat **keenam**. `DashboardController::index()` mengulang aturan profit dengan tangan untuk agregat `confirmedSell`, lengkap dengan komentar yang mengutip §8.3 yang sama.
+
+`Tour::total_sell` sudah memutuskan hal itu lewat registry sejak Task 4b, dan eager load di query dashboard justru memuat persis yang dibutuhkan atribut tersebut (`items:id,tour_id,line_sell` + `invoices` yang sudah difilter `approved()`), jadi penggantian ini tidak menambah query. `SalesLineRuleRegistry` di-bind singleton di `AppServiceProvider.php:22`, jadi tidak ada konstruksi ulang per tour.
+
+**Files:**
+- Modify: `app/Http/Controllers/DashboardController.php:52-62` → `->sum(fn (Tour $tour) => $tour->total_sell)`
+- Test: `tests/Feature/DashboardProfitRiilTourTypeTest.php` (tambah `test_sumber_confirmed_sell_ditentukan_registry`)
+
+**Hasil:** `php artisan test` 175/175, 890 assertion. Dua test karakterisasi yang sudah ada (tipe `tour` → 10jt/3jt/7jt, tipe `rental` → 2jt/500rb/1,5jt) memberi angka **identik** sebelum dan sesudah — refactor murni. Test baru terbukti bermakna: sebelum perubahan ia gagal dengan `2000000 is identical to 10000000`.
+
+Setelah task ini, satu-satunya `type === 'tour'` yang tersisa di `app/` adalah `Tour::resolveTypeCode():119` — soal kode penomoran tour, bukan aturan uang. Sengaja dibiarkan.
+
 ---
 
 # FASE 3 — Mode tagihan baris-bernominal untuk rental
