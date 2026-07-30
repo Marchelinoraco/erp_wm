@@ -134,13 +134,27 @@ const STAGE_BADGE = {
 function proformaTotal(invId) {
     const f = proformaForms[invId]
     if (!f) return 0
-    const base = (Number(f.unit_price) || 0) * Math.max(tourPax.value, 1)
+    const base = isLineItems.value ? 0 : (Number(f.unit_price) || 0) * Math.max(tourPax.value, 1)
     const additional = (f.additional_lines ?? []).reduce((s, l) => s + (Number(l.amount) || 0), 0)
     return base + additional
 }
 // Aturan profit datang dari backend (SalesLineRuleRegistry), bukan dari
 // percabangan tipe di sini — lihat spec D3.
 const profitFromRevenue = computed(() => props.salesLine.profitFromRevenue)
+
+// D6: rental menyusun total dari baris bernominal, jadi blok "Harga / pax"
+// tidak berlaku dan baris bernominal naik jadi bagian utama.
+const isLineItems = computed(() => props.salesLine.totalComposition === 'line_items')
+
+// R1/§5c: invoice rental lama yang nilainya masih di unit_price. Totalnya
+// akan terbaca Rp0 sampai sales memasukkan rinciannya sebagai baris.
+function warnLegacyUnitPrice(inv) {
+    if (!isLineItems.value) return 0
+    const f = proformaForms[inv.id]
+    if (!f) return 0
+    const adaBarisBernominal = (f.additional_lines ?? []).some(l => Number(l.amount) > 0)
+    return adaBarisBernominal ? 0 : (Number(f.unit_price) || 0)
+}
 
 // Nilai tagihan dalam IDR; null bila kurs non-IDR belum diketahui.
 function invRevenueIdr(inv) {
@@ -819,14 +833,25 @@ function addProduct(product, extra = {}) {
                         </div>
                     </div>
 
-                    <!-- Biaya tambahan (di luar harga/pax) -->
+                    <!-- §5c: keadaan peralihan rental — mustahil terlewat -->
+                    <div v-if="warnLegacyUnitPrice(inv) > 0"
+                        class="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                        Invoice ini masih memakai harga lama
+                        <span class="font-mono font-semibold">{{ fmtCur(warnLegacyUnitPrice(inv), proformaForms[inv.id].currency) }}</span>.
+                        Masukkan rinciannya sebagai baris di bawah, lalu simpan.
+                        Selama belum diisi, total akan terbaca Rp 0.
+                    </div>
+
+                    <!-- Baris bernominal: rincian utama untuk rental, biaya tambahan untuk jenis lain -->
                     <div class="rounded-md border">
                         <div class="flex items-center justify-between px-3 py-2 border-b bg-blue-50/30">
-                            <span class="text-xs font-semibold uppercase text-muted-foreground">Biaya Tambahan (di luar harga/pax)</span>
+                            <span class="text-xs font-semibold uppercase text-muted-foreground">{{ isLineItems ? 'Rincian Tagihan' : 'Biaya Tambahan (di luar harga/pax)' }}</span>
                             <Button size="sm" variant="outline" @click="addAdditionalLine(inv.id)">+ Biaya</Button>
                         </div>
                         <div v-if="proformaForms[inv.id].additional_lines.length === 0" class="px-3 py-4 text-center text-xs text-muted-foreground">
-                            Belum ada biaya tambahan. Klik "+ Biaya" untuk menambah (mis. biaya dokumen, izin khusus).
+                            {{ isLineItems
+                                ? 'Belum ada rincian. Klik "+ Biaya" untuk menambah tiap unit beserta tanggal dan nominalnya.'
+                                : 'Belum ada biaya tambahan. Klik "+ Biaya" untuk menambah (mis. biaya dokumen, izin khusus).' }}
                         </div>
                         <div v-else class="divide-y">
                             <div v-for="(ln, idx) in proformaForms[inv.id].additional_lines" :key="idx"
@@ -845,8 +870,8 @@ function addProduct(product, extra = {}) {
                         </div>
                     </div>
 
-                    <!-- Harga per pax -->
-                    <div class="flex flex-wrap items-end gap-3 rounded-md bg-muted/20 px-4 py-3">
+                    <!-- Harga per pax — tidak berlaku untuk komposisi line_items -->
+                    <div v-if="!isLineItems" class="flex flex-wrap items-end gap-3 rounded-md bg-muted/20 px-4 py-3">
                         <div class="space-y-1">
                             <label class="text-xs font-medium text-muted-foreground">Harga / pax ({{ proformaForms[inv.id].currency }})</label>
                             <input type="number" v-model="proformaForms[inv.id].unit_price" @change="saveProforma(inv.id)" min="0"
@@ -856,6 +881,13 @@ function addProduct(product, extra = {}) {
                             × <span class="font-medium">{{ tourPax || 1 }} pax</span>
                             <span v-if="proformaForms[inv.id].additional_lines.some(l => Number(l.amount) > 0)"> + biaya tambahan</span>
                             =
+                            <span class="font-mono font-semibold">{{ fmtCur(proformaTotal(inv.id), proformaForms[inv.id].currency) }}</span>
+                        </div>
+                    </div>
+                    <!-- Blok di atas memuat satu-satunya tampilan total, jadi line_items butuh penggantinya -->
+                    <div v-else class="flex flex-wrap items-end justify-end gap-3 rounded-md bg-muted/20 px-4 py-3">
+                        <div class="text-sm pb-1">
+                            Total rincian =
                             <span class="font-mono font-semibold">{{ fmtCur(proformaTotal(inv.id), proformaForms[inv.id].currency) }}</span>
                         </div>
                     </div>
@@ -891,10 +923,13 @@ function addProduct(product, extra = {}) {
                         </template>
                     </div>
                     <div class="text-sm">
-                        Price:
-                        <span class="font-mono">{{ fmtCur(inv.unit_price, inv.currency) }}</span>
-                        × {{ tourPax || 1 }} pax
-                        <span v-if="(inv.description_lines ?? []).some(l => l.amount)"> + biaya tambahan</span>
+                        <template v-if="!isLineItems">
+                            Price:
+                            <span class="font-mono">{{ fmtCur(inv.unit_price, inv.currency) }}</span>
+                            × {{ tourPax || 1 }} pax
+                            <span v-if="(inv.description_lines ?? []).some(l => l.amount)"> + biaya tambahan</span>
+                        </template>
+                        <template v-else>Total rincian</template>
                         =
                         <span class="font-mono font-semibold">{{ fmtCur(inv.total, inv.currency) }}</span>
                         <span v-if="(inv.currency || 'IDR') !== 'IDR'" class="text-xs text-muted-foreground">
