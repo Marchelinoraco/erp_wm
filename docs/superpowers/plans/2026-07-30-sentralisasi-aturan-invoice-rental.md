@@ -958,9 +958,422 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ---
 
+### Task 4b: `Tour::usesInvoiceProfit()` baca rule, bukan tipe
+
+**Ditambahkan 30 Jul 2026** setelah review Task 4 menemukan bahwa sentralisasi belum tuntas. Spec §1.2 menyatakan aturan profit bercabang di **tiga** tempat; nyatanya **lima**. Task 4 menutup tiga, Task 4b dan 4c menutup dua sisanya. Keputusan pemilik repo: tambahkan keduanya sekarang, jangan tinggalkan sebagai pekerjaan lain.
+
+Mengapa ini yang paling penting dari keduanya: `Tour::usesInvoiceProfit()` adalah sumber **angka** `total_cost`/`total_sell`/`profit`/`margin` yang dirender `CostingPanel.vue` — panel yang **label**-nya baru saja dialihkan ke registry di Task 4. Hari ini keduanya sepakat (hanya `TourRule` yang `profitFromRevenue() === true`, persis cocok dengan `type === 'tour'`). Begitu aturan rule berubah, label ikut berubah sementara angkanya tidak: label dan angka desync tanpa galat apa pun.
+
+**Files:**
+- Modify: `app/Models/Tour.php:265-269` (`usesInvoiceProfit()`) + tambah import
+- Test: `tests/Feature/SalesLine/TourProfitThroughRegistryTest.php` (buat)
+
+**Interfaces:**
+- Consumes: `SalesLineInvoiceRule::profitFromRevenue(): bool` (Task 2); `Tests\Support\FakeSalesLineRule`, `Tests\Support\FakeSalesLineRuleRegistry` (Task 2)
+- Produces: tidak ada API baru. `Tour::usesInvoiceProfit()` tetap `private`.
+
+**Fakta yang sudah diverifikasi — jangan selidiki ulang:**
+- `TourItem::create(['tour_id' => …, 'unit_cost' => …, 'unit_sell' => …])` cukup; `qty` dan `nights` default 1. `line_cost`/`line_sell` adalah **stored generated column** — jangan diisi manual. Pola ini dipakai `tests/Feature/DashboardProfitRiilTourTypeTest.php:73`.
+- Jalur `tour`: `total_cost` = Σ `line_cost` item **invoice**, `total_sell` = Σ `total_idr` invoice **yang disetujui**. Jalur non-`tour`: keduanya dari item **tour**.
+- `profit` = `total_sell − total_cost`; `margin` = `round(profit / total_sell * 100, 1)`, 0 bila `total_sell` ≤ 0.
+
+- [ ] **Step 1: Tulis test yang gagal**
+
+Buat `tests/Feature/SalesLine/TourProfitThroughRegistryTest.php`:
+
+```php
+<?php
+
+namespace Tests\Feature\SalesLine;
+
+use App\Models\InvoiceItem;
+use App\Models\Product;
+use App\Models\Tour;
+use App\Models\TourItem;
+use App\Services\SalesLine\SalesLineRuleRegistry;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\CreatesSalesFixtures;
+use Tests\Support\FakeSalesLineRule;
+use Tests\Support\FakeSalesLineRuleRegistry;
+use Tests\TestCase;
+
+/**
+ * `Tour::usesInvoiceProfit()` memilih dari mana angka total_cost/total_sell/
+ * profit/margin diambil. Sebelum task ini ia meng-hardcode `type === 'tour'`,
+ * padahal LABEL di CostingPanel.vue sudah dialihkan ke registry di Task 4 —
+ * label dan angka bisa desync begitu aturan rule berubah.
+ */
+class TourProfitThroughRegistryTest extends TestCase
+{
+    use RefreshDatabase;
+    use CreatesSalesFixtures;
+
+    /**
+     * Tour dengan DUA sumber angka yang berbeda sekaligus, supaya jelas mana
+     * yang dipakai: item tour (cost 1jt / sell 2jt) dan invoice disetujui
+     * (tagihan 10jt, item invoice cost 3jt / sell 4jt).
+     */
+    private function tourDenganKeduaSumber(string $type): Tour
+    {
+        $product = Product::create([
+            'name' => 'Kamar Deluxe',
+            'type' => 'hotel',
+            'cost' => 300_000,
+            'sell' => 400_000,
+        ]);
+
+        $tour = $this->makeTour($type, ['pax' => 10]);
+
+        TourItem::create([
+            'tour_id'   => $tour->id,
+            'unit_cost' => 1_000_000,
+            'unit_sell' => 2_000_000,
+        ]);
+
+        $invoice = $this->makeInvoice($tour, 1_000_000);
+
+        InvoiceItem::create([
+            'invoice_id'   => $invoice->id,
+            'product_id'   => $product->id,
+            'product_type' => $product->type,
+            'description'  => $product->name,
+            'qty'          => 10,
+            'nights'       => 1,
+            'unit_cost'    => 300_000,
+            'unit_sell'    => 400_000,
+        ]);
+
+        $this->approveInvoice($invoice->fresh());
+
+        return $tour->fresh(['items', 'invoices.items']);
+    }
+
+    public function test_tipe_tour_mengambil_angka_dari_invoice(): void
+    {
+        $tour = $this->tourDenganKeduaSumber('tour');
+
+        // Dari invoice: cost = Σ line_cost item invoice, sell = Σ total_idr.
+        // Item tour (1jt/2jt) diabaikan sepenuhnya.
+        $this->assertSame(3_000_000.0, $tour->total_cost);
+        $this->assertSame(10_000_000.0, $tour->total_sell);
+        $this->assertSame(7_000_000.0, $tour->profit);
+        $this->assertSame(70.0, $tour->margin);
+    }
+
+    public function test_tipe_lain_mengambil_angka_dari_item_tour(): void
+    {
+        $tour = $this->tourDenganKeduaSumber('rental');
+
+        // Dari item tour. Invoice 10jt yang sudah disetujui diabaikan.
+        $this->assertSame(1_000_000.0, $tour->total_cost);
+        $this->assertSame(2_000_000.0, $tour->total_sell);
+        $this->assertSame(1_000_000.0, $tour->profit);
+        $this->assertSame(50.0, $tour->margin);
+    }
+
+    public function test_sumber_angka_benar_benar_ditentukan_registry(): void
+    {
+        // Registry palsu menyatakan `rental` menghitung profit dari tagihan.
+        // Bila Tour membaca registry, angkanya beralih ke jalur invoice.
+        // Bila masih hardcode `type === 'tour'`, angkanya tetap dari item tour.
+        $this->app->instance(
+            SalesLineRuleRegistry::class,
+            new FakeSalesLineRuleRegistry(new FakeSalesLineRule(profitFromRevenue: true))
+        );
+
+        $tour = $this->tourDenganKeduaSumber('rental');
+
+        $this->assertSame(3_000_000.0, $tour->total_cost);
+        $this->assertSame(10_000_000.0, $tour->total_sell);
+    }
+}
+```
+
+- [ ] **Step 2: Jalankan test, pastikan yang ketiga GAGAL**
+
+Run: `php artisan test --filter=TourProfitThroughRegistryTest`
+Expected: dua test pertama **LULUS** (itu patokan karakterisasi — angka hari ini), test ketiga **GAGAL** dengan `total_cost` 1.000.000 alih-alih 3.000.000, karena `usesInvoiceProfit()` masih hardcode. Bila test ketiga justru lulus, berhenti dan laporkan — berarti registry palsunya tidak terpasang.
+
+**Catatan bila `approveInvoice()` gagal:** ia mengunci `baseline_total` ke `total` lalu POST `invoices.approve` sebagai `salesUser()`. Bila approve ditolak untuk jenis tertentu, laporkan — jangan menambal dengan mengubah status invoice langsung di database.
+
+- [ ] **Step 3: Implementasi**
+
+Di `app/Models/Tour.php`, ganti `usesInvoiceProfit()` (baris 265-269):
+
+```php
+    /**
+     * Sumber angka profit: aturan jenis penjualan yang menentukan, bukan
+     * perbandingan tipe di sini. CostingPanel.vue membaca aturan yang sama
+     * lewat prop `salesLine`, jadi label dan angka mustahil berselisih.
+     */
+    private function usesInvoiceProfit(): bool
+    {
+        return app(SalesLineRuleRegistry::class)->for($this->type ?? 'tour')->profitFromRevenue()
+            && $this->invoices->whereNotNull('approved_at')->isNotEmpty();
+    }
+```
+
+Tambahkan import di kepala berkas bila belum ada (periksa dulu dengan `grep -n "SalesLineRuleRegistry" app/Models/Tour.php`):
+
+```php
+use App\Services\SalesLine\SalesLineRuleRegistry;
+```
+
+- [ ] **Step 4: Jalankan test, pastikan LULUS SEMUA**
+
+Run: `php artisan test --filter=TourProfitThroughRegistryTest`
+Expected: PASS, 3 test. Dua test karakterisasi harus memberi **angka yang sama** seperti di Step 2 — bila salah satunya bergeser, perilaku berubah dan itu bukan refactor murni. Berhenti dan laporkan.
+
+- [ ] **Step 5: Regresi dashboard & keuangan**
+
+`total_cost`/`total_sell`/`profit`/`margin` dipakai di luar CostingPanel juga.
+
+Run: `php artisan test --filter="DashboardProfitRiilTourTypeTest|DashboardFinanceVisibilityTest|TourPricingSnapshotTest|BalanceSheetTest|FinanceIndexInvoicesTest"`
+Expected: PASS semua.
+
+- [ ] **Step 6: Test penuh**
+
+Run: `php artisan test`
+Expected: PASS semua.
+
+- [ ] **Step 7: Pastikan tidak ada percabangan tipe yang tersisa di `app/`**
+
+Run:
+```bash
+grep -rn "type === 'tour'\|type == 'tour'\|type, 'tour'" app/
+```
+Expected: tidak ada keluaran. Bila ada di berkas yang bukan soal aturan uang (mis. validasi tipe, template MICE, pemilihan field), catat di laporan dan biarkan — jangan perluas lingkup sendiri.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add app/Models/Tour.php tests/Feature/SalesLine/TourProfitThroughRegistryTest.php
+git commit -m "refactor: sumber angka profit Tour ditentukan rule, bukan hardcode tipe
+
+Tour::usesInvoiceProfit() memilih apakah total_cost/total_sell/profit/margin
+diambil dari invoice yang disetujui atau dari item tour. Sebelum ini ia
+meng-hardcode type === 'tour' sendiri.
+
+Itu berbahaya setelah task sebelumnya: LABEL di CostingPanel.vue sudah
+dialihkan ke SalesLineRuleRegistry, sementara ANGKA di bawah label itu masih
+dihitung lewat perbandingan tipe di model. Hari ini keduanya sepakat, tapi
+begitu aturan rule berubah, label dan angka berselisih tanpa galat apa pun.
+
+Ditemukan saat review, di luar tiga tempat yang spec SS1.2 sebutkan.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+```
+
+### Task 4c: Halaman Keuangan baca aturan yang sama
+
+**Ditambahkan 30 Jul 2026** bersama Task 4b. `resources/js/Pages/Finance/Tour.vue` menduplikasi rumus profit — komentarnya sendiri berbunyi *"Sama dengan rumus di panel sales"*, duplikasi yang disadari penulisnya.
+
+Task ini juga menghapus duplikasi yang baru saja kita ciptakan sendiri: dua controller membangun array `salesLine` dengan tangan. Tanpa itu, Task 5 harus menyunting dua controller untuk menambah satu key — persis penyakit yang spec §1.2 keluhkan.
+
+**Files:**
+- Modify: `app/Services/SalesLine/SalesLineRuleRegistry.php` (tambah `payloadFor()`)
+- Modify: `app/Http/Controllers/TourController.php` (pakai `payloadFor()`)
+- Modify: `app/Http/Controllers/FinanceController.php:95-99` (tambah prop `salesLine`)
+- Modify: `resources/js/Pages/Finance/Tour.vue:19-23` (prop), `:54`, `:58`, `:465-466`
+- Test: `tests/Feature/SalesLine/SalesLinePropPayloadTest.php` (tambah method)
+
+**Interfaces:**
+- Produces: `SalesLineRuleRegistry::payloadFor(?string $salesLine): array` → `['key' => string, 'profitFromRevenue' => bool]`. **Task 5 menambahkan `totalComposition` di sini saja**, bukan di controller mana pun.
+
+**Fakta yang sudah diverifikasi — jangan selidiki ulang:**
+- Route `finance.tour` (`GET finance/{tour}`) memakai middleware `role:admin,accountant`. `CreatesSalesFixtures::salesUser()` ber-role `sales` → **403**. Test harus membuat user admin sendiri; polanya ada di `tests/Feature/Finance/FinanceIndexInvoicesTest.php:22-26` (`User::create([... 'role' => 'admin'])`).
+- `FinanceController::tour()` hanya memuat invoice yang **sudah disetujui** (`$q->approved()`), jadi fixture test butuh invoice yang sudah di-approve.
+- `resources/js/Pages/Finance/Tour.vue` sudah punya `defineProps` di baris 19-23 dengan `tour`, `suppliers`, `cashAccounts`.
+
+- [ ] **Step 1: Tambah `payloadFor()` ke registry**
+
+Di `app/Services/SalesLine/SalesLineRuleRegistry.php`, tambahkan setelah `for()`:
+
+```php
+    /**
+     * Bentuk prop Inertia `salesLine` untuk halaman yang menampilkan angka
+     * uang per jenis penjualan. Satu tempat, supaya menambah properti tidak
+     * berarti menyunting setiap controller yang mengirimnya.
+     *
+     * Hanya properti yang benar-benar dikonsumsi frontend yang masuk sini —
+     * `unitPriceLabel()` sengaja TIDAK dikirim, satuannya masih ditunda.
+     *
+     * @return array{key: string, profitFromRevenue: bool}
+     */
+    public function payloadFor(?string $salesLine): array
+    {
+        $key  = $salesLine ?? 'tour';
+        $rule = $this->for($key);
+
+        return [
+            'key'               => $key,
+            'profitFromRevenue' => $rule->profitFromRevenue(),
+        ];
+    }
+```
+
+- [ ] **Step 2: `TourController` pakai `payloadFor()`**
+
+Di `app/Http/Controllers/TourController.php`, ganti blok `$rule = …` dan entri `'salesLine' => [...]` menjadi satu baris di dalam array `Inertia::render`:
+
+```php
+            'salesLine'   => app(SalesLineRuleRegistry::class)->payloadFor($tour->type),
+```
+
+Hapus baris `$rule = app(SalesLineRuleRegistry::class)->for(...)` bila tidak ada pemakai lain di method itu — periksa dulu dengan `grep -n '\$rule' app/Http/Controllers/TourController.php`.
+
+- [ ] **Step 3: `FinanceController` kirim prop yang sama**
+
+Di `app/Http/Controllers/FinanceController.php`, tambahkan ke array `Inertia::render('Finance/Tour', [...])`:
+
+```php
+            'salesLine'    => app(SalesLineRuleRegistry::class)->payloadFor($tour->type),
+```
+
+Tambahkan import bila belum ada (periksa dulu — berkas ini belum punya):
+
+```php
+use App\Services\SalesLine\SalesLineRuleRegistry;
+```
+
+- [ ] **Step 4: Tulis test yang gagal**
+
+Tambahkan ke `tests/Feature/SalesLine/SalesLinePropPayloadTest.php`. Berkas ini memakai `salesUser()`, tapi halaman Keuangan butuh admin — buat helper lokalnya:
+
+```php
+    /** Halaman Keuangan dibatasi middleware role:admin,accountant. */
+    private function financeUser(): \App\Models\User
+    {
+        return \App\Models\User::create([
+            'name'     => 'Akuntan Uji',
+            'email'    => 'akuntan' . uniqid() . '@test.local',
+            'password' => bcrypt('password'),
+            'role'     => 'admin',
+        ]);
+    }
+
+    public function test_halaman_keuangan_menerima_aturan_jenis_yang_sama(): void
+    {
+        $harapan = ['tour' => true, 'rental' => false, 'guide' => false];
+
+        foreach ($harapan as $type => $expected) {
+            $tour    = $this->makeTour($type);
+            $invoice = $this->makeInvoice($tour, 1_000_000);
+            $this->approveInvoice($invoice);
+
+            $this->actingAs($this->financeUser())
+                ->get(route('finance.tour', $tour->id))
+                ->assertInertia(fn ($page) => $page
+                    ->where('salesLine.key', $type)
+                    ->where('salesLine.profitFromRevenue', $expected));
+        }
+    }
+```
+
+- [ ] **Step 5: Jalankan test, pastikan LULUS**
+
+Run: `php artisan test --filter=SalesLinePropPayloadTest`
+Expected: PASS semua (test halaman Tours/Edit yang sudah ada harus tetap lulus — itu buktinya `payloadFor()` tidak menggeser bentuk payload lama).
+
+**Bila 403:** periksa `role` yang diterima middleware; `accountant` juga boleh. **Bila 404:** periksa nama parameter route (`finance/{tour}`) — oper model, bukan hanya id, bila route binding menuntutnya.
+
+- [ ] **Step 6: `Finance/Tour.vue` baca prop**
+
+Di `resources/js/Pages/Finance/Tour.vue`, lengkapi `defineProps` (baris 19-23):
+
+```js
+const props = defineProps({
+    tour:         Object,
+    suppliers:    Array,
+    cashAccounts: { type: Array, default: () => [] },
+    salesLine:    {
+        type: Object,
+        default: () => ({ key: 'tour', profitFromRevenue: false }),
+    },
+})
+```
+
+Tambahkan computed dekat helper lain:
+
+```js
+// Aturan profit datang dari backend (SalesLineRuleRegistry), sama dengan yang
+// dipakai panel sales — bukan percabangan tipe sendiri di halaman ini.
+const profitFromRevenue = computed(() => props.salesLine.profitFromRevenue)
+```
+
+Pastikan `computed` sudah diimport dari `vue` di berkas itu; bila belum, tambahkan.
+
+Ganti keempat pemakaiannya. Baris 53-56:
+
+```js
+function invProfit(inv) {
+    if (profitFromRevenue.value) return Number(inv.total_idr) - invTotalCost(inv)
+    return invTotalSell(inv) - invTotalCost(inv)
+}
+```
+
+Baris 57-60:
+
+```js
+function invMargin(inv) {
+    const base = profitFromRevenue.value ? Number(inv.total_idr) : invTotalSell(inv)
+    return base > 0 ? Math.round((invProfit(inv) / base) * 1000) / 10 : 0
+}
+```
+
+Baris 465-466 (template):
+
+```html
+                                        <span>{{ profitFromRevenue ? 'Total Tagihan Customer (IDR)' : 'Total Jual Item' }}</span>
+                                        <span class="font-mono">{{ fmtRp(profitFromRevenue ? inv.total_idr : invTotalSell(inv)) }}</span>
+```
+
+Hapus juga komentar lama di atas `invProfit()` yang berbunyi "Sama dengan rumus di panel sales" — kini bukan lagi salinan, tapi sumber yang sama.
+
+- [ ] **Step 7: Pastikan tidak ada percabangan aturan uang yang tersisa di frontend**
+
+Run:
+```bash
+grep -rn "type === 'tour'\|type == 'tour'" resources/js
+```
+Expected: hanya `resources/js/Pages/Tours/Create.vue` (soal field form mana yang tampil, bukan aturan uang — di luar lingkup). Bila muncul yang lain, catat di laporan.
+
+- [ ] **Step 8: Test penuh + build**
+
+Run: `php artisan test`
+Expected: PASS semua.
+
+Run: `npm run build`
+Expected: sukses.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add app/Services/SalesLine/SalesLineRuleRegistry.php app/Http/Controllers/TourController.php app/Http/Controllers/FinanceController.php resources/js/Pages/Finance/Tour.vue tests/Feature/SalesLine/SalesLinePropPayloadTest.php
+git commit -m "refactor: halaman Keuangan baca aturan profit dari registry
+
+Finance/Tour.vue menduplikasi rumus profit per jenis; komentarnya sendiri
+berbunyi 'Sama dengan rumus di panel sales'. Kini ia menerima prop salesLine
+seperti halaman sales, jadi keduanya mustahil berselisih.
+
+Bentuk prop itu juga pindah ke SalesLineRuleRegistry::payloadFor() supaya
+menambah properti tidak berarti menyunting setiap controller yang
+mengirimnya - dua controller membangun array yang sama dengan tangan adalah
+penyakit yang sama dengan yang plan ini obati.
+
+Dengan ini kelima tempat percabangan aturan profit sudah tersentralisasi;
+spec SS1.2 menyebut tiga, dua sisanya ditemukan saat review.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+```
+
+---
+
 # FASE 3 — Mode tagihan baris-bernominal untuk rental
 
 Perilaku terlihat **berubah untuk rental**. Punya prasyarat rilis yang tidak boleh dilewat.
+
+> **Catatan pasca-Task 4c:** prop `salesLine` kini dibentuk `SalesLineRuleRegistry::payloadFor()`. Task 5 menambahkan key `totalComposition` **di method itu saja** — jangan menyunting `TourController` atau `FinanceController` untuk itu.
 
 ## Prasyarat Rilis Fase 3 (dijalankan di PRODUCTION, bukan lokal)
 
