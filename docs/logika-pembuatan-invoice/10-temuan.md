@@ -78,12 +78,22 @@ Sementara `baselineMatched()` di UI membandingkan total proforma terkini dengan 
 
 ## 10.4 "Harga / pax" dipaksakan pada tipe yang ditagih per job
 
+> **Status per 30 Jul 2026 — teratasi untuk `rental`, masih berlaku untuk tiga tipe lain.**
+>
+> `rental` kini menyusun totalnya dari **baris bernominal** (`TransportRule::totalComposition() === 'line_items'`): sales memasukkan tiap unit beserta tanggal dan nominalnya sendiri, dan `unit_price` diabaikan sepenuhnya. Tidak ada lagi pembagian paksa untuk jenis ini, dan rinciannya kini sampai utuh ke customer di PDF.
+>
+> **Masih terdampak: `guide`, `document`, `ticketing`.** Ketiganya tetap memakai `unit_price × pax`, jadi seluruh uraian di bawah masih berlaku apa adanya untuk mereka.
+>
+> Catatan tentang "arah perbaikan murah" di akhir bagian ini: mengganti label per tipe **sudah pernah dicoba dan dibatalkan** (`bbde75f`, di-revert `6d6a5dd`). Label seperti "Harga / hari" menyatakan ke customer sebuah asumsi satuan yang belum pernah diputuskan, padahal yang dikalikan tetap `pax`. Jangan mengulanginya tanpa memutuskan satuannya lebih dulu.
+
 **Temuan.** `syncProformaTotal()` tidak membaca tipe penjualan sama sekali. Satu rumus berlaku untuk ketujuh tipe:
 
 ```php
 $pax   = (int) ($this->tour?->pax ?? $this->pax ?? 1);
 $total = (float) $this->unit_price * max($pax, 1);
 ```
+
+*(Sejak 30 Jul 2026 rumus itu dipilih lewat `SalesLineInvoiceRule::totalComposition()`; yang di atas kini jalur `per_unit` untuk enam tipe.)*
 
 Label di panel juga tetap, apa pun tipenya:
 
