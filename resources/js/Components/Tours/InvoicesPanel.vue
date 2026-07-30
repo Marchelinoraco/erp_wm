@@ -14,6 +14,12 @@ const props = defineProps({
     tour: Object, products: Array,
     bankAccounts: { type: Array, default: () => [] },
     cashAccounts: { type: Array, default: () => [] },
+    salesLine: {
+        type: Object,
+        // R5: nilai bawaan aman bila suatu halaman lupa mengirimnya —
+        // perilaku mayoritas (profit per item), bukan galat.
+        default: () => ({ key: 'tour', profitFromRevenue: false }),
+    },
 })
 
 const CURRENCIES = ['IDR', 'USD', 'EUR', 'SGD', 'AUD', 'MYR']
@@ -132,9 +138,9 @@ function proformaTotal(invId) {
     const additional = (f.additional_lines ?? []).reduce((s, l) => s + (Number(l.amount) || 0), 0)
     return base + additional
 }
-// Tipe "tour" (inbound/outbound): profit = tagihan customer (harga/pax × pax,
-// IDR) − total cost item. Tipe lain: profit per item (sell − cost).
-const isTourType = computed(() => props.tour.type === 'tour')
+// Aturan profit datang dari backend (SalesLineRuleRegistry), bukan dari
+// percabangan tipe di sini — lihat spec D3.
+const profitFromRevenue = computed(() => props.salesLine.profitFromRevenue)
 
 // Nilai tagihan dalam IDR; null bila kurs non-IDR belum diketahui.
 function invRevenueIdr(inv) {
@@ -148,7 +154,7 @@ function invRevenueIdr(inv) {
 
 function invProfit(inv) {
     const totalCost = (inv.items ?? []).reduce((s, i) => s + Number(i.line_cost), 0)
-    if (isTourType.value) {
+    if (profitFromRevenue.value) {
         const rev = invRevenueIdr(inv)
         return rev === null ? null : rev - totalCost
     }
@@ -177,7 +183,7 @@ async function copyProfitTable(inv) {
     const totalSell = (inv.items ?? []).reduce((s, i) => s + Number(i.line_sell), 0)
     rows.push([])
     rows.push(['Total', '', '', '', '', '', totalCost, totalSell])
-    if (isTourType.value) {
+    if (profitFromRevenue.value) {
         rows.push(['Total Tagihan (IDR)', '', '', '', '', '', '', invRevenueIdr(inv) ?? 'kurs belum diisi'])
     }
     rows.push(['Profit', '', '', '', '', '', '', invProfit(inv) ?? 'kurs belum diisi'])
@@ -270,7 +276,7 @@ function submitPaste() {
 function invMargin(inv) {
     const profit = invProfit(inv)
     if (profit === null) return 0
-    const base = isTourType.value
+    const base = profitFromRevenue.value
         ? (invRevenueIdr(inv) ?? 0)
         : (inv.items ?? []).reduce((s, i) => s + Number(i.line_sell), 0)
     return base > 0 ? Math.round((profit / base) * 1000) / 10 : 0
@@ -928,7 +934,7 @@ function addProduct(product, extra = {}) {
                         <div class="flex items-center justify-between gap-3">
                             <p class="text-[11px] text-muted-foreground">
                                 Tidak muncul di PDF customer. Hanya untuk memantau modal vs jual (IDR). Tidak wajib untuk menyetujui.
-                                <span v-if="isTourType" class="block">Profit tour = Total tagihan (harga/pax × pax) − total cost item.</span>
+                                <span v-if="profitFromRevenue" class="block">Profit tour = Total tagihan (harga/pax × pax) − total cost item.</span>
                             </p>
                             <div class="flex items-center gap-2 shrink-0">
                                 <span v-if="!isApproved(inv) && saveState !== 'idle'" class="text-[11px] whitespace-nowrap"

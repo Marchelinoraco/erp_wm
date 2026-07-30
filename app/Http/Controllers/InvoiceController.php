@@ -245,7 +245,7 @@ class InvoiceController extends Controller
         $invoice->load(['tour.customer', 'items', 'approvedBy']);
 
         $tour      = $invoice->tour;
-        $isTour    = $tour->type === 'tour';
+        $isTour    = app(SalesLineRuleRegistry::class)->for($tour->type ?? 'tour')->profitFromRevenue();
         $totalCost = $invoice->items->sum('line_cost');
         $totalSell = $invoice->items->sum('line_sell');
         // Tour inbound/outbound: profit = tagihan customer (IDR) − cost item.
