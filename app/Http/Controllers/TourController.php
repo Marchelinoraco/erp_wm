@@ -11,6 +11,7 @@ use App\Models\QuotationItem;
 use App\Models\Reminder;
 use App\Models\Supplier;
 use App\Models\Tour;
+use App\Services\SalesLine\SalesLineRuleRegistry;
 use App\Http\Controllers\TourEmailController;
 use App\Models\TourItem;
 use App\Models\TourPackage;
@@ -140,8 +141,17 @@ class TourController extends Controller
         $tour->load(['customer', 'items.product', 'quotationItems.product', 'assignments', 'itineraryDays', 'itineraryHours', 'histories', 'invoices.items.product', 'invoices.payments.cashAccount:id,name', 'costRequests.requestedBy:id,name', 'costRequests.invoice:id,number,finance_number']);
         $tour->append(['total_cost', 'total_sell', 'profit', 'margin', 'itinerary_pdf_url']);
 
+        $rule = app(SalesLineRuleRegistry::class)->for($tour->type ?? 'tour');
+
         return Inertia::render('Tours/Edit', [
             'tour'        => $tour,
+            // D3/D4: satu-satunya jalan aturan uang per jenis sampai ke Vue.
+            // Frontend tidak boleh punya peta jenis sendiri. D5: hanya properti
+            // yang benar-benar dikonsumsi yang dikirim.
+            'salesLine'   => [
+                'key'               => $tour->type ?? 'tour',
+                'profitFromRevenue' => $rule->profitFromRevenue(),
+            ],
             'customers'    => Customer::orderBy('name')->get(['id', 'name', 'type']),
             'suppliers'    => Supplier::orderBy('name')->get(['id', 'name']),
             'bankAccounts' => BankAccount::active()->get(['id', 'bank', 'account_number']),
