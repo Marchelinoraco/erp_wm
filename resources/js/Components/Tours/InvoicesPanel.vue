@@ -21,17 +21,6 @@ const CURRENCIES = ['IDR', 'USD', 'EUR', 'SGD', 'AUD', 'MYR']
 const invoices = computed(() => props.tour.invoices ?? [])
 const tourPax  = computed(() => Number(props.tour.pax) || 0)
 
-// "Harga / pax" cocok untuk tour paket, tapi guide/rental/document/ticketing
-// sebenarnya ditagih per hari/dokumen/tiket, bukan per kepala — label
-// disesuaikan supaya jujur terhadap apa yang dikalikan. Rumus (unit_price ×
-// tourPax) tidak berubah — lihat docs/logika-pembuatan-invoice/10-temuan.md §10.4.
-// Kata-kata di sini mengikuti label resmi SalesLineRuleRegistry::unitPriceLabel()
-// (app/Services/SalesLine/*Rule.php) — rental/Transport resminya "hari", bukan "unit".
-const BILLING_UNIT_LABELS = {
-    guide: 'hari', rental: 'hari', document: 'dokumen', ticketing: 'tiket',
-}
-const billingUnit = computed(() => BILLING_UNIT_LABELS[props.tour.type] ?? 'pax')
-
 // Header proforma (read-only, dari Tour)
 const guestName = computed(() => {
     if (props.tour.guest_name) return props.tour.guest_name
@@ -851,12 +840,12 @@ function addProduct(product, extra = {}) {
                     <!-- Harga per pax -->
                     <div class="flex flex-wrap items-end gap-3 rounded-md bg-muted/20 px-4 py-3">
                         <div class="space-y-1">
-                            <label class="text-xs font-medium text-muted-foreground">Harga / {{ billingUnit }} ({{ proformaForms[inv.id].currency }})</label>
+                            <label class="text-xs font-medium text-muted-foreground">Harga / pax ({{ proformaForms[inv.id].currency }})</label>
                             <input type="number" v-model="proformaForms[inv.id].unit_price" @change="saveProforma(inv.id)" min="0"
                                 class="block w-40 border rounded px-2 py-1 text-right text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary" />
                         </div>
                         <div class="text-sm pb-1">
-                            × <span class="font-medium">{{ tourPax || 1 }} {{ billingUnit }}</span>
+                            × <span class="font-medium">{{ tourPax || 1 }} pax</span>
                             <span v-if="proformaForms[inv.id].additional_lines.some(l => Number(l.amount) > 0)"> + biaya tambahan</span>
                             =
                             <span class="font-mono font-semibold">{{ fmtCur(proformaTotal(inv.id), proformaForms[inv.id].currency) }}</span>
@@ -896,7 +885,7 @@ function addProduct(product, extra = {}) {
                     <div class="text-sm">
                         Price:
                         <span class="font-mono">{{ fmtCur(inv.unit_price, inv.currency) }}</span>
-                        × {{ tourPax || 1 }} {{ billingUnit }}
+                        × {{ tourPax || 1 }} pax
                         <span v-if="(inv.description_lines ?? []).some(l => l.amount)"> + biaya tambahan</span>
                         =
                         <span class="font-mono font-semibold">{{ fmtCur(inv.total, inv.currency) }}</span>
