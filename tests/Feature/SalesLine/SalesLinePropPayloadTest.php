@@ -47,6 +47,24 @@ class SalesLinePropPayloadTest extends TestCase
             ->assertInertia(fn ($page) => $page->missing('salesLine.unitPriceLabel'));
     }
 
+    public function test_payload_memuat_komposisi_total_per_jenis(): void
+    {
+        $harapan = [
+            'rental' => 'line_items',
+            'tour'   => 'per_unit',
+            'hotel'  => 'per_unit',
+            'guide'  => 'per_unit',
+        ];
+
+        foreach ($harapan as $type => $expected) {
+            $tour = $this->makeTour($type);
+
+            $this->actingAs($this->salesUser())
+                ->get(route('tours.edit', $tour->id))
+                ->assertInertia(fn ($page) => $page->where('salesLine.totalComposition', $expected));
+        }
+    }
+
     /** Halaman Keuangan dibatasi middleware role:admin,accountant. */
     private function financeUser(): User
     {

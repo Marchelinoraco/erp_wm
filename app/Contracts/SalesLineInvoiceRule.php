@@ -39,4 +39,14 @@ interface SalesLineInvoiceRule
      * serempak, tanpa galat apa pun bila salah satu terlupa.
      */
     public function profitFromRevenue(): bool;
+
+    /**
+     * Cara total disusun:
+     *   'per_unit'   = unit_price × hasil kali pengali
+     *   'line_items' = jumlah nominal baris deskripsi (unit_price diabaikan)
+     *
+     * Rental kerap menagih beberapa unit berbeda dengan harga masing-masing
+     * (Avanza + Innova + biaya luar kota), yang tidak muat di satu harga satuan.
+     */
+    public function totalComposition(): string;
 }

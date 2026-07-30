@@ -41,15 +41,17 @@ final class SalesLineRuleRegistry
      * Hanya properti yang benar-benar dikonsumsi frontend yang masuk sini —
      * `unitPriceLabel()` sengaja TIDAK dikirim, satuannya masih ditunda.
      *
-     * @return array{key: string, profitFromRevenue: bool}
+     * @return array{key: string, profitFromRevenue: bool, totalComposition: string}
      */
     public function payloadFor(?string $salesLine): array
     {
-        $key = $salesLine ?? 'tour';
+        $key  = $salesLine ?? 'tour';
+        $rule = $this->for($key);
 
         return [
             'key'               => $key,
-            'profitFromRevenue' => $this->for($key)->profitFromRevenue(),
+            'profitFromRevenue' => $rule->profitFromRevenue(),
+            'totalComposition'  => $rule->totalComposition(),
         ];
     }
 

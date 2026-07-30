@@ -19,6 +19,7 @@ final class FakeSalesLineRule implements SalesLineInvoiceRule
     public function __construct(
         private float $totalMultiplier = 1.0,
         private bool $profitFromRevenue = false,
+        private string $totalComposition = 'per_unit',
     ) {
     }
 
@@ -41,5 +42,10 @@ final class FakeSalesLineRule implements SalesLineInvoiceRule
     public function profitFromRevenue(): bool
     {
         return $this->profitFromRevenue;
+    }
+
+    public function totalComposition(): string
+    {
+        return $this->totalComposition;
     }
 }

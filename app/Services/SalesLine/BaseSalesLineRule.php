@@ -31,6 +31,12 @@ abstract class BaseSalesLineRule implements SalesLineInvoiceRule
         return false;
     }
 
+    /** Mayoritas jenis: satu harga satuan dikali kuantitas. */
+    public function totalComposition(): string
+    {
+        return 'per_unit';
+    }
+
     /** Ukuran rombongan, minimal 1. Sumber sama dengan rumus lama. */
     protected function paxOf(Invoice $invoice): int
     {
