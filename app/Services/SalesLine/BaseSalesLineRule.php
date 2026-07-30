@@ -37,6 +37,12 @@ abstract class BaseSalesLineRule implements SalesLineInvoiceRule
         return 'per_unit';
     }
 
+    /** Mayoritas jenis menyusun paketnya di tour_items sebelum invoice dibuat. */
+    public function costingSource(): string
+    {
+        return 'tour_items';
+    }
+
     /** Ukuran rombongan, minimal 1. Sumber sama dengan rumus lama. */
     protected function paxOf(Invoice $invoice): int
     {

@@ -29,4 +29,14 @@ final class TransportRule extends BaseSalesLineRule
     {
         return 'line_items';
     }
+
+    /**
+     * Rental tidak menyusun paket di muka: modal dan jual per unit baru
+     * diketahui saat invoice dirinci. tour_items-nya memang kosong, jadi
+     * Ringkasan Biaya membacanya dari Rincian Profit invoice.
+     */
+    public function costingSource(): string
+    {
+        return 'invoice_items';
+    }
 }
