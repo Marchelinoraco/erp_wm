@@ -20,6 +20,10 @@ const props = defineProps({
     tour:         Object,
     suppliers:    Array,
     cashAccounts: { type: Array, default: () => [] },
+    salesLine:    {
+        type: Object,
+        default: () => ({ key: 'tour', profitFromRevenue: false }),
+    },
 })
 
 const ACCOUNT_ICON = { bank: '🏦', cash: '💵' }
@@ -48,14 +52,16 @@ function invTotalCost(inv) {
 function invTotalSell(inv) {
     return (inv.items ?? []).reduce((s, i) => s + Number(i.line_sell), 0)
 }
-// Tour inbound/outbound: profit = tagihan customer (IDR) − total cost item.
-// Tipe lain: profit per item (sell − cost). Sama dengan rumus di panel sales.
+// Aturan profit datang dari backend (SalesLineRuleRegistry) lewat prop
+// salesLine — sumber yang sama dengan panel sales, bukan salinan rumusnya.
+const profitFromRevenue = computed(() => props.salesLine.profitFromRevenue)
+
 function invProfit(inv) {
-    if (props.tour.type === 'tour') return Number(inv.total_idr) - invTotalCost(inv)
+    if (profitFromRevenue.value) return Number(inv.total_idr) - invTotalCost(inv)
     return invTotalSell(inv) - invTotalCost(inv)
 }
 function invMargin(inv) {
-    const base = props.tour.type === 'tour' ? Number(inv.total_idr) : invTotalSell(inv)
+    const base = profitFromRevenue.value ? Number(inv.total_idr) : invTotalSell(inv)
     return base > 0 ? Math.round((invProfit(inv) / base) * 1000) / 10 : 0
 }
 
@@ -462,8 +468,8 @@ const CAT_LABEL = {
                                         <span class="font-mono">{{ fmtRp(invTotalCost(inv)) }}</span>
                                     </div>
                                     <div class="flex justify-between text-xs text-gray-500">
-                                        <span>{{ tour.type === 'tour' ? 'Total Tagihan Customer (IDR)' : 'Total Jual Item' }}</span>
-                                        <span class="font-mono">{{ fmtRp(tour.type === 'tour' ? inv.total_idr : invTotalSell(inv)) }}</span>
+                                        <span>{{ profitFromRevenue ? 'Total Tagihan Customer (IDR)' : 'Total Jual Item' }}</span>
+                                        <span class="font-mono">{{ fmtRp(profitFromRevenue ? inv.total_idr : invTotalSell(inv)) }}</span>
                                     </div>
                                     <div class="flex justify-between font-semibold"
                                         :class="invProfit(inv) >= 0 ? 'text-green-700' : 'text-red-600'">
