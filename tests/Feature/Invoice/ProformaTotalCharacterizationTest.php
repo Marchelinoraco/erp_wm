@@ -7,21 +7,25 @@ use Tests\Support\CreatesSalesFixtures;
 use Tests\TestCase;
 
 /**
- * Mengunci rumus penagihan yang berlaku SEKARANG: total = unit_price × pax,
- * sama untuk ketujuh jenis penjualan tanpa kecuali.
+ * Mengunci rumus penagihan total = unit_price × pax.
  *
- * Fase 1-3 akan mengganti rumus ini dengan aturan per jenis. Test di berkas ini
- * SENGAJA akan gagal saat itu — dan kegagalannya adalah buktinya bahwa
- * perubahan memang mengenai sasaran, bukan tanda kerusakan.
+ * Berlaku untuk ENAM jenis. Sejak Fase 3, `rental` sengaja dikecualikan:
+ * totalnya disusun dari jumlah nominal baris deskripsi (D6), dan pengecualian
+ * itu dikunci eksplisit di bawah — bukan sekadar dihapus dari daftar. Docblock
+ * versi Fase 1 memang meramalkan test ini akan gagal saat aturan per jenis
+ * mendarat; kegagalan itu sudah terjadi dan ditindaklanjuti di sini.
  */
 class ProformaTotalCharacterizationTest extends TestCase
 {
     use RefreshDatabase;
     use CreatesSalesFixtures;
 
-    public function test_total_adalah_unit_price_kali_pax_untuk_ketujuh_jenis(): void
+    /** Enam jenis yang totalnya masih unit_price × pax. */
+    private const TIPE_PER_UNIT = ['tour', 'hotel', 'guide', 'mice', 'document', 'ticketing'];
+
+    public function test_total_adalah_unit_price_kali_pax_untuk_enam_jenis(): void
     {
-        foreach (self::SALES_TYPES as $type) {
+        foreach (self::TIPE_PER_UNIT as $type) {
             $tour    = $this->makeTour($type, ['pax' => 10]);
             $invoice = $this->makeInvoice($tour, 500_000);
 
@@ -33,9 +37,23 @@ class ProformaTotalCharacterizationTest extends TestCase
         }
     }
 
-    public function test_jumlah_pax_berbeda_menghasilkan_total_berbeda_di_semua_jenis(): void
+    public function test_rental_dikecualikan_dari_rumus_kali_pax(): void
     {
-        foreach (self::SALES_TYPES as $type) {
+        // D6: unit_price diabaikan sepenuhnya untuk rental — bukan dikali 1,
+        // bukan dikali pax. Yang menentukan hanya baris bernominal.
+        $tour    = $this->makeTour('rental', ['pax' => 10]);
+        $invoice = $this->makeInvoice($tour, 500_000, [
+            'description_lines' => [
+                ['label' => 'Avanza', 'date' => '2026-07-22', 'detail' => '', 'amount' => 750_000],
+            ],
+        ]);
+
+        $this->assertEquals(750_000, $invoice->total);
+    }
+
+    public function test_jumlah_pax_berbeda_menghasilkan_total_berbeda_di_enam_jenis(): void
+    {
+        foreach (self::TIPE_PER_UNIT as $type) {
             $tour    = $this->makeTour($type, ['pax' => 3]);
             $invoice = $this->makeInvoice($tour, 1_000_000);
 

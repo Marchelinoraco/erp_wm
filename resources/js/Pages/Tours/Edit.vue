@@ -33,6 +33,12 @@ const props = defineProps({
     emailTemplates:    Object,
     quotationDefaults: Object,
     miceTemplates:     { type: Array, default: () => [] },
+    salesLine: {
+        type: Object,
+        // R5: nilai bawaan aman bila suatu halaman lupa mengirimnya —
+        // perilaku mayoritas (profit per item), bukan galat.
+        default: () => ({ key: 'tour', profitFromRevenue: false }),
+    },
 })
 
 const tourType      = props.tour.type ?? 'tour'
@@ -102,7 +108,7 @@ function sendEmail() {
                     <div class="space-y-6">
                         <HeaderPanel :tour="tour" :customers="customers" />
                         <ItemsPanel :tour="tour" :products="products" />
-                        <InvoicesPanel v-if="tour.status === 'confirmed'" :tour="tour" :products="products" :bank-accounts="bankAccounts" :cash-accounts="cashAccounts" />
+                        <InvoicesPanel v-if="tour.status === 'confirmed'" :tour="tour" :sales-line="salesLine" :products="products" :bank-accounts="bankAccounts" :cash-accounts="cashAccounts" />
                         <CostRequestsPanel v-if="tour.status === 'confirmed'" :tour="tour" :suppliers="suppliers" />
                         <OperasionalPanel :tour="tour" :field-users="fieldUsers" :manifest-url="manifestUrl" />
                         <ItineraryPanel v-if="isTour" :tour="tour" />
@@ -112,7 +118,7 @@ function sendEmail() {
                         <HistoryPanel :tour="tour" />
                     </div>
 
-                    <CostingPanel :tour="tour" />
+                    <CostingPanel :tour="tour" :sales-line="salesLine" />
 
                 </div>
             </div>

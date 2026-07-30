@@ -6,8 +6,11 @@ use App\Models\Bill;
 use App\Models\Tour;
 use App\Models\TourItem;
 use App\Models\User;
+use App\Services\SalesLine\SalesLineRuleRegistry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\CreatesSalesFixtures;
+use Tests\Support\FakeSalesLineRule;
+use Tests\Support\FakeSalesLineRuleRegistry;
 use Tests\TestCase;
 
 /**
@@ -83,5 +86,31 @@ class DashboardProfitRiilTourTypeTest extends TestCase
             ->where('confirmedSell', 2_000_000)
             ->where('actualCost', 500_000)
             ->where('realProfit', 1_500_000));
+    }
+
+    public function test_sumber_confirmed_sell_ditentukan_registry(): void
+    {
+        // Dashboard dulu mengulang aturan profit dengan tangan. Registry palsu
+        // ini menyatakan `rental` menghitung dari tagihan: bila dashboard
+        // benar-benar membaca aturan itu, angkanya beralih ke invoice (10jt);
+        // bila masih hardcode `type === 'tour'`, ia tetap dari tour_items (2jt).
+        $this->app->instance(
+            SalesLineRuleRegistry::class,
+            new FakeSalesLineRuleRegistry(new FakeSalesLineRule(profitFromRevenue: true))
+        );
+
+        $admin = $this->makeAdmin();
+
+        $tour = $this->makeTour('rental', ['pax' => 1]);
+        TourItem::create([
+            'tour_id'   => $tour->id,
+            'unit_sell' => 2_000_000,
+            'unit_cost' => 1_200_000,
+        ]);
+        $this->approveInvoice($this->makeInvoice($tour, 10_000_000));
+
+        $response = $this->actingAs($admin)->get(route('dashboard'));
+
+        $response->assertInertia(fn ($page) => $page->where('confirmedSell', 10_000_000));
     }
 }

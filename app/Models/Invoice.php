@@ -110,13 +110,15 @@ class Invoice extends Model
         $pax  = max((int) ($this->tour?->pax ?? $this->pax ?? 1), 1);
         $rule = app(SalesLineRuleRegistry::class)->for($this->tour?->type ?? 'tour');
 
-        // Fase 1: pengali tetap pax untuk SEMUA jenis, supaya total identik
-        // dengan rumus lama (unit_price × pax). Fase 2 mengganti sumber pengali
-        // ke kolom billing_quantities agar guide dihitung per hari, hotel per
-        // kamar × malam, dst.
-        $total = $rule->calculateTotal((float) $this->unit_price, [
-            new Multiplier('pax', 'Peserta', $pax),
-        ]);
+        // D6: rental menyusun total dari baris bernominal saja — unit_price
+        // diabaikan. Enam jenis lain tetap unit_price × pengali. Pengali masih
+        // tetap pax untuk semua jenis; menggantinya ke billing_quantities
+        // adalah Fase 3 dokumen lama, pekerjaan tersendiri.
+        $total = $rule->totalComposition() === 'line_items'
+            ? 0.0
+            : $rule->calculateTotal((float) $this->unit_price, [
+                new Multiplier('pax', 'Peserta', $pax),
+            ]);
 
         // Biaya tambahan (Additional) yang sales tempel sendiri di tahap
         // proforma — baris description_lines yang punya `amount` — ikut masuk
