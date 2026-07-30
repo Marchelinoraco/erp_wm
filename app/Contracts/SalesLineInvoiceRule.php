@@ -28,4 +28,15 @@ interface SalesLineInvoiceRule
 
     /** total = unit_price × hasil kali seluruh nilai Multiplier. Tanpa pembulatan. */
     public function calculateTotal(float $unitPrice, array $multipliers): float;
+
+    /**
+     * true  = profit dihitung dari tagihan customer (total_idr − Σ cost item)
+     * false = profit dihitung per item (Σ sell − Σ cost)
+     *
+     * Satu-satunya aturan uang yang bercabang per jenis. Sebelumnya
+     * terduplikasi di InvoicesPanel.vue, CostingPanel.vue, dan
+     * InvoiceController::profitPdf() — tiga berkas yang harus disunting
+     * serempak, tanpa galat apa pun bila salah satu terlupa.
+     */
+    public function profitFromRevenue(): bool;
 }

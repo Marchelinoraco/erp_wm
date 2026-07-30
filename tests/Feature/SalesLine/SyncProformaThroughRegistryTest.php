@@ -2,12 +2,11 @@
 
 namespace Tests\Feature\SalesLine;
 
-use App\Contracts\SalesLineInvoiceRule;
-use App\Models\Invoice;
-use App\Services\SalesLine\Multiplier;
 use App\Services\SalesLine\SalesLineRuleRegistry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\CreatesSalesFixtures;
+use Tests\Support\FakeSalesLineRule;
+use Tests\Support\FakeSalesLineRuleRegistry;
 use Tests\TestCase;
 
 class SyncProformaThroughRegistryTest extends TestCase
@@ -28,32 +27,12 @@ class SyncProformaThroughRegistryTest extends TestCase
 
     public function test_syncProformaTotal_benar_benar_memakai_registry(): void
     {
-        // Ganti registry di container dengan objek palsu yang selalu memberi
-        // aturan pengali ×1000, membuktikan syncProformaTotal memanggil registry,
-        // bukan menghitung sendiri. Objek palsu TIDAK meng-extend registry (kelas
-        // itu final); container mengembalikan apa pun yang di-bind, dan
-        // syncProformaTotal hanya memanggil ->for()->calculateTotal().
-        $this->app->instance(SalesLineRuleRegistry::class, new class {
-            public function for(string $salesLine): SalesLineInvoiceRule
-            {
-                return new class implements SalesLineInvoiceRule {
-                    public function unitPriceLabel(): string
-                    {
-                        return 'x';
-                    }
-
-                    public function defaultMultipliers(Invoice $invoice): array
-                    {
-                        return [];
-                    }
-
-                    public function calculateTotal(float $unitPrice, array $multipliers): float
-                    {
-                        return $unitPrice * 1000;
-                    }
-                };
-            }
-        });
+        // Registry palsu memberi aturan pengali ×1000, membuktikan
+        // syncProformaTotal memanggil registry, bukan menghitung sendiri.
+        $this->app->instance(
+            SalesLineRuleRegistry::class,
+            new FakeSalesLineRuleRegistry(new FakeSalesLineRule(totalMultiplier: 1000.0))
+        );
 
         $invoice = $this->makeInvoice($this->makeTour('tour', ['pax' => 4]), 1_000);
 

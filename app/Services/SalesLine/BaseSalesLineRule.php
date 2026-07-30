@@ -25,6 +25,12 @@ abstract class BaseSalesLineRule implements SalesLineInvoiceRule
         return $unitPrice * $product;
     }
 
+    /** Mayoritas jenis: profit per item. TourRule menimpanya. */
+    public function profitFromRevenue(): bool
+    {
+        return false;
+    }
+
     /** Ukuran rombongan, minimal 1. Sumber sama dengan rumus lama. */
     protected function paxOf(Invoice $invoice): int
     {
