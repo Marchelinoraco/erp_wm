@@ -139,55 +139,75 @@ use Tests\TestCase;
  * karena "pax" benar untuk semua, tapi karena angka yang dikalikan memang
  * jumlah pax (tour.pax) sampai Fase 3 dokumen lama selesai. Test ini mengunci
  * pembatalan 1be88ff/bbde75f agar satuan per jenis tidak diam-diam kembali.
+ *
+ * Caranya penting: setiap test SENGAJA mengirim `billingUnit` bernilai salah.
+ * Selama blade masih memakai `$billingUnit ?? 'pax'`, test gagal; setelah
+ * blade mematok 'pax', nilai salah itu diabaikan dan test lulus. Tanpa nilai
+ * salah yang disengaja, fallback `?? 'pax'` membuat test lulus sejak awal dan
+ * tidak membuktikan apa pun.
  */
 class CustomerPdfUnitLabelTest extends TestCase
 {
     use RefreshDatabase;
     use CreatesSalesFixtures;
 
+    /**
+     * Data view persis seperti yang dikirim InvoiceController::build().
+     *
+     * @param array<int, array<string, mixed>> $lines
+     * @param array<string, mixed>             $extra  disisipkan/menimpa data view
+     */
+    private function renderInvoice(
+        \App\Models\Invoice $invoice,
+        float $unitPrice,
+        int $pax,
+        array $lines = [],
+        array $extra = [],
+    ): string {
+        $segar = $invoice->fresh();
+
+        return view('invoice', array_replace([
+            'invoice'      => $segar,
+            'company'      => config('quotation.company'),
+            'bank'         => [],
+            'paymentTerms' => '',
+            'logo'         => '',
+            'lines'        => $lines,
+            'unitPrice'    => $unitPrice,
+            'pax'          => $pax,
+            'paid'         => 0.0,
+            'outstanding'  => (float) $segar->total,
+        ], $extra))->render();
+    }
+
     public function test_pdf_customer_mencetak_pax_untuk_setiap_jenis(): void
     {
         foreach (self::SALES_TYPES as $type) {
             $invoice = $this->makeInvoice($this->makeTour($type, ['pax' => 7]), 100_000);
 
-            $html = view('invoice', [
-                'invoice'      => $invoice->fresh(),
-                'company'      => config('quotation.company'),
-                'bank'         => [],
-                'paymentTerms' => '',
-                'logo'         => '',
-                'lines'        => [],
-                'unitPrice'    => 100_000.0,
-                'pax'          => 7,
-                'paid'         => 0.0,
-                'outstanding'  => 700_000.0,
-            ])->render();
+            // 'hari' sengaja salah: blade harus mengabaikannya sepenuhnya.
+            $html = $this->renderInvoice($invoice, unitPrice: 100_000.0, pax: 7, extra: [
+                'billingUnit' => 'hari',
+            ]);
 
             $this->assertStringContainsString('&times; 7 pax', $html, "Jenis {$type}");
+            $this->assertStringNotContainsString('&times; 7 hari', $html, "Jenis {$type}");
         }
     }
 
     public function test_tidak_ada_satuan_per_jenis_yang_tersisa_di_pdf(): void
     {
-        // Kata-kata yang bbde75f perkenalkan. Kemunculannya kembali berarti
+        // Keempat kata yang bbde75f perkenalkan. Kemunculannya kembali berarti
         // asumsi D2 yang belum diputuskan naik lagi jadi pernyataan ke customer.
         $invoice = $this->makeInvoice($this->makeTour('rental', ['pax' => 7]), 100_000);
 
-        $html = view('invoice', [
-            'invoice'      => $invoice->fresh(),
-            'company'      => config('quotation.company'),
-            'bank'         => [],
-            'paymentTerms' => '',
-            'logo'         => '',
-            'lines'        => [],
-            'unitPrice'    => 100_000.0,
-            'pax'          => 7,
-            'paid'         => 0.0,
-            'outstanding'  => 700_000.0,
-        ])->render();
+        foreach (['hari', 'dokumen', 'tiket', 'malam'] as $satuan) {
+            $html = $this->renderInvoice($invoice, unitPrice: 100_000.0, pax: 7, extra: [
+                'billingUnit' => $satuan,
+            ]);
 
-        foreach ([' hari', ' dokumen', ' tiket', ' malam'] as $satuan) {
-            $this->assertStringNotContainsString('&times; 7' . $satuan, $html);
+            $this->assertStringNotContainsString('&times; 7 ' . $satuan, $html);
+            $this->assertStringContainsString('&times; 7 pax', $html);
         }
     }
 }
@@ -196,7 +216,7 @@ class CustomerPdfUnitLabelTest extends TestCase
 - [ ] **Step 2: Jalankan test, pastikan GAGAL**
 
 Run: `php artisan test --filter=CustomerPdfUnitLabelTest`
-Expected: FAIL. `test_pdf_customer_mencetak_pax_untuk_setiap_jenis` gagal pada jenis `guide` (blade memakai `$billingUnit ?? 'pax'`; karena key `billingUnit` tidak dikirim di test ini, ia justru jatuh ke `'pax'` — maka yang benar-benar gagal adalah kasus di mana controller mengirimnya). Bila kedua test justru LULUS di langkah ini, itu wajar: blade punya fallback `?? 'pax'`. Tetap lanjutkan — Step 3 menghapus sumber nilai per jenisnya, dan Step 6 menambahkan test yang mengunci sisi controller.
+Expected: **FAIL, kedua test.** `test_pdf_customer_mencetak_pax_untuk_setiap_jenis` gagal pada jenis pertama karena blade masih membaca `$billingUnit` dan mencetak `&times; 7 hari`. Kegagalan ini yang membuktikan test-nya berguna — bila salah satu justru LULUS di sini, berarti `billingUnit` tidak sampai ke blade dan test perlu diperiksa dulu sebelum lanjut, jangan diteruskan.
 
 - [ ] **Step 3: Hapus peta satuan di frontend**
 
@@ -259,28 +279,12 @@ Lalu hapus seluruh method beserta docblock-nya (baris 339-351):
 
 Jangan hapus `use App\Services\SalesLine\SalesLineRuleRegistry;` di baris 9 — Task 4 dan Task 6 masih memakainya. Bila PHPStan/IDE mengeluh "unused import" pada tahap ini, biarkan; Task 4 memakainya lagi.
 
-- [ ] **Step 6: Tambah test yang mengunci sisi controller**
-
-Tambahkan method ini ke `tests/Feature/Invoice/CustomerPdfUnitLabelTest.php`:
-
-```php
-    public function test_controller_tidak_lagi_mengirim_billing_unit_ke_view(): void
-    {
-        // Mengunci pembatalan bbde75f di sumbernya: selama key ini tidak ada,
-        // blade tidak punya cara menerima satuan per jenis dari controller.
-        $this->assertFalse(
-            method_exists(\App\Http\Controllers\InvoiceController::class, 'billingUnitNoun'),
-            'billingUnitNoun() harus sudah dihapus — lihat Fase 1 spec §3.'
-        );
-    }
-```
-
-- [ ] **Step 7: Jalankan test, pastikan LULUS**
+- [ ] **Step 6: Jalankan test, pastikan LULUS**
 
 Run: `php artisan test --filter=CustomerPdfUnitLabelTest`
-Expected: PASS, 3 test.
+Expected: PASS, 2 test. Nilai `billingUnit` yang sengaja salah kini diabaikan blade.
 
-- [ ] **Step 8: Pastikan tidak ada sisa `billingUnit` di mana pun**
+- [ ] **Step 7: Pastikan tidak ada sisa `billingUnit` di mana pun**
 
 Run:
 ```bash
@@ -288,7 +292,7 @@ grep -rn "billingUnit\|BILLING_UNIT_LABELS" app resources tests
 ```
 Expected: tidak ada keluaran sama sekali.
 
-- [ ] **Step 9: Test penuh + build frontend**
+- [ ] **Step 8: Test penuh + build frontend**
 
 Run: `php artisan test`
 Expected: PASS semua, jumlah ≥ patokan Prasyarat.
@@ -296,7 +300,7 @@ Expected: PASS semua, jumlah ≥ patokan Prasyarat.
 Run: `npm run build`
 Expected: build sukses tanpa galat. (`billingUnit` yang terlewat di template akan muncul sebagai galat kompilasi Vue di sini.)
 
-- [ ] **Step 10: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add resources/js/Components/Tours/InvoicesPanel.vue resources/views/invoice.blade.php app/Http/Controllers/InvoiceController.php tests/Feature/Invoice/CustomerPdfUnitLabelTest.php
@@ -1599,30 +1603,19 @@ Tambahkan ke `tests/Feature/Invoice/CustomerPdfUnitLabelTest.php`:
     }
 ```
 
-Karena tiga test di berkas ini kini membangun array data view yang sama, ekstrak helper privatnya (ganti pengulangan di Task 1 dengan pemanggilan helper ini):
+Helper `renderInvoice()` **sudah ada** di berkas ini sejak Task 1 — pakai apa adanya, jangan definisikan ulang. Tandanya:
 
 ```php
-    /** @param array<int, array<string, mixed>> $lines */
     private function renderInvoice(
         \App\Models\Invoice $invoice,
         float $unitPrice,
         int $pax,
         array $lines = [],
-    ): string {
-        return view('invoice', [
-            'invoice'      => $invoice->fresh(),
-            'company'      => config('quotation.company'),
-            'bank'         => [],
-            'paymentTerms' => '',
-            'logo'         => '',
-            'lines'        => $lines,
-            'unitPrice'    => $unitPrice,
-            'pax'          => $pax,
-            'paid'         => 0.0,
-            'outstanding'  => (float) $invoice->fresh()->total,
-        ])->render();
-    }
+        array $extra = [],
+    ): string
 ```
+
+Kedua test baru di atas tidak memakai parameter `$extra` — nilai `billingUnit` yang sengaja salah hanya relevan untuk test Task 1.
 
 - [ ] **Step 2: Jalankan test, pastikan GAGAL**
 
