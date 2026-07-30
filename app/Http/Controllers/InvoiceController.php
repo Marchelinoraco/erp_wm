@@ -323,6 +323,13 @@ class InvoiceController extends Controller
             'logo'         => $this->logoDataUri(),
             'lines'        => $invoice->description_lines ?? [],
             'unitPrice'    => (float) $invoice->unit_price,
+            // Jenis yang totalnya tersusun dari baris bernominal tidak punya
+            // harga satuan yang bermakna — unit_price lamanya sengaja dibiarkan
+            // utuh di database (agar banner panel bisa menampilkannya), jadi
+            // nilainya TIDAK bisa dipakai menyimpulkan ini. Aturannya yang tahu.
+            'fromLineItems' => app(SalesLineRuleRegistry::class)
+                ->for($invoice->tour?->type ?? 'tour')
+                ->totalComposition() === 'line_items',
             // Pax milik INVOICE (bukan tour) — invoice suplemen biaya tambahan
             // pakai pax 1 agar baris "harga × pax" cocok dengan totalnya.
             'pax'          => (int) ($invoice->pax ?? $invoice->tour?->pax ?? 0),
