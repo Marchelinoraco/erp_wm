@@ -85,12 +85,39 @@ class AssetCategoryReportTest extends TestCase
      * Spek §3.4 no. 5: kategori bertipe 'asset' bukan pendapatan/beban, jadi
      * tidak boleh muncul di rincian beban operasional maupun pendapatan lain-lain
      * pada Laporan Laba Rugi.
+     *
+     * Fix round 2 (review Task 8), temuan Important 1: sebelumnya test ini hanya
+     * assertStringNotContainsString terhadap nama kategori — tidak ada assert
+     * numerik eksplisit. Sekarang dibandingkan totalOpex/netProfit SEBELUM dan
+     * SESUDAH transaksi kategori aset (direction='out', kas bon diberikan)
+     * ditambahkan, supaya benar-benar terbukti angka laporan tidak berubah,
+     * bukan hanya disimpulkan dari membaca kode.
      */
     public function test_kategori_aset_tidak_muncul_di_laba_rugi(): void
     {
-        $kas     = \App\Models\CashAccount::create(['name' => 'Kas Besar', 'type' => 'cash']);
-        $piutang = FinCategory::create(['name' => 'Piutang Karyawan', 'type' => 'asset']);
+        $kas        = \App\Models\CashAccount::create(['name' => 'Kas Besar', 'type' => 'cash']);
+        $pendapatan = FinCategory::create(['name' => 'Penjualan Tour', 'type' => 'income']);
+        $beban      = FinCategory::create(['name' => 'Gaji Karyawan',  'type' => 'expense']);
 
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-03', 'direction' => 'in', 'fin_category_id' => $pendapatan->id,
+            'cash_account_id' => $kas->id, 'amount' => 500_000,
+        ]);
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-04', 'direction' => 'out', 'fin_category_id' => $beban->id,
+            'cash_account_id' => $kas->id, 'amount' => 200_000,
+        ]);
+
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+        $ref = new \ReflectionMethod($controller, 'incomeStatementData');
+        $ref->setAccessible(true);
+
+        // Patokan (baseline) SEBELUM ada transaksi kategori aset sama sekali.
+        $before = $ref->invoke($controller, 2026);
+
+        // Kas bon diberikan: uang keluar dari kas (direction='out'), tapi
+        // kategorinya 'asset' (Piutang Karyawan), bukan beban.
+        $piutang = FinCategory::create(['name' => 'Piutang Karyawan', 'type' => 'asset']);
         \App\Models\FinTransaction::create([
             'date'            => '2026-07-10',
             'direction'       => 'out',
@@ -99,15 +126,82 @@ class AssetCategoryReportTest extends TestCase
             'amount'          => 1_000_000,
         ]);
 
-        $controller = app(\App\Http\Controllers\FinanceReportController::class);
-        $ref = new \ReflectionMethod($controller, 'incomeStatementData');
-        $ref->setAccessible(true);
-        $data = $ref->invoke($controller, 2026);
-
-        $json = json_encode($data);
+        $after = $ref->invoke($controller, 2026);
+        $json  = json_encode($after);
 
         $this->assertStringNotContainsString('Piutang Karyawan', $json,
             'Kas bon adalah aset, tidak boleh tampil di Laba Rugi');
+
+        // Bukti numerik eksplisit: totalOpex dan netProfit harus PERSIS SAMA
+        // sebelum dan sesudah transaksi kategori aset ditambahkan, walau uangnya
+        // benar-benar keluar dari kas sebesar 1.000.000.
+        $this->assertSame(200_000.0, $before['totalOpex']);
+        $this->assertSame(200_000.0, $after['totalOpex'],
+            'totalOpex tidak boleh bertambah akibat transaksi kategori aset (direction=out)');
+        $this->assertSame($before['netProfit'], $after['netProfit'],
+            'netProfit tidak boleh berubah akibat transaksi kategori aset (direction=out)');
+        $this->assertSame(300_000.0, $after['netProfit']);
+    }
+
+    /**
+     * Spek §3.4 no. 5 — kas bon yang DILUNASI (direction='in', kategori tetap
+     * 'asset') juga bukan pendapatan lain-lain.
+     *
+     * Fix round 2 (review Task 8), temuan Important 2: filter
+     * `whereHas('category', type != 'asset')` diterapkan di KEDUA query —
+     * $opexTxns (direction='out') MAUPUN $otherIncome (direction='in'). Test
+     * sebelumnya hanya membuktikan arah 'out' (kas bon diberikan); test ini
+     * membuktikan arah 'in' (kas bon dilunasi/dikembalikan) juga tersaring dan
+     * tidak mengubah netProfit.
+     */
+    public function test_kategori_aset_direction_in_tidak_muncul_sebagai_pendapatan_lain(): void
+    {
+        $kas        = \App\Models\CashAccount::create(['name' => 'Kas Besar', 'type' => 'cash']);
+        $pendapatan = FinCategory::create(['name' => 'Penjualan Tour', 'type' => 'income']);
+        $beban      = FinCategory::create(['name' => 'Gaji Karyawan',  'type' => 'expense']);
+
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-03', 'direction' => 'in', 'fin_category_id' => $pendapatan->id,
+            'cash_account_id' => $kas->id, 'amount' => 500_000,
+        ]);
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-04', 'direction' => 'out', 'fin_category_id' => $beban->id,
+            'cash_account_id' => $kas->id, 'amount' => 200_000,
+        ]);
+
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+        $ref = new \ReflectionMethod($controller, 'incomeStatementData');
+        $ref->setAccessible(true);
+
+        // Patokan (baseline) SEBELUM ada transaksi kategori aset sama sekali.
+        $before = $ref->invoke($controller, 2026);
+
+        // Kas bon dilunasi: uang masuk ke kas (direction='in'), tapi kategorinya
+        // tetap 'asset' (Piutang Karyawan berkurang, bukan pendapatan baru).
+        $piutang = FinCategory::create(['name' => 'Piutang Karyawan Dilunasi', 'type' => 'asset']);
+        \App\Models\FinTransaction::create([
+            'date'            => '2026-07-20',
+            'direction'       => 'in',
+            'fin_category_id' => $piutang->id,
+            'cash_account_id' => $kas->id,
+            'amount'          => 750_000,
+        ]);
+
+        $after = $ref->invoke($controller, 2026);
+        $json  = json_encode($after);
+
+        $this->assertStringNotContainsString('Piutang Karyawan Dilunasi', $json,
+            'Kas bon dilunasi (kategori aset, direction=in) tidak boleh tampil sebagai pendapatan lain-lain');
+
+        // Bukti numerik eksplisit: otherIncome dan netProfit harus PERSIS SAMA
+        // sebelum dan sesudah transaksi kategori aset ditambahkan, walau uangnya
+        // benar-benar masuk ke kas sebesar 750.000.
+        $this->assertSame(500_000.0, $before['otherIncome']);
+        $this->assertSame(500_000.0, $after['otherIncome'],
+            'otherIncome tidak boleh bertambah akibat transaksi kategori aset (direction=in)');
+        $this->assertSame($before['netProfit'], $after['netProfit'],
+            'netProfit tidak boleh berubah akibat transaksi kategori aset (direction=in)');
+        $this->assertSame(300_000.0, $after['netProfit']);
     }
 
     /**
