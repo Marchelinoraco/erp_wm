@@ -53,4 +53,49 @@ class JournalLinesTest extends TestCase
             ['account' => 'Piutang Karyawan', 'debit' => 0,           'credit' => 1_000_000.0],
         ], $trx->journalLines());
     }
+
+    /**
+     * Fix round 1 (review Task 3): JournalLinesTest bawaan brief hanya menguji
+     * direction='out'. journalLines() dipakai langsung oleh
+     * FinanceReportController::journalData() (laporan Jurnal produksi), jadi
+     * klaim non-regresi untuk arah 'in' harus dibuktikan lewat test yang
+     * benar-benar lulus, bukan cuma inspeksi kode.
+     */
+    public function test_transaksi_kas_masuk_tetap_berlawan_akun_kas(): void
+    {
+        $kas        = CashAccount::create(['name' => 'Kas Besar', 'type' => 'cash']);
+        $pendapatan = FinCategory::create(['name' => 'Penjualan Tour', 'type' => 'income']);
+
+        $trx = FinTransaction::create([
+            'date'            => '2026-07-30',
+            'direction'       => 'in',
+            'fin_category_id' => $pendapatan->id,
+            'cash_account_id' => $kas->id,
+            'amount'          => 3_800_000,
+        ]);
+
+        $this->assertSame([
+            ['account' => 'Kas Besar',      'debit' => 3_800_000.0, 'credit' => 0],
+            ['account' => 'Penjualan Tour', 'debit' => 0,           'credit' => 3_800_000.0],
+        ], $trx->journalLines());
+    }
+
+    public function test_transaksi_masuk_non_kas_berlawan_kategori(): void
+    {
+        $pendapatan = FinCategory::create(['name' => 'Penjualan Tour',   'type' => 'income']);
+        $piutang    = FinCategory::create(['name' => 'Piutang Karyawan', 'type' => 'asset']);
+
+        $trx = FinTransaction::create([
+            'date'                   => '2026-07-30',
+            'direction'              => 'in',
+            'fin_category_id'        => $pendapatan->id,
+            'contra_fin_category_id' => $piutang->id,
+            'amount'                 => 1_000_000,
+        ]);
+
+        $this->assertSame([
+            ['account' => 'Piutang Karyawan', 'debit' => 1_000_000.0, 'credit' => 0],
+            ['account' => 'Penjualan Tour',    'debit' => 0,           'credit' => 1_000_000.0],
+        ], $trx->journalLines());
+    }
 }
