@@ -78,7 +78,11 @@ return new class extends Migration
 
         if (! Schema::hasColumn('fin_transactions', 'source_baru')) {
             Schema::table('fin_transactions', function (Blueprint $table) {
-                $table->string('source_baru', 20)->nullable();
+                // ->default('manual') dipertahankan supaya perilakunya sama dengan
+                // kolom asli (dan cabang MySQL) -- fix round 1 (review): tanpa ini
+                // FinTransaction yang dibuat tanpa 'source' eksplisit jadi NULL di
+                // SQLite/uji tapi 'manual' di MySQL/production.
+                $table->string('source_baru', 20)->nullable()->default('manual');
             });
         }
 
