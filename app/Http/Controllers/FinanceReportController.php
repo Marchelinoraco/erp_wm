@@ -22,8 +22,11 @@ class FinanceReportController extends Controller
     // ── Halaman: Arus Kas (chart) ─────────────────────────────────────────────
     public function cashFlow(Request $request)
     {
-        $year = (int) $request->input('year', now()->year);
+        return Inertia::render('Finance/CashFlow', $this->cashFlowData((int) $request->input('year', now()->year)));
+    }
 
+    private function cashFlowData(int $year): array
+    {
         // Seri bulanan: pemasukan vs pengeluaran
         $months = [];
         $incomeSeries = [];
@@ -61,7 +64,7 @@ class FinanceReportController extends Controller
             return ['name' => $a->name, 'type' => $a->type, 'balance' => (float) $a->opening_balance + $in - $out];
         });
 
-        return Inertia::render('Finance/CashFlow', [
+        return [
             'year'          => $year,
             'years'         => $this->availableYears(),
             'months'        => $months,
@@ -77,7 +80,7 @@ class FinanceReportController extends Controller
                 'net'     => array_sum($netSeries),
                 'balance' => $accounts->sum('balance'),
             ],
-        ]);
+        ];
     }
 
     // ── Halaman: Jurnal Bulanan (debit = kredit) ─────────────────────────────
