@@ -82,6 +82,91 @@ class AssetCategoryReportTest extends TestCase
     }
 
     /**
+     * Spek §3.4 no. 5: kategori bertipe 'asset' bukan pendapatan/beban, jadi
+     * tidak boleh muncul di rincian beban operasional maupun pendapatan lain-lain
+     * pada Laporan Laba Rugi.
+     */
+    public function test_kategori_aset_tidak_muncul_di_laba_rugi(): void
+    {
+        $kas     = \App\Models\CashAccount::create(['name' => 'Kas Besar', 'type' => 'cash']);
+        $piutang = FinCategory::create(['name' => 'Piutang Karyawan', 'type' => 'asset']);
+
+        \App\Models\FinTransaction::create([
+            'date'            => '2026-07-10',
+            'direction'       => 'out',
+            'fin_category_id' => $piutang->id,
+            'cash_account_id' => $kas->id,
+            'amount'          => 1_000_000,
+        ]);
+
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+        $ref = new \ReflectionMethod($controller, 'incomeStatementData');
+        $ref->setAccessible(true);
+        $data = $ref->invoke($controller, 2026);
+
+        $json = json_encode($data);
+
+        $this->assertStringNotContainsString('Piutang Karyawan', $json,
+            'Kas bon adalah aset, tidak boleh tampil di Laba Rugi');
+    }
+
+    /**
+     * Spek §3.4 no. 5 — bukti regresi: untuk data yang HANYA berkategori
+     * income/expense (tanpa kategori 'asset' sama sekali, persis kondisi
+     * database saat ini), totalOpex/otherIncome/netProfit hasil
+     * incomeStatementData() versi baru harus IDENTIK dengan angka yang
+     * dihasilkan query lama (tanpa penyaring `whereHas('category', ...)`).
+     * Tidak ada invoice/bill/aset tetap di fixture ini supaya grossProfit dan
+     * totalDepreciation nol, sehingga netProfit = otherIncome - totalOpex.
+     */
+    public function test_income_statement_identik_dengan_logika_lama_untuk_kategori_income_expense(): void
+    {
+        $kas = \App\Models\CashAccount::create(['name' => 'Kas Besar', 'type' => 'cash']);
+
+        $pendapatan = FinCategory::create(['name' => 'Penjualan Tour', 'type' => 'income']);
+        $beban      = FinCategory::create(['name' => 'Gaji Karyawan',  'type' => 'expense']);
+
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-05', 'direction' => 'in', 'fin_category_id' => $pendapatan->id,
+            'cash_account_id' => $kas->id, 'amount' => 500_000,
+        ]);
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-08', 'direction' => 'in', 'fin_category_id' => $pendapatan->id,
+            'cash_account_id' => $kas->id, 'amount' => 300_000,
+        ]);
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-15', 'direction' => 'out', 'fin_category_id' => $beban->id,
+            'cash_account_id' => $kas->id, 'amount' => 200_000,
+        ]);
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-20', 'direction' => 'out', 'fin_category_id' => $beban->id,
+            'cash_account_id' => $kas->id, 'amount' => 100_000,
+        ]);
+
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+        $ref = new \ReflectionMethod($controller, 'incomeStatementData');
+        $ref->setAccessible(true);
+        $actual = $ref->invoke($controller, 2026);
+
+        // Oracle: salinan persis query $opexTxns / $otherIncome SEBELUM Task 8
+        // (tanpa whereHas('category', type != 'asset')).
+        $oldOpexTotal = (float) \App\Models\FinTransaction::where('source', 'manual')
+            ->where('direction', 'out')->whereYear('date', 2026)->sum('amount');
+        $oldOtherIncome = (float) \App\Models\FinTransaction::where('source', 'manual')
+            ->where('direction', 'in')->whereYear('date', 2026)->sum('amount');
+        $oldNetProfit = 0 - $oldOpexTotal - 0 + $oldOtherIncome;
+
+        $this->assertSame($oldOpexTotal, $actual['totalOpex'], 'totalOpex harus identik dengan logika lama untuk data income/expense biasa');
+        $this->assertSame($oldOtherIncome, $actual['otherIncome'], 'otherIncome harus identik dengan logika lama untuk data income/expense biasa');
+        $this->assertSame($oldNetProfit, $actual['netProfit'], 'netProfit harus identik dengan logika lama untuk data income/expense biasa');
+
+        // Angka konkret, bukan hanya kesamaan dengan oracle.
+        $this->assertSame(300_000.0, $actual['totalOpex']);
+        $this->assertSame(800_000.0, $actual['otherIncome']);
+        $this->assertSame(500_000.0, $actual['netProfit']);
+    }
+
+    /**
      * Spek §3.4 no. 1 — bukti regresi: untuk data yang HANYA berkategori
      * income/expense (tanpa kategori 'asset' sama sekali, persis kondisi
      * database saat ini), hasil ledgerData() versi baru harus IDENTIK dengan

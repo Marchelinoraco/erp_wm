@@ -480,10 +480,12 @@ class FinanceReportController extends Controller
         $grossProfit = $totalRev - $totalCogs;
 
         // Biaya operasional — transaksi kas manual keluar, dikelompok per kategori
+        // Spek §3.4 no. 5: kategori aset bukan pendapatan/beban.
         $opexTxns = FinTransaction::with('category')
             ->where('source', 'manual')
             ->where('direction', 'out')
             ->whereYear('date', $year)
+            ->whereHas('category', fn ($q) => $q->where('type', '!=', 'asset'))
             ->get();
 
         $opex = $opexTxns
@@ -496,9 +498,11 @@ class FinanceReportController extends Controller
             ->values();
 
         $totalOpex   = (float) $opexTxns->sum('amount');
+        // Spek §3.4 no. 5: kategori aset bukan pendapatan/beban.
         $otherIncome = (float) FinTransaction::where('source', 'manual')
             ->where('direction', 'in')
             ->whereYear('date', $year)
+            ->whereHas('category', fn ($q) => $q->where('type', '!=', 'asset'))
             ->sum('amount');
 
         // Beban penyusutan aset tetap (non-kas, garis lurus)
