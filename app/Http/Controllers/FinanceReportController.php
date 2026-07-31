@@ -161,29 +161,38 @@ class FinanceReportController extends Controller
             $acc[$key] ??= ['name' => $name, 'group' => $group, 'debit' => 0.0, 'credit' => 0.0, 'postings' => []];
         };
 
+        // Fix wave N1 (review lanjutan setelah final review, 2026-08-01): group
+        // akun ditentukan dari type kategorinya lewat SATU aturan, dipakai untuk
+        // kategori utama MAUPUN kategori lawan. Sebelumnya kategori lawan punya
+        // aturan sendiri (ternary yang cuma bisa hasil 'aset'/'beban') — beda
+        // dari aturan kategori utama, walau merujuk kategori yang sama persis.
+        $groupUntukType = fn (?string $type) => match ($type) {
+            'income' => 'pendapatan',
+            'asset'  => 'aset',
+            default  => 'beban',
+        };
+
         foreach ($txns as $t) {
             $amt  = (float) $t->amount;
             $date = $t->date->format('Y-m-d');
-            // Fix wave final review 2026-08-01, Temuan #4: akun lawan (baik key
-            // maupun nama) berasal dari kas ATAU kategori lawan, mengikuti pola
-            // journalLines() di app/Models/FinTransaction.php. Sebelumnya baris
-            // non-kas (cash_account_id null, contra_fin_category_id terisi)
-            // jatuh ke $cashKey = 'cash-' dan $cashName = 'Kas' — mengkredit
-            // akun "Kas" hantu padahal tidak ada uang bergerak.
-            $lawanKey  = $t->cash_account_id ? 'cash-' . $t->cash_account_id : 'contra-' . $t->contra_fin_category_id;
+            // Fix wave N1: key kategori lawan disatukan dengan key kategori utama
+            // ('cat-<id>' untuk keduanya), BUKAN 'contra-<id>' terpisah. Tanpa ini,
+            // kategori yang sama (mis. Piutang Karyawan) yang pernah jadi kategori
+            // utama di satu transaksi dan kategori lawan di transaksi lain (spek
+            // §4.2: kas bon diberikan lalu dilunasi saat gajian) muncul sebagai DUA
+            // baris akun terpisah di Buku Besar, bukan satu akun dengan saldo
+            // bersih yang benar. Akun kas (cash_account_id terisi) TIDAK berubah:
+            // tetap 'cash-<id>', terpisah dari key kategori manapun.
+            $lawanKey  = $t->cash_account_id ? 'cash-' . $t->cash_account_id : 'cat-' . $t->contra_fin_category_id;
             $catKey    = 'cat-' . $t->fin_category_id;
             $lawanName = $t->cashAccount?->name ?? $t->contraCategory?->name ?? 'Kas';
             $catName   = $t->category?->name ?? '-';
 
-            $touch($lawanKey, $lawanName, $t->cash_account_id ? 'aset' : ($t->contraCategory?->type === 'asset' ? 'aset' : 'beban'));
+            $touch($lawanKey, $lawanName, $t->cash_account_id ? 'aset' : $groupUntukType($t->contraCategory?->type));
             // Spek §3.4 no. 1: jenis akun dibaca dari kategorinya, bukan ditebak
             // dari arah uang. Sebelum ada kategori bertipe 'asset', kedua cara ini
             // menghasilkan hasil yang sama persis.
-            $touch($catKey, $catName, match ($t->category?->type) {
-                'income' => 'pendapatan',
-                'asset'  => 'aset',
-                default  => 'beban',
-            });
+            $touch($catKey, $catName, $groupUntukType($t->category?->type));
 
             if ($t->direction === 'in') {
                 $acc[$lawanKey]['debit'] += $amt;

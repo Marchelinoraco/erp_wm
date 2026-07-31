@@ -1018,6 +1018,121 @@ class AssetCategoryReportTest extends TestCase
         $this->assertSame(200_000.0, $kasActual['credit']);
     }
 
+    // ────────────────────────────────────────────────────────────────────
+    // Fix wave — perbaikan N1 dari final review (2026-08-01): key kategori
+    // lawan (contra_fin_category_id) disatukan dengan key kategori utama
+    // ('cat-<id>' untuk keduanya, bukan 'contra-<id>' terpisah untuk peran
+    // lawan), dan aturan penentuan group disatukan (satu fungsi berdasarkan
+    // type kategori, dipakai baik untuk peran utama maupun lawan).
+    // ────────────────────────────────────────────────────────────────────
+
+    /**
+     * Spek §4.2 skenario kas bon 3-baris jurnal: kategori Piutang Karyawan
+     * jadi kategori UTAMA (fin_category_id) saat kas bon diberikan, lalu jadi
+     * kategori LAWAN (contra_fin_category_id) saat dilunasi penuh saat
+     * gajian. Sebelum perbaikan N1, ledgerData() memakai key 'contra-<id>'
+     * untuk peran lawan — terpisah dari key 'cat-<id>' yang dipakai kategori
+     * yang SAMA saat berperan sebagai kategori utama — sehingga "Piutang
+     * Karyawan" muncul sebagai DUA baris akun terpisah di Buku Besar (satu
+     * didebit 1.000.000 dari peran utama, satu dikredit 1.000.000 dari peran
+     * lawan) alih-alih SATU akun dengan saldo bersih 0 (piutang sudah lunas).
+     */
+    public function test_kategori_piutang_karyawan_sebagai_utama_dan_lawan_menyatu_jadi_satu_akun(): void
+    {
+        $kas     = \App\Models\CashAccount::create(['name' => 'Kas Besar', 'type' => 'cash']);
+        $piutang = FinCategory::create(['name' => 'Piutang Karyawan', 'type' => 'asset']);
+        $gaji    = FinCategory::create(['name' => 'Gaji Karyawan', 'type' => 'expense']);
+
+        // 1) Kas bon 1.000.000 diberikan 10 Jul — Piutang Karyawan sebagai UTAMA.
+        \App\Models\FinTransaction::create([
+            'date'            => '2026-07-10',
+            'direction'       => 'out',
+            'fin_category_id' => $piutang->id,
+            'cash_account_id' => $kas->id,
+            'amount'          => 1_000_000,
+            'source'          => 'advance',
+        ]);
+
+        // 2) Pelunasan kas bon saat gajian 30 Jul — Piutang Karyawan sebagai LAWAN.
+        \App\Models\FinTransaction::create([
+            'date'                   => '2026-07-30',
+            'direction'              => 'out',
+            'fin_category_id'        => $gaji->id,
+            'contra_fin_category_id' => $piutang->id,
+            'amount'                 => 1_000_000,
+            'source'                 => 'payroll',
+        ]);
+
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+        $ref = new \ReflectionMethod($controller, 'ledgerData');
+        $ref->setAccessible(true);
+        $data = $ref->invoke($controller, 2026, null);
+
+        $piutangRows = collect($data['accounts'])->where('name', 'Piutang Karyawan')->values();
+
+        $this->assertCount(1, $piutangRows,
+            'Piutang Karyawan harus jadi SATU akun, bukan dua baris terpisah antara peran utama dan peran lawan');
+
+        $akun = $piutangRows->first();
+        $this->assertSame($akun['debit'], $akun['credit'],
+            'Piutang Karyawan harus lunas (debit = credit) setelah dilunasi penuh lewat peran lawan');
+        $this->assertSame(1_000_000.0, $akun['debit']);
+        $this->assertSame(1_000_000.0, $akun['credit']);
+    }
+
+    /**
+     * Perbaikan N1 — bukti regresi: untuk data existing (SEMUA transaksi kas,
+     * tidak ada satu pun baris dengan contra_fin_category_id terisi), hasil
+     * ledgerData() (accounts, group, profit) harus PERSIS SAMA dengan sebelum
+     * perbaikan N1. Oracle di bawah adalah salinan verbatim ledgerData()
+     * SEBELUM perbaikan N1 (key 'contra-<id>' terpisah + group kategori
+     * lawan lewat ternary) — cabang contra pada oracle itu tidak pernah
+     * tereksekusi untuk fixture ini karena tidak ada satu pun transaksi non-
+     * kas, jadi satu-satunya kode yang benar-benar dibandingkan adalah key
+     * dan group kategori UTAMA (tidak diubah oleh perbaikan N1).
+     */
+    public function test_ledger_data_identik_dengan_sebelum_perbaikan_n1_untuk_transaksi_kas_biasa_regresi(): void
+    {
+        $kas = \App\Models\CashAccount::create(['name' => 'Kas Besar', 'type' => 'cash']);
+
+        $pendapatan = FinCategory::create(['name' => 'Penjualan Tour', 'type' => 'income']);
+        $beban      = FinCategory::create(['name' => 'Gaji Karyawan',  'type' => 'expense']);
+        $asetLain   = FinCategory::create(['name' => 'Piutang Karyawan Lain', 'type' => 'asset']);
+
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-05', 'direction' => 'in', 'fin_category_id' => $pendapatan->id,
+            'cash_account_id' => $kas->id, 'amount' => 500_000,
+        ]);
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-12', 'direction' => 'in', 'fin_category_id' => $pendapatan->id,
+            'cash_account_id' => $kas->id, 'amount' => 300_000,
+        ]);
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-15', 'direction' => 'out', 'fin_category_id' => $beban->id,
+            'cash_account_id' => $kas->id, 'amount' => 200_000,
+        ]);
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-18', 'direction' => 'out', 'fin_category_id' => $asetLain->id,
+            'cash_account_id' => $kas->id, 'amount' => 150_000,
+        ]);
+
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+        $ref = new \ReflectionMethod($controller, 'ledgerData');
+        $ref->setAccessible(true);
+        $actual = $ref->invoke($controller, 2026, null);
+
+        $expected = $this->oldLedgerDataSebelumPerbaikanN1(2026, null);
+
+        $actualGroups   = collect($actual['accounts'])->pluck('group', 'name')->sortKeys()->all();
+        $expectedGroups = collect($expected['accounts'])->pluck('group', 'name')->sortKeys()->all();
+        $actualDebitCredit   = collect($actual['accounts'])->map(fn ($a) => ['debit' => $a['debit'], 'credit' => $a['credit']])->sortKeys()->all();
+        $expectedDebitCredit = collect($expected['accounts'])->map(fn ($a) => ['debit' => $a['debit'], 'credit' => $a['credit']])->sortKeys()->all();
+
+        $this->assertSame($expectedGroups, $actualGroups, 'group tiap akun harus identik dengan sebelum perbaikan N1 untuk data kas biasa');
+        $this->assertSame($expectedDebitCredit, $actualDebitCredit, 'debit/credit tiap akun harus identik dengan sebelum perbaikan N1 untuk data kas biasa');
+        $this->assertSame($expected['profit'], $actual['profit'], 'profit.income/profit.expense harus identik dengan sebelum perbaikan N1');
+    }
+
     /**
      * Salinan persis ledgerData() SEBELUM Task 7 (kelompok akun kategori
      * ditebak dari direction). Dipakai sebagai oracle regresi di atas — bukan
@@ -1057,6 +1172,70 @@ class AssetCategoryReportTest extends TestCase
                 $acc[$catKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $cashName, 'debit' => $amt, 'credit' => 0];
                 $acc[$cashKey]['credit'] += $amt;
                 $acc[$cashKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $catName, 'debit' => 0, 'credit' => $amt];
+            }
+        }
+
+        $accounts = collect($acc)->map(function ($a) {
+            $normalDebit  = in_array($a['group'], ['aset', 'beban']);
+            $a['balance'] = $normalDebit ? $a['debit'] - $a['credit'] : $a['credit'] - $a['debit'];
+            return $a;
+        })->sortBy([['group', 'asc'], ['name', 'asc']])->values();
+
+        $pendapatan = (float) $accounts->where('group', 'pendapatan')->sum('balance');
+        $beban      = (float) $accounts->where('group', 'beban')->sum('balance');
+
+        return [
+            'year'     => $year,
+            'month'    => $month,
+            'accounts' => $accounts,
+            'profit'   => ['income' => $pendapatan, 'expense' => $beban, 'net' => $pendapatan - $beban],
+        ];
+    }
+
+    /**
+     * Salinan verbatim ledgerData() SEBELUM perbaikan N1 (commit 2dba2f0):
+     * key kategori lawan terpisah ('contra-<id>'), group kategori lawan lewat
+     * ternary asset/beban. Dipakai sebagai oracle regresi di atas — bukan
+     * untuk dipanggil di kode produksi.
+     */
+    private function oldLedgerDataSebelumPerbaikanN1(int $year, $month): array
+    {
+        $q = \App\Models\FinTransaction::with(['category', 'cashAccount', 'contraCategory'])->whereYear('date', $year);
+        if ($month) {
+            $q->whereMonth('date', (int) $month);
+        }
+        $txns = $q->orderBy('date')->orderBy('id')->get();
+
+        $acc = [];
+        $touch = function (string $key, string $name, string $group) use (&$acc) {
+            $acc[$key] ??= ['name' => $name, 'group' => $group, 'debit' => 0.0, 'credit' => 0.0, 'postings' => []];
+        };
+
+        foreach ($txns as $t) {
+            $amt  = (float) $t->amount;
+            $date = $t->date->format('Y-m-d');
+            $lawanKey  = $t->cash_account_id ? 'cash-' . $t->cash_account_id : 'contra-' . $t->contra_fin_category_id;
+            $catKey    = 'cat-' . $t->fin_category_id;
+            $lawanName = $t->cashAccount?->name ?? $t->contraCategory?->name ?? 'Kas';
+            $catName   = $t->category?->name ?? '-';
+
+            $touch($lawanKey, $lawanName, $t->cash_account_id ? 'aset' : ($t->contraCategory?->type === 'asset' ? 'aset' : 'beban'));
+            $touch($catKey, $catName, match ($t->category?->type) {
+                'income' => 'pendapatan',
+                'asset'  => 'aset',
+                default  => 'beban',
+            });
+
+            if ($t->direction === 'in') {
+                $acc[$lawanKey]['debit'] += $amt;
+                $acc[$lawanKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $catName, 'debit' => $amt, 'credit' => 0];
+                $acc[$catKey]['credit'] += $amt;
+                $acc[$catKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $lawanName, 'debit' => 0, 'credit' => $amt];
+            } else {
+                $acc[$catKey]['debit'] += $amt;
+                $acc[$catKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $lawanName, 'debit' => $amt, 'credit' => 0];
+                $acc[$lawanKey]['credit'] += $amt;
+                $acc[$lawanKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $catName, 'debit' => 0, 'credit' => $amt];
             }
         }
 
