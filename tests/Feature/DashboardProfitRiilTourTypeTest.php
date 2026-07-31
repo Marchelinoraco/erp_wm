@@ -6,8 +6,11 @@ use App\Models\Bill;
 use App\Models\Tour;
 use App\Models\TourItem;
 use App\Models\User;
+use App\Services\SalesLine\SalesLineRuleRegistry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\CreatesSalesFixtures;
+use Tests\Support\FakeSalesLineRule;
+use Tests\Support\FakeSalesLineRuleRegistry;
 use Tests\TestCase;
 
 /**
@@ -83,5 +86,72 @@ class DashboardProfitRiilTourTypeTest extends TestCase
             ->where('confirmedSell', 2_000_000)
             ->where('actualCost', 500_000)
             ->where('realProfit', 1_500_000));
+    }
+
+    public function test_rental_dengan_invoice_disetujui_menyumbang_jual_dari_rincian_profit(): void
+    {
+        // Konsekuensi yang disengaja dari perbaikan Ringkasan Biaya rental:
+        // dashboard membaca Tour::total_sell yang sama. Sebelumnya rental
+        // berinvoice disetujui menyumbang Rp 0 ke "Perkiraan" karena
+        // tour_items-nya kosong — undercount, bukan angka yang benar.
+        $admin = $this->makeAdmin();
+
+        $tour    = $this->makeTour('rental', ['pax' => 1]);
+        $invoice = $this->makeInvoice($tour, 800_000, [
+            'description_lines' => [
+                ['label' => 'Avanza', 'date' => '2026-07-22', 'detail' => '', 'amount' => 800_000],
+            ],
+        ]);
+
+        $product = \App\Models\Product::create([
+            'name' => 'Sewa Avanza',
+            'type' => 'transport',
+            'cost' => 500_000,
+            'sell' => 800_000,
+        ]);
+
+        \App\Models\InvoiceItem::create([
+            'invoice_id'   => $invoice->id,
+            'product_id'   => $product->id,
+            'product_type' => $product->type,
+            'description'  => $product->name,
+            'qty'          => 1,
+            'nights'       => 1,
+            'unit_cost'    => 500_000,
+            'unit_sell'    => 800_000,
+        ]);
+
+        $this->approveInvoice($invoice->fresh());
+
+        $this->assertSame(0, $tour->items()->count());
+
+        $this->actingAs($admin)->get(route('dashboard'))
+            ->assertInertia(fn ($page) => $page->where('confirmedSell', 800_000));
+    }
+
+    public function test_sumber_confirmed_sell_ditentukan_registry(): void
+    {
+        // Dashboard dulu mengulang aturan profit dengan tangan. Registry palsu
+        // ini menyatakan `rental` menghitung dari tagihan: bila dashboard
+        // benar-benar membaca aturan itu, angkanya beralih ke invoice (10jt);
+        // bila masih hardcode `type === 'tour'`, ia tetap dari tour_items (2jt).
+        $this->app->instance(
+            SalesLineRuleRegistry::class,
+            new FakeSalesLineRuleRegistry(new FakeSalesLineRule(profitFromRevenue: true))
+        );
+
+        $admin = $this->makeAdmin();
+
+        $tour = $this->makeTour('rental', ['pax' => 1]);
+        TourItem::create([
+            'tour_id'   => $tour->id,
+            'unit_sell' => 2_000_000,
+            'unit_cost' => 1_200_000,
+        ]);
+        $this->approveInvoice($this->makeInvoice($tour, 10_000_000));
+
+        $response = $this->actingAs($admin)->get(route('dashboard'));
+
+        $response->assertInertia(fn ($page) => $page->where('confirmedSell', 10_000_000));
     }
 }

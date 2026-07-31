@@ -228,7 +228,12 @@
                     <td class="acell"></td>
                 </tr>
 
-                {{-- Baris harga proforma --}}
+                {{-- Baris harga proforma — dilewati untuk jenis yang total-nya
+                     tersusun dari baris bernominal, supaya tidak ada baris
+                     "Price :" bernominal 0 di dokumen ke customer. Patokannya
+                     aturan jenis penjualan, BUKAN unit_price: nilai lamanya
+                     sengaja dibiarkan utuh di database. --}}
+                @if(!($fromLineItems ?? false) && $unitPrice > 0)
                 <tr>
                     <td class="dcell">
                         <table class="kv">
@@ -236,15 +241,14 @@
                                 <td class="k">Price</td>
                                 <td class="s">:</td>
                                 <td>
-                                    @if($unitPrice > 0)
-                                        {{ $fmt($unitPrice) }}@if($pax > 0) &times; {{ $pax }} {{ $billingUnit ?? 'pax' }} @endif
-                                    @endif
+                                    {{ $fmt($unitPrice) }}@if($pax > 0) &times; {{ $pax }} pax @endif
                                 </td>
                             </tr>
                         </table>
                     </td>
                     <td class="acell">{{ $fmt($invoice->total - collect($lines)->sum('amount')) }}</td>
                 </tr>
+                @endif
 
                 {{-- Baris berjumlah nominal sendiri (mis. "Additional" — biaya tambahan disetujui akuntan) --}}
                 @foreach($lines as $ln)
@@ -255,7 +259,9 @@
                             <tr>
                                 <td class="k">{{ trim($ln['label'] ?? '') ?: 'Additional' }}</td>
                                 <td class="s">:</td>
-                                <td>{{ $ln['detail'] ?? '' }}</td>
+                                <td>
+                                    @if(!empty($ln['date'])){{ $ln['date'] }}@if(!empty($ln['detail'])) &middot; @endif @endif{{ $ln['detail'] ?? '' }}
+                                </td>
                             </tr>
                         </table>
                     </td>

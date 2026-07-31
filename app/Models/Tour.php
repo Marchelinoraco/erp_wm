@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Contracts\SalesLineInvoiceRule;
+use App\Services\SalesLine\SalesLineRuleRegistry;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
@@ -261,16 +263,41 @@ class Tour extends Model
     // sell = tagihan customer (total_idr invoice), cost = item invoice (rincian
     // profit) — sesuai rumus Profit = tagihan − cost, bukan sell/unit per item.
 
-    /** Tipe tour dengan invoice approved → profit berbasis tagihan invoice. */
+    /**
+     * Sumber angka profit: aturan jenis penjualan yang menentukan, bukan
+     * perbandingan tipe di sini. CostingPanel.vue membaca aturan yang sama
+     * lewat prop `salesLine`, jadi label dan angka mustahil berselisih.
+     */
     private function usesInvoiceProfit(): bool
     {
-        return $this->type === 'tour'
-            && $this->invoices->whereNotNull('approved_at')->isNotEmpty();
+        return $this->salesLineRule()->profitFromRevenue()
+            && $this->hasApprovedInvoice();
+    }
+
+    /**
+     * Jenis yang modal & jual per komponennya dicatat di Rincian Profit invoice,
+     * bukan disusun di muka lewat tour_items. Untuk jenis ini tour_items memang
+     * kosong, jadi menjumlahnya hanya menghasilkan Rp 0 yang menyesatkan.
+     */
+    private function usesInvoiceCosting(): bool
+    {
+        return $this->salesLineRule()->costingSource() === 'invoice_items'
+            && $this->hasApprovedInvoice();
+    }
+
+    private function hasApprovedInvoice(): bool
+    {
+        return $this->invoices->whereNotNull('approved_at')->isNotEmpty();
+    }
+
+    private function salesLineRule(): SalesLineInvoiceRule
+    {
+        return app(SalesLineRuleRegistry::class)->for($this->type ?? 'tour');
     }
 
     public function getTotalCostAttribute(): float
     {
-        if ($this->usesInvoiceProfit()) {
+        if ($this->usesInvoiceProfit() || $this->usesInvoiceCosting()) {
             return (float) $this->invoices->flatMap->items->sum('line_cost');
         }
 
@@ -281,6 +308,12 @@ class Tour extends Model
     {
         if ($this->usesInvoiceProfit()) {
             return (float) $this->invoices->whereNotNull('approved_at')->sum('total_idr');
+        }
+
+        // Modal dan jual sama-sama dari Rincian Profit: profitnya selisih per
+        // komponen, bukan tagihan − modal.
+        if ($this->usesInvoiceCosting()) {
+            return (float) $this->invoices->flatMap->items->sum('line_sell');
         }
 
         return (float) $this->items->sum('line_sell');

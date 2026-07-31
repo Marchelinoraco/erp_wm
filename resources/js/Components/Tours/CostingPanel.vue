@@ -4,12 +4,20 @@ import { router } from '@inertiajs/vue3'
 import { fmtRp } from '@/lib/fmt'
 import { STATUS_CONFIG } from '@/lib/tourConstants'
 
-const props = defineProps({ tour: Object })
+const props = defineProps({
+    tour: Object,
+    salesLine: {
+        type: Object,
+        // R5: nilai bawaan aman bila suatu halaman lupa mengirimnya —
+        // perilaku mayoritas (profit per item), bukan galat.
+        default: () => ({ key: 'tour', profitFromRevenue: false }),
+    },
+})
 
-// Tipe tour dengan invoice approved: angka berasal dari invoice
-// (sell = tagihan customer, cost = item rincian profit invoice).
+// Angka berasal dari invoice bila aturan jenisnya menghitung profit dari
+// tagihan customer DAN sudah ada invoice yang disetujui.
 const fromInvoice = computed(() =>
-    props.tour.type === 'tour' && (props.tour.invoices ?? []).some(i => i.approved_at)
+    props.salesLine.profitFromRevenue && (props.tour.invoices ?? []).some(i => i.approved_at)
 )
 
 function changeStatus(status) {

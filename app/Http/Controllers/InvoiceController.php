@@ -245,7 +245,7 @@ class InvoiceController extends Controller
         $invoice->load(['tour.customer', 'items', 'approvedBy']);
 
         $tour      = $invoice->tour;
-        $isTour    = $tour->type === 'tour';
+        $isTour    = app(SalesLineRuleRegistry::class)->for($tour->type ?? 'tour')->profitFromRevenue();
         $totalCost = $invoice->items->sum('line_cost');
         $totalSell = $invoice->items->sum('line_sell');
         // Tour inbound/outbound: profit = tagihan customer (IDR) − cost item.
@@ -323,10 +323,16 @@ class InvoiceController extends Controller
             'logo'         => $this->logoDataUri(),
             'lines'        => $invoice->description_lines ?? [],
             'unitPrice'    => (float) $invoice->unit_price,
+            // Jenis yang totalnya tersusun dari baris bernominal tidak punya
+            // harga satuan yang bermakna — unit_price lamanya sengaja dibiarkan
+            // utuh di database (agar banner panel bisa menampilkannya), jadi
+            // nilainya TIDAK bisa dipakai menyimpulkan ini. Aturannya yang tahu.
+            'fromLineItems' => app(SalesLineRuleRegistry::class)
+                ->for($invoice->tour?->type ?? 'tour')
+                ->totalComposition() === 'line_items',
             // Pax milik INVOICE (bukan tour) — invoice suplemen biaya tambahan
             // pakai pax 1 agar baris "harga × pax" cocok dengan totalnya.
             'pax'          => (int) ($invoice->pax ?? $invoice->tour?->pax ?? 0),
-            'billingUnit'  => $this->billingUnitNoun($invoice->tour?->type),
             'paid'         => $paid,
             'outstanding'  => $outstanding,
         ])->render();
@@ -334,20 +340,6 @@ class InvoiceController extends Controller
         $mpdf->WriteHTML($html);
 
         return $mpdf;
-    }
-
-    /**
-     * Kata benda pengali untuk baris "Price : ... × N ___" di PDF customer —
-     * diturunkan dari label resmi SalesLineRuleRegistry (satu sumber kebenaran,
-     * lihat docs/logika-pembuatan-invoice/10-temuan.md §10.4) supaya tidak ada
-     * kata "pax" yang dipaksakan untuk tipe yang ditagih per hari/dokumen/tiket.
-     */
-    private function billingUnitNoun(?string $tourType): string
-    {
-        $label = app(SalesLineRuleRegistry::class)->for($tourType ?? 'tour')->unitPriceLabel();
-        $parts = explode('/', $label);
-
-        return trim(end($parts));
     }
 
     /**

@@ -33,6 +33,28 @@ final class SalesLineRuleRegistry
         return $this->rules[$salesLine] ?? $this->rules['tour'];
     }
 
+    /**
+     * Bentuk prop Inertia `salesLine` untuk halaman yang menampilkan angka
+     * uang per jenis penjualan. Satu tempat, supaya menambah properti tidak
+     * berarti menyunting setiap controller yang mengirimnya.
+     *
+     * Hanya properti yang benar-benar dikonsumsi frontend yang masuk sini —
+     * `unitPriceLabel()` sengaja TIDAK dikirim, satuannya masih ditunda.
+     *
+     * @return array{key: string, profitFromRevenue: bool, totalComposition: string}
+     */
+    public function payloadFor(?string $salesLine): array
+    {
+        $key  = $salesLine ?? 'tour';
+        $rule = $this->for($key);
+
+        return [
+            'key'               => $key,
+            'profitFromRevenue' => $rule->profitFromRevenue(),
+            'totalComposition'  => $rule->totalComposition(),
+        ];
+    }
+
     /** @return string[] */
     public function keys(): array
     {

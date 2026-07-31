@@ -9,6 +9,7 @@ use App\Models\Invoice;
 use App\Models\InvoicePayment;
 use App\Models\Supplier;
 use App\Models\Tour;
+use App\Services\SalesLine\SalesLineRuleRegistry;
 use Inertia\Inertia;
 
 class FinanceController extends Controller
@@ -94,6 +95,10 @@ class FinanceController extends Controller
 
         return Inertia::render('Finance/Tour', [
             'tour'        => $tour,
+            // Aturan uang per jenis datang dari registry, sama persis dengan
+            // yang diterima halaman sales — halaman ini menampilkan angka
+            // profit yang sama dan tidak boleh menghitungnya sendiri.
+            'salesLine'   => app(SalesLineRuleRegistry::class)->payloadFor($tour->type),
             'suppliers'   => Supplier::orderBy('name')->get(['id', 'name']),
             'cashAccounts' => CashAccount::active()->get(['id', 'name', 'type']),
         ]);

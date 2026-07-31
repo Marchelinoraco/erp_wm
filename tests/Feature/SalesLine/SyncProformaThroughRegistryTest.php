@@ -2,12 +2,11 @@
 
 namespace Tests\Feature\SalesLine;
 
-use App\Contracts\SalesLineInvoiceRule;
-use App\Models\Invoice;
-use App\Services\SalesLine\Multiplier;
 use App\Services\SalesLine\SalesLineRuleRegistry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\CreatesSalesFixtures;
+use Tests\Support\FakeSalesLineRule;
+use Tests\Support\FakeSalesLineRuleRegistry;
 use Tests\TestCase;
 
 class SyncProformaThroughRegistryTest extends TestCase
@@ -17,43 +16,37 @@ class SyncProformaThroughRegistryTest extends TestCase
 
     public function test_hasil_identik_dengan_rumus_lama_unit_price_kali_pax(): void
     {
-        // Rumus lama untuk ketujuh jenis: total = unit_price × pax. Fase 1 tidak
-        // boleh menggesernya, apa pun jenisnya.
-        foreach (self::SALES_TYPES as $type) {
+        // Rumus lama: total = unit_price × pax. Sejak Fase 3 hanya `rental`
+        // yang dikecualikan (D6, dikunci di test berikutnya); enam jenis lain
+        // tidak boleh bergeser sedikit pun.
+        foreach (array_diff(self::SALES_TYPES, ['rental']) as $type) {
             $invoice = $this->makeInvoice($this->makeTour($type, ['pax' => 4]), 1_250_000);
 
             $this->assertEquals(5_000_000, $invoice->total, "Jenis {$type}");
         }
     }
 
+    public function test_rental_memakai_komposisi_baris_bernominal(): void
+    {
+        // Pasangan dari test di atas: membuktikan `rental` dikecualikan karena
+        // aturannya, bukan karena luput dari cakupan test.
+        $invoice = $this->makeInvoice($this->makeTour('rental', ['pax' => 4]), 1_250_000, [
+            'description_lines' => [
+                ['label' => 'Innova', 'date' => '2026-07-25', 'detail' => '', 'amount' => 1_050_000],
+            ],
+        ]);
+
+        $this->assertEquals(1_050_000, $invoice->total);
+    }
+
     public function test_syncProformaTotal_benar_benar_memakai_registry(): void
     {
-        // Ganti registry di container dengan objek palsu yang selalu memberi
-        // aturan pengali ×1000, membuktikan syncProformaTotal memanggil registry,
-        // bukan menghitung sendiri. Objek palsu TIDAK meng-extend registry (kelas
-        // itu final); container mengembalikan apa pun yang di-bind, dan
-        // syncProformaTotal hanya memanggil ->for()->calculateTotal().
-        $this->app->instance(SalesLineRuleRegistry::class, new class {
-            public function for(string $salesLine): SalesLineInvoiceRule
-            {
-                return new class implements SalesLineInvoiceRule {
-                    public function unitPriceLabel(): string
-                    {
-                        return 'x';
-                    }
-
-                    public function defaultMultipliers(Invoice $invoice): array
-                    {
-                        return [];
-                    }
-
-                    public function calculateTotal(float $unitPrice, array $multipliers): float
-                    {
-                        return $unitPrice * 1000;
-                    }
-                };
-            }
-        });
+        // Registry palsu memberi aturan pengali ×1000, membuktikan
+        // syncProformaTotal memanggil registry, bukan menghitung sendiri.
+        $this->app->instance(
+            SalesLineRuleRegistry::class,
+            new FakeSalesLineRuleRegistry(new FakeSalesLineRule(totalMultiplier: 1000.0))
+        );
 
         $invoice = $this->makeInvoice($this->makeTour('tour', ['pax' => 4]), 1_000);
 

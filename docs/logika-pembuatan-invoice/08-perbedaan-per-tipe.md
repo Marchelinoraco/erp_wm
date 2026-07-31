@@ -48,17 +48,24 @@ public function resolveTypeCode(): string
 
 Fungsi yang sama dipakai untuk kode tour (`WM-<tahun>-<kode>-NNNN`), sehingga kode tour dan kode invoice selalu sejalan.
 
-## 8.3 Rumus profit — satu-satunya percabangan logika
+## 8.3 Rumus profit — satu sumber, `SalesLineRuleRegistry`
 
-Bercabang di **tiga tempat** yang harus selalu sepakat:
+> **Diperbarui 30 Jul 2026.** Dulu bercabang di **enam tempat** yang harus selalu sepakat — dan tidak ada galat apa pun bila salah satu terlupa. Kini keputusannya hanya di satu tempat: `SalesLineInvoiceRule::profitFromRevenue()`, dipilih lewat `SalesLineRuleRegistry`. Mengubah aturan satu jenis berarti menyunting satu berkas rule.
 
-| Tempat | Berkas |
-|---|---|
-| Panel sales | `InvoicesPanel.vue:135-142` |
-| PDF Rincian Profit | `InvoiceController::profitPdf()` |
-| Ringkasan Biaya | `CostingPanel.vue:11-13` |
+| Tempat | Berkas | Sekarang |
+|---|---|---|
+| Panel sales | `InvoicesPanel.vue` | baca prop `salesLine.profitFromRevenue` |
+| PDF Rincian Profit | `InvoiceController::profitPdf()` | baca registry |
+| Ringkasan Biaya | `CostingPanel.vue` | baca prop `salesLine.profitFromRevenue` |
+| Angka Ringkasan Biaya | `Tour::usesInvoiceProfit()` | baca registry |
+| Halaman Keuangan | `Finance/Tour.vue` | baca prop `salesLine.profitFromRevenue` |
+| Agregat dashboard | `DashboardController::index()` | menjumlah `Tour::total_sell` |
 
-### Tipe `tour` (inbound & outbound)
+Prop `salesLine` dibentuk `SalesLineRuleRegistry::payloadFor()` — satu tempat, dipakai `TourController` maupun `FinanceController`.
+
+Aturannya sendiri tidak berubah:
+
+### Tipe `tour` (inbound & outbound) — `profitFromRevenue() === true`
 
 ```
 profit = tagihan customer dalam IDR − Σ line_cost
@@ -67,7 +74,7 @@ margin = profit ÷ tagihan IDR
 
 Kolom `sell` per item **diabaikan sepenuhnya**. Alasannya komersial: pada tour paket, yang dijual adalah satu harga per pax, bukan penjumlahan komponen. Harga jual per komponen tidak punya arti di sana.
 
-### Semua tipe lain
+### Semua tipe lain — `profitFromRevenue() === false`
 
 ```
 profit = Σ (line_sell − line_cost)
@@ -90,18 +97,20 @@ K-117 disengaja: menebak angka profit tanpa kurs lebih berbahaya daripada menamp
 
 ## 8.4 Ringkasan Biaya (CostingPanel)
 
+> **Diperbarui 30 Jul 2026.** Label panel dan angka di bawahnya kini membaca aturan yang sama. Sebelumnya label memakai `props.tour.type === 'tour'` di Vue sementara angkanya dihitung `Tour::usesInvoiceProfit()` yang punya perbandingan tipe sendiri — dua tempat yang bisa berselisih diam-diam.
+
 ```js
 const fromInvoice = computed(() =>
-    props.tour.type === 'tour' && (props.tour.invoices ?? []).some(i => i.approved_at)
+    props.salesLine.profitFromRevenue && (props.tour.invoices ?? []).some(i => i.approved_at)
 )
 ```
 
 | # | Kondisi | Sumber angka |
 |---|---|---|
-| K-119 | Tipe `tour` **dan** ada invoice disetujui | dari invoice — cost dari item, sell dari tagihan |
+| K-119 | `profitFromRevenue()` **dan** ada invoice disetujui | dari invoice — cost dari item, sell dari tagihan |
 | K-120 | Selain itu | dari `tour_items` seperti biasa |
 
-Kedua syarat harus terpenuhi. Tour tipe `rental` dengan invoice disetujui tetap memakai `tour_items`.
+Kedua syarat harus terpenuhi. Tour tipe `rental` dengan invoice disetujui tetap memakai `tour_items`, karena `TransportRule::profitFromRevenue()` mengembalikan `false`.
 
 ## 8.5 Panel pendamping
 

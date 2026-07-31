@@ -28,4 +28,36 @@ interface SalesLineInvoiceRule
 
     /** total = unit_price × hasil kali seluruh nilai Multiplier. Tanpa pembulatan. */
     public function calculateTotal(float $unitPrice, array $multipliers): float;
+
+    /**
+     * true  = profit dihitung dari tagihan customer (total_idr − Σ cost item)
+     * false = profit dihitung per item (Σ sell − Σ cost)
+     *
+     * Satu-satunya aturan uang yang bercabang per jenis. Sebelumnya
+     * terduplikasi di InvoicesPanel.vue, CostingPanel.vue, dan
+     * InvoiceController::profitPdf() — tiga berkas yang harus disunting
+     * serempak, tanpa galat apa pun bila salah satu terlupa.
+     */
+    public function profitFromRevenue(): bool;
+
+    /**
+     * Cara total disusun:
+     *   'per_unit'   = unit_price × hasil kali pengali
+     *   'line_items' = jumlah nominal baris deskripsi (unit_price diabaikan)
+     *
+     * Rental kerap menagih beberapa unit berbeda dengan harga masing-masing
+     * (Avanza + Innova + biaya luar kota), yang tidak muat di satu harga satuan.
+     */
+    public function totalComposition(): string;
+
+    /**
+     * Di mana modal & harga jual per komponen dicatat:
+     *   'tour_items'    = tabel tour_items, paket disusun sebelum invoice ada
+     *   'invoice_items' = Rincian Profit di dalam invoice
+     *
+     * Rental tidak pernah menyusun paket di muka — modal dan jualnya baru
+     * diketahui saat invoice dirinci, jadi `tour_items`-nya memang kosong dan
+     * Ringkasan Biaya harus membacanya dari sana.
+     */
+    public function costingSource(): string;
 }
