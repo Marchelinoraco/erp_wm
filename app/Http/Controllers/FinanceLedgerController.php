@@ -108,6 +108,11 @@ class FinanceLedgerController extends Controller
     {
         abort_if($finCategory->is_system, 403, 'Kategori bawaan tidak bisa dihapus.');
         abort_if($finCategory->transactions()->exists(), 422, 'Kategori masih dipakai transaksi.');
+        // Fix wave final review 2026-08-01, Temuan #6: transactions() hanya
+        // mengecek fin_category_id. Kategori yang HANYA dipakai sebagai
+        // contra_fin_category_id (Task 2, FK restrictOnDelete) lolos guard di
+        // atas lalu gagal di level database dengan QueryException mentah.
+        abort_if(FinTransaction::where('contra_fin_category_id', $finCategory->id)->exists(), 422, 'Kategori masih dipakai sebagai lawan transaksi.');
         $finCategory->delete();
 
         return back()->with('success', 'Kategori dihapus.');

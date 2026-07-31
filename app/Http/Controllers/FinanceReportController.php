@@ -150,7 +150,7 @@ class FinanceReportController extends Controller
 
     private function ledgerData(int $year, $month): array
     {
-        $q = FinTransaction::with(['category', 'cashAccount'])->whereYear('date', $year);
+        $q = FinTransaction::with(['category', 'cashAccount', 'contraCategory'])->whereYear('date', $year);
         if ($month) {
             $q->whereMonth('date', (int) $month);
         }
@@ -162,14 +162,20 @@ class FinanceReportController extends Controller
         };
 
         foreach ($txns as $t) {
-            $amt      = (float) $t->amount;
-            $date     = $t->date->format('Y-m-d');
-            $cashKey  = 'cash-' . $t->cash_account_id;
-            $catKey   = 'cat-' . $t->fin_category_id;
-            $cashName = $t->cashAccount?->name ?? 'Kas';
-            $catName  = $t->category?->name ?? '-';
+            $amt  = (float) $t->amount;
+            $date = $t->date->format('Y-m-d');
+            // Fix wave final review 2026-08-01, Temuan #4: akun lawan (baik key
+            // maupun nama) berasal dari kas ATAU kategori lawan, mengikuti pola
+            // journalLines() di app/Models/FinTransaction.php. Sebelumnya baris
+            // non-kas (cash_account_id null, contra_fin_category_id terisi)
+            // jatuh ke $cashKey = 'cash-' dan $cashName = 'Kas' — mengkredit
+            // akun "Kas" hantu padahal tidak ada uang bergerak.
+            $lawanKey  = $t->cash_account_id ? 'cash-' . $t->cash_account_id : 'contra-' . $t->contra_fin_category_id;
+            $catKey    = 'cat-' . $t->fin_category_id;
+            $lawanName = $t->cashAccount?->name ?? $t->contraCategory?->name ?? 'Kas';
+            $catName   = $t->category?->name ?? '-';
 
-            $touch($cashKey, $cashName, 'aset');
+            $touch($lawanKey, $lawanName, $t->cash_account_id ? 'aset' : ($t->contraCategory?->type === 'asset' ? 'aset' : 'beban'));
             // Spek §3.4 no. 1: jenis akun dibaca dari kategorinya, bukan ditebak
             // dari arah uang. Sebelum ada kategori bertipe 'asset', kedua cara ini
             // menghasilkan hasil yang sama persis.
@@ -180,15 +186,15 @@ class FinanceReportController extends Controller
             });
 
             if ($t->direction === 'in') {
-                $acc[$cashKey]['debit'] += $amt;
-                $acc[$cashKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $catName, 'debit' => $amt, 'credit' => 0];
+                $acc[$lawanKey]['debit'] += $amt;
+                $acc[$lawanKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $catName, 'debit' => $amt, 'credit' => 0];
                 $acc[$catKey]['credit'] += $amt;
-                $acc[$catKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $cashName, 'debit' => 0, 'credit' => $amt];
+                $acc[$catKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $lawanName, 'debit' => 0, 'credit' => $amt];
             } else {
                 $acc[$catKey]['debit'] += $amt;
-                $acc[$catKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $cashName, 'debit' => $amt, 'credit' => 0];
-                $acc[$cashKey]['credit'] += $amt;
-                $acc[$cashKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $catName, 'debit' => 0, 'credit' => $amt];
+                $acc[$catKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $lawanName, 'debit' => $amt, 'credit' => 0];
+                $acc[$lawanKey]['credit'] += $amt;
+                $acc[$lawanKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $catName, 'debit' => 0, 'credit' => $amt];
             }
         }
 
@@ -371,14 +377,24 @@ class FinanceReportController extends Controller
         $totalFixedAccum = round((float) $fixedAssets->map(fn ($a) => $a->accumulatedAsOf($year))->sum(), 2);
 
         // Spek §3.4 no. 4: saldo kategori bertipe aset (mis. Piutang Karyawan).
-        // 'out' menaikkan saldo aset, 'in' menurunkannya.
+        // Dihitung dari KEDUA kolom kategori: fin_category_id (baris asli —
+        // 'out' menaikkan, 'in' menurunkan) DAN contra_fin_category_id (baris
+        // lawan non-kas, mis. pelunasan kas bon saat gajian — 'out' pada baris
+        // itu berarti kategori UTAMA naik dan kategori LAWAN/aset ini turun;
+        // 'in' kebalikannya). Tanpa bagian contra, pelunasan kas bon non-kas
+        // (spek §4.2 baris ke-3) tidak pernah mengurangi saldo aset ini.
+        // Fix wave final review 2026-08-01, Temuan #1 (Critical).
         $otherAssets = FinCategory::asset()->orderBy('name')->get()->map(function ($c) use ($endDate) {
-            $naik  = (float) FinTransaction::where('fin_category_id', $c->id)
+            $naikUtama  = (float) FinTransaction::where('fin_category_id', $c->id)
                 ->where('direction', 'out')->where('date', '<=', $endDate)->sum('amount');
-            $turun = (float) FinTransaction::where('fin_category_id', $c->id)
+            $turunUtama = (float) FinTransaction::where('fin_category_id', $c->id)
+                ->where('direction', 'in')->where('date', '<=', $endDate)->sum('amount');
+            $turunLawan = (float) FinTransaction::where('contra_fin_category_id', $c->id)
+                ->where('direction', 'out')->where('date', '<=', $endDate)->sum('amount');
+            $naikLawan  = (float) FinTransaction::where('contra_fin_category_id', $c->id)
                 ->where('direction', 'in')->where('date', '<=', $endDate)->sum('amount');
 
-            return ['name' => $c->name, 'balance' => $naik - $turun];
+            return ['name' => $c->name, 'balance' => ($naikUtama + $naikLawan) - ($turunUtama + $turunLawan)];
         })->filter(fn ($a) => abs($a['balance']) > 0.001)->values();
 
         $otherAssetsTotal = (float) $otherAssets->sum('balance');
@@ -510,8 +526,12 @@ class FinanceReportController extends Controller
 
         // Biaya operasional — transaksi kas manual keluar, dikelompok per kategori
         // Spek §3.4 no. 5: kategori aset bukan pendapatan/beban.
+        // Fix wave final review 2026-08-01, Temuan #3: filter source disamakan
+        // dengan balanceSheetData() ("bukan invoice/bill") supaya source baru
+        // (advance, payroll) tidak diam-diam hilang dari Laba Rugi begitu
+        // Tahap B mulai menulisnya.
         $opexTxns = FinTransaction::with('category')
-            ->where('source', 'manual')
+            ->whereNotIn('source', ['invoice', 'bill'])
             ->where('direction', 'out')
             ->whereYear('date', $year)
             ->whereHas('category', fn ($q) => $q->where('type', '!=', 'asset'))
@@ -528,7 +548,9 @@ class FinanceReportController extends Controller
 
         $totalOpex   = (float) $opexTxns->sum('amount');
         // Spek §3.4 no. 5: kategori aset bukan pendapatan/beban.
-        $otherIncome = (float) FinTransaction::where('source', 'manual')
+        // Fix wave final review 2026-08-01, Temuan #3: sama seperti $opexTxns
+        // di atas — filter source disamakan dengan balanceSheetData().
+        $otherIncome = (float) FinTransaction::whereNotIn('source', ['invoice', 'bill'])
             ->where('direction', 'in')
             ->whereYear('date', $year)
             ->whereHas('category', fn ($q) => $q->where('type', '!=', 'asset'))

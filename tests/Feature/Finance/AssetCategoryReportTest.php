@@ -757,6 +757,267 @@ class AssetCategoryReportTest extends TestCase
         $this->assertSame(600_000.0, $actual);
     }
 
+    // ────────────────────────────────────────────────────────────────────
+    // Fix wave final review (2026-08-01) — 6 temuan dari final whole-branch
+    // review. Kriteria tidak berubah: nol perubahan angka untuk data
+    // existing (belum ada kategori bertipe asset di production).
+    // ────────────────────────────────────────────────────────────────────
+
+    /**
+     * ACCEPTANCE TEST — skenario spek §4.2 LENGKAP (bukan potongan), yang
+     * direkomendasikan reviewer final sebagai satu-satunya test yang
+     * membuktikan deliverable Tahap A benar-benar bekerja untuk kasus nyata
+     * kas bon + gajian. Sebelum fix Temuan #1, test ini gagal: setelah kas
+     * bon 1jt dilunasi penuh, other_assets_total tetap 1.000.000 (bukan 0)
+     * dan balanced menjadi false, karena baris pelunasan non-kas menaruh
+     * kategori asetnya di contra_fin_category_id yang tidak pernah dibaca
+     * query lama.
+     *
+     * Transaksi memakai source 'advance'/'payroll' (nilai yang benar-benar
+     * dipakai Tahap B, spek §4.2 tabel jurnal) supaya test ini juga
+     * membuktikan Temuan #3 (incomeStatementData harus tetap menghitung
+     * source baru sebagai opex, bukan hanya 'manual').
+     */
+    public function test_skenario_kas_bon_dan_gajian_lengkap_sesuai_spek_4_2(): void
+    {
+        $kas     = \App\Models\CashAccount::create(['name' => 'Kas Besar', 'type' => 'cash']);
+        $piutang = FinCategory::create(['name' => 'Piutang Karyawan', 'type' => 'asset']);
+        $gaji    = FinCategory::create(['name' => 'Gaji Karyawan', 'type' => 'expense']);
+
+        // 1) Kas bon 1.000.000 diberikan 10 Jul.
+        \App\Models\FinTransaction::create([
+            'date'            => '2026-07-10',
+            'direction'       => 'out',
+            'fin_category_id' => $piutang->id,
+            'cash_account_id' => $kas->id,
+            'amount'          => 1_000_000,
+            'source'          => 'advance',
+        ]);
+
+        // 2a) Gajian 30 Jul — bagian kas: 3.800.000.
+        \App\Models\FinTransaction::create([
+            'date'            => '2026-07-30',
+            'direction'       => 'out',
+            'fin_category_id' => $gaji->id,
+            'cash_account_id' => $kas->id,
+            'amount'          => 3_800_000,
+            'source'          => 'payroll',
+        ]);
+
+        // 2b) Gajian 30 Jul — pelunasan kas bon, non-kas: 1.000.000.
+        \App\Models\FinTransaction::create([
+            'date'                   => '2026-07-30',
+            'direction'              => 'out',
+            'fin_category_id'        => $gaji->id,
+            'contra_fin_category_id' => $piutang->id,
+            'amount'                 => 1_000_000,
+            'source'                 => 'payroll',
+        ]);
+
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+
+        $balanceSheetRef = new \ReflectionMethod($controller, 'balanceSheetData');
+        $balanceSheetRef->setAccessible(true);
+        $neraca = $balanceSheetRef->invoke($controller, 2026);
+
+        $this->assertSame(0.0, $neraca['aset']['other_assets_total'],
+            'Piutang Karyawan harus kembali 0 setelah kas bon dilunasi penuh (Temuan #1)');
+        $this->assertTrue($neraca['balanced'],
+            'Neraca wajib tetap seimbang setelah pelunasan kas bon non-kas (Temuan #1)');
+
+        $labaRugiRef = new \ReflectionMethod($controller, 'incomeStatementData');
+        $labaRugiRef->setAccessible(true);
+        $labaRugi = $labaRugiRef->invoke($controller, 2026);
+
+        $this->assertSame(4_800_000.0, $labaRugi['totalOpex'],
+            'Beban Gaji Juli harus PENUH 4.800.000 (3.800.000 kas + 1.000.000 pelunasan kas bon non-kas), bukan 3.800.000 saja');
+    }
+
+    /**
+     * Temuan #1 (Critical) — fix-specific: kategori aset yang dipakai sebagai
+     * contra_fin_category_id harus ikut menaikkan/menurunkan saldo aset di
+     * Neraca. direction='out' pada baris contra berarti kategori UTAMA naik
+     * dan kategori LAWAN (aset) turun; direction='in' kebalikannya. Diuji
+     * terisolasi dari skenario penuh supaya kedua arah kontra teruji sendiri.
+     */
+    public function test_kategori_aset_sebagai_lawan_transaksi_menambah_dan_mengurangi_saldo_neraca(): void
+    {
+        $beban   = FinCategory::create(['name' => 'Beban Gaji', 'type' => 'expense']);
+        $pendapatan = FinCategory::create(['name' => 'Penjualan Tour', 'type' => 'income']);
+        $piutang = FinCategory::create(['name' => 'Piutang Karyawan', 'type' => 'asset']);
+
+        // contra + direction='out': kategori utama (beban) naik, Piutang (lawan) turun 400rb.
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-30', 'direction' => 'out',
+            'fin_category_id' => $beban->id, 'contra_fin_category_id' => $piutang->id,
+            'amount' => 400_000,
+        ]);
+        // contra + direction='in': kategori utama (pendapatan) turun, Piutang (lawan) naik 900rb.
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-31', 'direction' => 'in',
+            'fin_category_id' => $pendapatan->id, 'contra_fin_category_id' => $piutang->id,
+            'amount' => 900_000,
+        ]);
+
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+        $ref = new \ReflectionMethod($controller, 'balanceSheetData');
+        $ref->setAccessible(true);
+        $data = $ref->invoke($controller, 2026);
+
+        $piutangRow = collect($data['aset']['other_assets'])->firstWhere('name', 'Piutang Karyawan');
+
+        // Piutang: -400.000 (out) + 900.000 (in) = 500.000.
+        $this->assertSame(500_000.0, $piutangRow['balance'],
+            'Saldo Piutang Karyawan sebagai kategori lawan harus turun saat out, naik saat in');
+    }
+
+    /**
+     * Temuan #1 — bukti regresi: untuk data yang HANYA memakai
+     * fin_category_id (tanpa contra_fin_category_id sama sekali, persis
+     * kondisi database saat ini), other_assets_total hasil balanceSheetData()
+     * versi baru (dengan dua query tambahan atas contra_fin_category_id)
+     * harus IDENTIK dengan oracle logika lama (hanya naik-turun dari
+     * fin_category_id).
+     */
+    public function test_other_assets_identik_dengan_logika_lama_tanpa_transaksi_contra_regresi(): void
+    {
+        $kas     = \App\Models\CashAccount::create(['name' => 'Kas Besar', 'type' => 'cash']);
+        $piutang = FinCategory::create(['name' => 'Piutang Karyawan', 'type' => 'asset']);
+
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-10', 'direction' => 'out',
+            'fin_category_id' => $piutang->id, 'cash_account_id' => $kas->id, 'amount' => 1_500_000,
+        ]);
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-20', 'direction' => 'in',
+            'fin_category_id' => $piutang->id, 'cash_account_id' => $kas->id, 'amount' => 600_000,
+        ]);
+
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+        $ref = new \ReflectionMethod($controller, 'balanceSheetData');
+        $ref->setAccessible(true);
+        $actual = $ref->invoke($controller, 2026);
+
+        // Oracle: logika lama (SEBELUM fix Temuan #1) — hanya naik-turun dari fin_category_id.
+        $endDate = '2026-12-31';
+        $naik  = (float) \App\Models\FinTransaction::where('fin_category_id', $piutang->id)
+            ->where('direction', 'out')->where('date', '<=', $endDate)->sum('amount');
+        $turun = (float) \App\Models\FinTransaction::where('fin_category_id', $piutang->id)
+            ->where('direction', 'in')->where('date', '<=', $endDate)->sum('amount');
+        $oldOtherAssetsTotal = $naik - $turun;
+
+        $this->assertSame($oldOtherAssetsTotal, $actual['aset']['other_assets_total'],
+            'other_assets_total harus identik dengan logika lama saat tidak ada transaksi contra sama sekali');
+        $this->assertSame(900_000.0, $actual['aset']['other_assets_total']);
+    }
+
+    /**
+     * Temuan #3 (Important) — fix-specific: begitu Tahap B mulai menulis
+     * source='payroll'/'advance', beban/pendapatan itu harus tetap terhitung
+     * di Laba Rugi. Filter lama `where('source','manual')` akan
+     * menghilangkannya begitu saja tanpa galat.
+     */
+    public function test_income_statement_source_baru_tetap_terhitung_sebagai_opex_dan_pendapatan_lain(): void
+    {
+        $kas   = \App\Models\CashAccount::create(['name' => 'Kas Besar', 'type' => 'cash']);
+        $gaji  = FinCategory::create(['name' => 'Gaji Karyawan', 'type' => 'expense']);
+        $lain  = FinCategory::create(['name' => 'Pendapatan Lain', 'type' => 'income']);
+
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-30', 'direction' => 'out', 'fin_category_id' => $gaji->id,
+            'cash_account_id' => $kas->id, 'amount' => 3_800_000, 'source' => 'payroll',
+        ]);
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-15', 'direction' => 'in', 'fin_category_id' => $lain->id,
+            'cash_account_id' => $kas->id, 'amount' => 250_000, 'source' => 'advance',
+        ]);
+
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+        $ref = new \ReflectionMethod($controller, 'incomeStatementData');
+        $ref->setAccessible(true);
+        $data = $ref->invoke($controller, 2026);
+
+        $this->assertSame(3_800_000.0, $data['totalOpex'],
+            'Beban dengan source=payroll harus tetap terhitung sebagai opex');
+        $this->assertSame(250_000.0, $data['otherIncome'],
+            'Pendapatan dengan source=advance harus tetap terhitung sebagai pendapatan lain');
+    }
+
+    /**
+     * Temuan #4 (Important) — fix-specific: baris non-kas (contra_fin_category_id
+     * terisi, cash_account_id null) tidak boleh membuat Buku Besar mengkredit
+     * akun "Kas" hantu. Akun lawan harus berupa kategori lawan sungguhan.
+     */
+    public function test_buku_besar_kredit_kategori_lawan_bukan_kas_hantu_untuk_baris_non_kas(): void
+    {
+        $beban   = FinCategory::create(['name' => 'Beban Gaji', 'type' => 'expense']);
+        $piutang = FinCategory::create(['name' => 'Piutang Karyawan', 'type' => 'asset']);
+
+        \App\Models\FinTransaction::create([
+            'date'                   => '2026-07-30',
+            'direction'              => 'out',
+            'fin_category_id'        => $beban->id,
+            'contra_fin_category_id' => $piutang->id,
+            'amount'                 => 1_000_000,
+        ]);
+
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+        $ref = new \ReflectionMethod($controller, 'ledgerData');
+        $ref->setAccessible(true);
+        $data = $ref->invoke($controller, 2026, null);
+
+        $kasHantu = collect($data['accounts'])->firstWhere('name', 'Kas');
+        $this->assertNull($kasHantu, 'Tidak boleh ada akun "Kas" hantu untuk baris non-kas tanpa akun kas sama sekali');
+
+        $lawan = collect($data['accounts'])->firstWhere('name', 'Piutang Karyawan');
+        $this->assertNotNull($lawan, 'Akun lawan baris non-kas harus berupa kategori Piutang Karyawan');
+        $this->assertSame('aset', $lawan['group'], 'Kategori lawan bertipe asset harus masuk kelompok aset');
+        $this->assertSame(1_000_000.0, $lawan['credit'], 'Piutang Karyawan harus dikredit sebesar transaksi non-kas (direction=out)');
+
+        $bebanRow = collect($data['accounts'])->firstWhere('name', 'Beban Gaji');
+        $this->assertSame(1_000_000.0, $bebanRow['debit'], 'Kategori utama tetap didebit sebesar transaksi');
+    }
+
+    /**
+     * Temuan #4 — bukti regresi: untuk data yang HANYA berupa transaksi kas
+     * biasa (cash_account_id selalu terisi, persis kondisi database saat
+     * ini), akun lawan ($lawanKey/$lawanName) hasil ledgerData() versi baru
+     * harus IDENTIK dengan oracle $cashKey/$cashName lama — mengganti nama
+     * variabel tidak boleh mengubah baris manapun untuk data yang tidak
+     * pernah menyentuh contra_fin_category_id.
+     */
+    public function test_ledger_lawan_identik_dengan_cash_key_lama_untuk_transaksi_kas_biasa_regresi(): void
+    {
+        $kas = \App\Models\CashAccount::create(['name' => 'Kas Besar', 'type' => 'cash']);
+        $pendapatan = FinCategory::create(['name' => 'Penjualan Tour', 'type' => 'income']);
+        $beban      = FinCategory::create(['name' => 'Gaji Karyawan',  'type' => 'expense']);
+
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-05', 'direction' => 'in', 'fin_category_id' => $pendapatan->id,
+            'cash_account_id' => $kas->id, 'amount' => 500_000,
+        ]);
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-15', 'direction' => 'out', 'fin_category_id' => $beban->id,
+            'cash_account_id' => $kas->id, 'amount' => 200_000,
+        ]);
+
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+        $ref = new \ReflectionMethod($controller, 'ledgerData');
+        $ref->setAccessible(true);
+        $actual = $ref->invoke($controller, 2026, null);
+
+        $expected = $this->oldLedgerData(2026, null);
+
+        $kasActual   = collect($actual['accounts'])->firstWhere('name', 'Kas Besar');
+        $kasExpected = collect($expected['accounts'])->firstWhere('name', 'Kas Besar');
+
+        $this->assertSame($kasExpected['debit'], $kasActual['debit']);
+        $this->assertSame($kasExpected['credit'], $kasActual['credit']);
+        $this->assertSame($kasExpected['group'], $kasActual['group']);
+        $this->assertSame(500_000.0, $kasActual['debit']);
+        $this->assertSame(200_000.0, $kasActual['credit']);
+    }
+
     /**
      * Salinan persis ledgerData() SEBELUM Task 7 (kelompok akun kategori
      * ditebak dari direction). Dipakai sebagai oracle regresi di atas — bukan
