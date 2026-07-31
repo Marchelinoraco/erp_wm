@@ -48,9 +48,32 @@ const ICON = {
     guide:     `<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />`,
     document:  `<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />`,
     ticketing: `<path stroke-linecap="round" stroke-linejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />`,
-    mice:      `<path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />`,
+    // Layar presentasi — sebelumnya menyalin path ICON.users persis, sehingga
+    // MICE / Event tampak identik dengan Kelola Akun.
+    mice:      `<path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5h3m-6.75 0h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25zM12 19.5v2.25" />`,
     booking:   `<path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />`,
     hotel:     `<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />`,
+
+    // Ikon khusus tiap menu Keuangan. Sebelumnya ke-13 menu memakai ICON.finance
+    // yang sama, sehingga ikonnya tidak membedakan apa pun — hanya memperlambat
+    // mata karena menjanjikan perbedaan yang tidak ada.
+    invoice:   `<path stroke-linecap="round" stroke-linejoin="round" d="M14.25 7.756a4.5 4.5 0 100 8.488M7.5 10.5h5.25m-5.25 3h5.25M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />`,
+    cashflow:  `<path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5M16.5 3L21 7.5m0 0L16.5 12M21 7.5H7.5" />`,
+    balances:  `<path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />`,
+    transaksi: `<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />`,
+    jurnal:    `<path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />`,
+    ledger:    `<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />`,
+    profit:    `<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18L9 11.25l4.306 4.306a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />`,
+    neraca:    `<path stroke-linecap="round" stroke-linejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 01-2.031.352 5.989 5.989 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971z" />`,
+    aset:      `<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m16.5-18v18M6 6.75h.008v.008H6V6.75zm0 3.75h.008v.008H6v-.008zm0 3.75h.008v.008H6v-.008zm3-7.5h.008v.008H9V6.75zm0 3.75h.008v.008H9v-.008zm0 3.75h.008v.008H9v-.008zM15 21v-3.75a.75.75 0 00-.75-.75h-2.5a.75.75 0 00-.75.75V21m3.75-14.25h.008v.008H15V6.75zm0 3.75h.008v.008H15v-.008zm0 3.75h.008v.008H15v-.008zm3-7.5h.008v.008H18V6.75zm0 3.75h.008v.008H18v-.008zm0 3.75h.008v.008H18v-.008z" />`,
+    hutang:    `<path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />`,
+    fiskal:    `<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.746 3.746 0 0121 12z" />`,
+    rekap:     `<path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />`,
+    rekening:  `<path stroke-linecap="round" stroke-linejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12.75 6.75a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />`,
+
+    // Kontak Brevo dulu memakai ICON.customers, sama dengan menu Customers —
+    // dan keduanya tampil bersamaan untuk admin.
+    marketing: `<path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />`,
 }
 
 const navGroups = computed(() => {
@@ -101,12 +124,17 @@ const navGroups = computed(() => {
             { label: 'Produk',          route: 'products.index',        match: 'products.*',        icon: ICON.products },
             { label: 'Suppliers',       route: 'suppliers.index',       match: 'suppliers.*',       icon: ICON.suppliers },
             { label: 'Channel Manager', route: 'channel-manager.index', match: 'channel-manager.*', icon: ICON.channel },
-            { label: 'Rekening',        route: 'bank-accounts.index',   match: 'bank-accounts.*',   icon: ICON.finance },
+            // Rekening SENGAJA tidak di sini: menu ini dulu muncul dua kali
+            // (Data Master + Keuangan) menuju rute yang sama. Akibatnya
+            // activeBreadcrumb — yang mengambil grup pertama yang cocok —
+            // selalu menulis "Data Master" walau dibuka dari Keuangan. Rekening
+            // dipertahankan di grup Keuangan saja, karena peran accountant tidak
+            // pernah mendapat grup Data Master.
         ]
         groups.push({ label: 'Data Master', items: dataItems })
 
         groups.push({ label: 'Marketing', items: [
-            { label: 'Kontak Brevo', route: 'marketing.contacts.index', match: 'marketing.contacts.*', icon: ICON.customers },
+            { label: 'Kontak Brevo', route: 'marketing.contacts.index', match: 'marketing.contacts.*', icon: ICON.marketing },
         ]})
     }
 
@@ -117,20 +145,28 @@ const navGroups = computed(() => {
     }
 
     if (role === 'admin' || role === 'accountant') {
+        // Urutan mengikuti seberapa sering dipakai: pekerjaan harian di atas,
+        // laporan periodik di tengah, data akun yang jarang disentuh di bawah.
+        // `sub` menyisipkan judul kecil sebagai pemisah — 13 baris tanpa jeda
+        // terlalu panjang untuk dipindai sekali lihat.
         groups.push({ label: 'Keuangan', items: [
-            { label: 'Keuangan',  route: 'finance.index',        match: ['finance.index', 'finance.tour'], icon: ICON.finance },
-            { label: 'Arus Kas',  route: 'finance.cashflow',     match: 'finance.cashflow', icon: ICON.finance },
-            { label: 'Saldo Akun',route: 'finance.account-balances', match: 'finance.account-balances', icon: ICON.finance },
-            { label: 'Transaksi', route: 'finance.transactions', match: 'finance.transactions', icon: ICON.finance },
-            { label: 'Jurnal',    route: 'finance.journal',      match: 'finance.journal', icon: ICON.finance },
-            { label: 'Buku Besar',route: 'finance.ledger',           match: 'finance.ledger', icon: ICON.finance },
-            { label: 'Laba Rugi', route: 'finance.income-statement', match: 'finance.income-statement', icon: ICON.finance },
-            { label: 'Neraca',     route: 'finance.balance-sheet',  match: 'finance.balance-sheet',  icon: ICON.finance },
-            { label: 'Aset Tetap', route: 'finance.fixed-assets',  match: 'finance.fixed-assets',   icon: ICON.finance },
-            { label: 'Hutang',     route: 'finance.loans',          match: 'finance.loans',          icon: ICON.finance },
-            { label: 'Fiskal',     route: 'finance.fiscal',         match: 'finance.fiscal',         icon: ICON.finance },
-            { label: 'Rekap',     route: 'finance.recap',        match: 'finance.recap', icon: ICON.finance },
-            { label: 'Rekening',  route: 'bank-accounts.index',  match: 'bank-accounts.*', icon: ICON.finance },
+            { label: 'Invoice & Tagihan', route: 'finance.index', match: ['finance.index', 'finance.tour'], icon: ICON.invoice },
+            { label: 'Transaksi', route: 'finance.transactions', match: 'finance.transactions', icon: ICON.transaksi },
+            { label: 'Arus Kas',  route: 'finance.cashflow',     match: 'finance.cashflow', icon: ICON.cashflow },
+
+            { sub: 'Laporan' },
+            { label: 'Jurnal',     route: 'finance.journal',          match: 'finance.journal',          icon: ICON.jurnal },
+            { label: 'Buku Besar', route: 'finance.ledger',           match: 'finance.ledger',           icon: ICON.ledger },
+            { label: 'Laba Rugi',  route: 'finance.income-statement', match: 'finance.income-statement', icon: ICON.profit },
+            { label: 'Neraca',     route: 'finance.balance-sheet',    match: 'finance.balance-sheet',    icon: ICON.neraca },
+            { label: 'Rekap',      route: 'finance.recap',            match: 'finance.recap',            icon: ICON.rekap },
+            { label: 'Fiskal',     route: 'finance.fiscal',           match: 'finance.fiscal',           icon: ICON.fiskal },
+
+            { sub: 'Akun & Aset' },
+            { label: 'Saldo Akun', route: 'finance.account-balances', match: 'finance.account-balances', icon: ICON.balances },
+            { label: 'Rekening',   route: 'bank-accounts.index',      match: 'bank-accounts.*',          icon: ICON.rekening },
+            { label: 'Aset Tetap', route: 'finance.fixed-assets',     match: 'finance.fixed-assets',     icon: ICON.aset },
+            { label: 'Hutang',     route: 'finance.loans',            match: 'finance.loans',            icon: ICON.hutang },
         ]})
     }
 
@@ -153,6 +189,10 @@ const currentType = computed(() => {
 })
 
 function isActive(item) {
+    // Entri { sub: '...' } hanya judul pemisah, bukan tautan — tanpa penjaga ini
+    // ia jatuh ke route().current(undefined) yang hasilnya tak bisa diandalkan.
+    if (item.sub) return false
+
     if (item.type !== undefined) {
         return route().current('tours.index') && currentType.value === item.type
     }
@@ -199,9 +239,15 @@ function isActive(item) {
                     <p v-if="group.label" class="px-3 pt-3 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                         {{ group.label }}
                     </p>
+                    <template v-for="item in group.items" :key="item.label ?? `sub-${item.sub}`">
+                    <p
+                        v-if="item.sub"
+                        class="px-3 pt-3 pb-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70"
+                    >
+                        {{ item.sub }}
+                    </p>
                     <Link
-                        v-for="item in group.items"
-                        :key="item.label"
+                        v-else
                         :href="route(item.route, item.params)"
                         :aria-current="isActive(item) ? 'page' : undefined"
                         :class="[
@@ -229,6 +275,7 @@ function isActive(item) {
                             {{ item.badge }}
                         </span>
                     </Link>
+                    </template>
                 </template>
             </nav>
 
