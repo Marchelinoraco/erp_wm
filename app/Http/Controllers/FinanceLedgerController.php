@@ -70,10 +70,12 @@ class FinanceLedgerController extends Controller
             'description'     => 'nullable|string|max:255',
         ]);
 
-        // Pastikan jenis kategori selaras dengan arah (in=income, out=expense)
+        // Pastikan jenis kategori selaras dengan arah (in=income, out=expense).
+        // Kategori asset dikecualikan: sah untuk kedua arah (kas bon diberikan
+        // = out, kas bon dilunasi = in).
         $cat = FinCategory::find($data['fin_category_id']);
         $want = $data['direction'] === 'in' ? 'income' : 'expense';
-        abort_if($cat && $cat->type !== $want, 422, 'Kategori tidak sesuai dengan jenis transaksi.');
+        abort_if($cat && $cat->type !== 'asset' && $cat->type !== $want, 422, 'Kategori tidak sesuai dengan jenis transaksi.');
 
         return $data;
     }
@@ -83,7 +85,7 @@ class FinanceLedgerController extends Controller
     {
         $data = $request->validate([
             'name' => 'required|string|max:100',
-            'type' => 'required|in:income,expense',
+            'type' => 'required|in:income,expense,asset',
         ]);
         $data['sort_order'] = FinCategory::max('sort_order') + 1;
         FinCategory::create($data);
