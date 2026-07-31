@@ -20,6 +20,15 @@ use Illuminate\Support\Facades\Schema;
  *
  * Validasi nilai pindah ke lapisan aplikasi (FinCategory::TYPES) — tempat yang
  * memang seharusnya, dan tidak menuntut migrasi ALTER tiap ada nilai baru.
+ *
+ * Fix round 1 (review Task 1):
+ * - up() SQLite: tiap sub-langkah (buat type_baru / pindah data & drop type lama /
+ *   rename type_baru → type) dipagari Schema::hasColumn miliknya sendiri, bukan satu
+ *   guard di depan. Kalau migrasi terhenti di tengah, retry melanjutkan dari langkah
+ *   yang belum selesai, bukan langsung return seolah semua sudah beres.
+ * - down(): menolak berjalan (RuntimeException) selama masih ada kategori bertipe
+ *   'asset'. Mengubah baris tersebut diam-diam jadi 'expense' saat rollback akan
+ *   menggeser Laba Rugi dan Neraca — jauh lebih berbahaya daripada rollback yang gagal.
  */
 return new class extends Migration
 {
@@ -31,27 +40,39 @@ return new class extends Migration
             return;
         }
 
-        if (Schema::hasColumn('fin_categories', 'type_baru')) {
-            return;
+        if (! Schema::hasColumn('fin_categories', 'type_baru')) {
+            Schema::table('fin_categories', function (Blueprint $table) {
+                $table->string('type_baru', 20)->nullable();
+            });
         }
 
-        Schema::table('fin_categories', function (Blueprint $table) {
-            $table->string('type_baru', 20)->nullable();
-        });
+        if (Schema::hasColumn('fin_categories', 'type')) {
+            DB::statement('UPDATE fin_categories SET type_baru = type');
 
-        DB::statement('UPDATE fin_categories SET type_baru = type');
+            Schema::table('fin_categories', function (Blueprint $table) {
+                $table->dropColumn('type');
+            });
+        }
 
-        Schema::table('fin_categories', function (Blueprint $table) {
-            $table->dropColumn('type');
-        });
-
-        Schema::table('fin_categories', function (Blueprint $table) {
-            $table->renameColumn('type_baru', 'type');
-        });
+        if (Schema::hasColumn('fin_categories', 'type_baru')) {
+            Schema::table('fin_categories', function (Blueprint $table) {
+                $table->renameColumn('type_baru', 'type');
+            });
+        }
     }
 
     public function down(): void
     {
+        $jumlahAset = DB::table('fin_categories')->where('type', 'asset')->count();
+
+        if ($jumlahAset > 0) {
+            throw new RuntimeException(
+                "Rollback dibatalkan: masih ada {$jumlahAset} kategori bertipe 'asset'. "
+                . "Mengubahnya jadi 'expense' akan menggeser Laba Rugi dan Neraca. "
+                . "Pindahkan atau hapus kategori tersebut lebih dulu, baru rollback."
+            );
+        }
+
         if (DB::getDriverName() === 'mysql') {
             DB::statement("ALTER TABLE fin_categories MODIFY type ENUM('income','expense') NOT NULL");
         }

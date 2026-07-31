@@ -32,4 +32,22 @@ class AssetCategoryReportTest extends TestCase
 
         $this->assertSame(['Piutang Karyawan'], FinCategory::asset()->pluck('name')->all());
     }
+
+    /**
+     * Fix round 1 (review Task 1), temuan Important 2: down() migrasi tidak boleh
+     * diam-diam mengubah kategori 'asset' jadi 'expense' saat rollback — itu akan
+     * menggeser Laba Rugi dan Neraca. Rollback harus ditolak selama masih ada
+     * kategori bertipe 'asset'.
+     */
+    public function test_down_menolak_rollback_saat_masih_ada_kategori_asset(): void
+    {
+        FinCategory::create(['name' => 'Piutang Karyawan', 'type' => 'asset']);
+
+        $migration = require database_path('migrations/2026_07_31_000000_add_asset_type_to_fin_categories.php');
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage("masih ada 1 kategori bertipe 'asset'");
+
+        $migration->down();
+    }
 }
