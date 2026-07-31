@@ -306,6 +306,110 @@ class AssetCategoryReportTest extends TestCase
     }
 
     /**
+     * Spek §3.4 no. 2/3/4 — kas bon (kategori bertipe 'asset') harus muncul
+     * sebagai baris aset baru di Neraca (other_assets_total), TIDAK mengurangi
+     * laba ditahan (bukan beban), dan Neraca tetap balance (aset naik 1jt
+     * diimbangi kas turun 1jt di sisi lain, net efek ke total aset = 0).
+     *
+     * Catatan implementasi (beda dari draf awal di brief): brief menulis
+     * `opening_balance => 10_000_000` untuk akun kas. Itu diverifikasi SENDIRI
+     * lewat run empiris (bukan cuma dihitung di kepala) dan terbukti membuat
+     * skenario ini TIDAK BISA balance sama sekali — opening_balance 10 juta
+     * tanpa modal_disetor yang menyertainya adalah modal "gratis" yang tidak
+     * berpasangan (fresh test DB: modal_disetor = 0), sehingga Neraca sudah
+     * timpang sejak sebelum transaksi kas bon dibuat (selisih tetap 10 juta,
+     * terlepas dari benar/tidaknya perubahan Task 9). Kas bon sendiri memang
+     * SEIMBANG (kas turun 1jt, aset lain naik 1jt, total aset tak berubah),
+     * jadi baseline-nya harus sudah balance duluan. opening_balance dihapus
+     * (default 0, sama seperti test_kategori_aset_masuk_kelompok_aset_di_
+     * buku_besar di atas) supaya baseline seimbang dan bukti 'balanced' benar
+     * benar menguji efek kas bon, bukan efek modal yang tidak disengaja.
+     */
+    public function test_kas_bon_pindah_ke_aset_dan_neraca_tetap_balance(): void
+    {
+        $kas     = \App\Models\CashAccount::create(['name' => 'Kas Besar', 'type' => 'cash']);
+        $piutang = FinCategory::create(['name' => 'Piutang Karyawan', 'type' => 'asset']);
+
+        \App\Models\FinTransaction::create([
+            'date'            => '2026-07-10',
+            'direction'       => 'out',
+            'fin_category_id' => $piutang->id,
+            'cash_account_id' => $kas->id,
+            'amount'          => 1_000_000,
+        ]);
+
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+        $ref = new \ReflectionMethod($controller, 'balanceSheetData');
+        $ref->setAccessible(true);
+        $data = $ref->invoke($controller, 2026);
+
+        $this->assertSame(1_000_000.0, $data['aset']['other_assets_total'],
+            'Kas bon harus muncul sebagai aset');
+        $this->assertSame(0.0, $data['ekuitas']['laba_ditahan'],
+            'Kas bon bukan beban, laba ditahan tidak boleh berkurang');
+        $this->assertTrue($data['balanced'], 'Neraca wajib tetap seimbang');
+    }
+
+    /**
+     * Spek §3.4 no. 2/3 — bukti regresi: untuk data yang HANYA berkategori
+     * income/expense dengan source 'manual' (tanpa kategori 'asset' dan tanpa
+     * source 'advance'/'payroll' sama sekali, persis kondisi database saat
+     * ini), aset.total, ekuitas.laba_ditahan, dan balanced hasil
+     * balanceSheetData() versi baru harus IDENTIK dengan angka yang dihasilkan
+     * query lama (where('source', 'manual'), tanpa pengecualian kategori
+     * aset, tanpa other_assets).
+     *
+     * opening_balance TIDAK diisi (default 0) dengan sengaja: opening_balance
+     * kas yang tidak berpasangan dengan modal_disetor adalah modal "gratis"
+     * yang membuat Neraca timpang sejak awal terlepas dari benar/tidaknya
+     * Task 9 (dibuktikan empiris saat menyusun test kas-bon di atas). Semua
+     * pergerakan di fixture ini murni dari transaksi in/out supaya baseline
+     * benar-benar balance dan assertTrue(balanced) menguji hal yang nyata.
+     */
+    public function test_balance_sheet_identik_dengan_logika_lama_untuk_kategori_income_expense(): void
+    {
+        $kas = \App\Models\CashAccount::create(['name' => 'Kas Besar', 'type' => 'cash']);
+
+        $pendapatan = FinCategory::create(['name' => 'Penjualan Tour', 'type' => 'income']);
+        $beban      = FinCategory::create(['name' => 'Gaji Karyawan',  'type' => 'expense']);
+
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-05', 'direction' => 'in', 'fin_category_id' => $pendapatan->id,
+            'cash_account_id' => $kas->id, 'amount' => 2_000_000,
+        ]);
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-15', 'direction' => 'out', 'fin_category_id' => $beban->id,
+            'cash_account_id' => $kas->id, 'amount' => 800_000,
+        ]);
+
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+        $ref = new \ReflectionMethod($controller, 'balanceSheetData');
+        $ref->setAccessible(true);
+        $actual = $ref->invoke($controller, 2026);
+
+        // Oracle: salinan persis logika lama SEBELUM Task 9 (where('source',
+        // 'manual'), tanpa pengecualian kategori aset, tanpa other_assets).
+        $endDate = '2026-12-31';
+        $cashIn  = (float) \App\Models\FinTransaction::where('cash_account_id', $kas->id)->where('direction', 'in')->where('date', '<=', $endDate)->sum('amount');
+        $cashOut = (float) \App\Models\FinTransaction::where('cash_account_id', $kas->id)->where('direction', 'out')->where('date', '<=', $endDate)->sum('amount');
+        $oldCashTotal = 0.0 + $cashIn - $cashOut;
+        $oldAr = 0.0;
+        $oldAsetTotal = $oldCashTotal + $oldAr; // tanpa aset tetap, tanpa other_assets
+
+        $oldManualIncome  = (float) \App\Models\FinTransaction::where('source', 'manual')->where('direction', 'in')->where('date', '<=', $endDate)->sum('amount');
+        $oldManualExpense = (float) \App\Models\FinTransaction::where('source', 'manual')->where('direction', 'out')->where('date', '<=', $endDate)->sum('amount');
+        $oldLabaDitahan = ($oldManualIncome) - ($oldManualExpense);
+
+        $this->assertSame($oldAsetTotal, $actual['aset']['total'], 'aset.total harus identik dengan logika lama untuk data income/expense biasa');
+        $this->assertSame($oldLabaDitahan, $actual['ekuitas']['laba_ditahan'], 'ekuitas.laba_ditahan harus identik dengan logika lama untuk data income/expense biasa');
+        $this->assertTrue($actual['balanced']);
+
+        // Angka konkret, bukan hanya kesamaan dengan oracle.
+        $this->assertSame(1_200_000.0, $actual['aset']['total']);
+        $this->assertSame(1_200_000.0, $actual['ekuitas']['laba_ditahan']);
+    }
+
+    /**
      * Salinan persis ledgerData() SEBELUM Task 7 (kelompok akun kategori
      * ditebak dari direction). Dipakai sebagai oracle regresi di atas — bukan
      * untuk dipanggil di kode produksi.

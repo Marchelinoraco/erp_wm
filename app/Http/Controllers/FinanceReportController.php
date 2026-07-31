@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Bill;
 use App\Models\BillPayment;
 use App\Models\CashAccount;
+use App\Models\FinCategory;
 use App\Models\FinTransaction;
 use App\Models\Invoice;
 use App\Models\InvoicePayment;
@@ -365,7 +366,20 @@ class FinanceReportController extends Controller
         $totalFixedCost = (float) $fixedAssets->sum('acquisition_cost');
         $totalFixedAccum = round((float) $fixedAssets->map(fn ($a) => $a->accumulatedAsOf($year))->sum(), 2);
 
-        $asetTotal = $cashTotal + $ar + $totalFixedNet;
+        // Spek §3.4 no. 4: saldo kategori bertipe aset (mis. Piutang Karyawan).
+        // 'out' menaikkan saldo aset, 'in' menurunkannya.
+        $otherAssets = FinCategory::asset()->orderBy('name')->get()->map(function ($c) use ($endDate) {
+            $naik  = (float) FinTransaction::where('fin_category_id', $c->id)
+                ->where('direction', 'out')->where('date', '<=', $endDate)->sum('amount');
+            $turun = (float) FinTransaction::where('fin_category_id', $c->id)
+                ->where('direction', 'in')->where('date', '<=', $endDate)->sum('amount');
+
+            return ['name' => $c->name, 'balance' => $naik - $turun];
+        })->filter(fn ($a) => abs($a['balance']) > 0.001)->values();
+
+        $otherAssetsTotal = (float) $otherAssets->sum('balance');
+
+        $asetTotal = $cashTotal + $ar + $totalFixedNet + $otherAssetsTotal;
 
         // KEWAJIBAN — AP + hutang bank/leasing
         $loans = Loan::where('is_active', true)->orderBy('loan_type')->orderBy('name')->get();
@@ -389,8 +403,17 @@ class FinanceReportController extends Controller
         $modal         = FinanceSetting::get('modal_disetor');
         $invoicedRev   = (float) Invoice::where('date', '<=', $endDate)->sum('total_idr');
         $billedCost    = (float) Bill::where('date', '<=', $endDate)->sum('amount');
-        $manualIncome  = (float) FinTransaction::where('source', 'manual')->where('direction', 'in')->where('date', '<=', $endDate)->sum('amount');
-        $manualExpense = (float) FinTransaction::where('source', 'manual')->where('direction', 'out')->where('date', '<=', $endDate)->sum('amount');
+        // Spek §3.4 no. 2 & 3: 'manual' diganti "bukan invoice/bill" supaya nilai
+        // source baru (advance, payroll) ikut terhitung — tanpa ini beban gaji
+        // hilang dari laba ditahan dan Neraca berhenti balance. Kategori aset
+        // dikeluarkan karena bukan pendapatan maupun beban.
+        $bukanARAP = fn ($q) => $q->whereNotIn('source', ['invoice', 'bill'])
+            ->whereHas('category', fn ($c) => $c->where('type', '!=', 'asset'));
+
+        $manualIncome  = (float) FinTransaction::where('direction', 'in')
+            ->where('date', '<=', $endDate)->tap($bukanARAP)->sum('amount');
+        $manualExpense = (float) FinTransaction::where('direction', 'out')
+            ->where('date', '<=', $endDate)->tap($bukanARAP)->sum('amount');
         $totalAccumDepreciation = (float) $fixedAssets->map(fn ($a) => $a->accumulatedAsOf($year))->sum();
         $labaDitahan   = ($invoicedRev + $manualIncome) - ($billedCost + $manualExpense) - $totalAccumDepreciation;
         $ekuitasTotal  = $modal + $labaDitahan;
@@ -405,6 +428,8 @@ class FinanceReportController extends Controller
                 'fixed_cost'  => $totalFixedCost,
                 'fixed_accum' => $totalFixedAccum,
                 'fixed_net'   => $totalFixedNet,
+                'other_assets'       => $otherAssets,
+                'other_assets_total' => $otherAssetsTotal,
                 'total'       => $asetTotal,
             ],
             'kewajiban' => [
