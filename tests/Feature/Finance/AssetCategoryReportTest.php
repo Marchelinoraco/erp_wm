@@ -4,6 +4,7 @@ namespace Tests\Feature\Finance;
 
 use App\Models\FinCategory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 /**
@@ -407,6 +408,353 @@ class AssetCategoryReportTest extends TestCase
         // Angka konkret, bukan hanya kesamaan dengan oracle.
         $this->assertSame(1_200_000.0, $actual['aset']['total']);
         $this->assertSame(1_200_000.0, $actual['ekuitas']['laba_ditahan']);
+    }
+
+    /**
+     * Spek §3.4 no. 6: baris non-kas (lawannya kategori lewat
+     * contra_fin_category_id, bukan akun kas) tidak memindahkan uang sama
+     * sekali — tidak boleh muncul di totals Arus Kas.
+     */
+    public function test_transaksi_non_kas_tidak_mempengaruhi_arus_kas(): void
+    {
+        $beban   = FinCategory::create(['name' => 'Gaji Karyawan',    'type' => 'expense']);
+        $piutang = FinCategory::create(['name' => 'Piutang Karyawan', 'type' => 'asset']);
+
+        \App\Models\FinTransaction::create([
+            'date'                   => '2026-07-30',
+            'direction'              => 'out',
+            'fin_category_id'        => $beban->id,
+            'contra_fin_category_id' => $piutang->id,
+            'amount'                 => 1_000_000,
+        ]);
+
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+        $ref = new \ReflectionMethod($controller, 'cashFlowData');
+        $ref->setAccessible(true);
+        $data = $ref->invoke($controller, 2026);
+
+        $this->assertSame(0.0, $data['totals']['expense'],
+            'Baris non-kas tidak memindahkan uang, tidak boleh muncul di Arus Kas');
+    }
+
+    /**
+     * Spek §3.4 no. 6 — sisi 'in': baris non-kas dengan direction='in' juga
+     * tidak boleh menambah totals.income di Arus Kas. Test di atas hanya
+     * membuktikan sisi 'out'; filter `whereNotNull('cash_account_id')` pada
+     * query $in di perulangan bulan cashFlowData() adalah baris kode terpisah
+     * dari filter pada query $out, jadi butuh bukti terpisah supaya kalau
+     * SALAH SATU filter (bukan keduanya) terhapus, ada test yang menangkap.
+     */
+    public function test_transaksi_non_kas_direction_in_tidak_mempengaruhi_arus_kas(): void
+    {
+        $pendapatan = FinCategory::create(['name' => 'Penjualan Tour',       'type' => 'income']);
+        $hutang     = FinCategory::create(['name' => 'Hutang Karyawan Lain', 'type' => 'asset']);
+
+        \App\Models\FinTransaction::create([
+            'date'                   => '2026-08-05',
+            'direction'              => 'in',
+            'fin_category_id'        => $pendapatan->id,
+            'contra_fin_category_id' => $hutang->id,
+            'amount'                 => 750_000,
+        ]);
+
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+        $ref = new \ReflectionMethod($controller, 'cashFlowData');
+        $ref->setAccessible(true);
+        $data = $ref->invoke($controller, 2026);
+
+        $this->assertSame(0.0, $data['totals']['income'],
+            'Baris non-kas (direction=in) tidak memindahkan uang, tidak boleh muncul di Arus Kas');
+    }
+
+    /**
+     * Spek §3.4 no. 6 — closure $byCategory di cashFlowData() punya query dan
+     * filter SENDIRI, terpisah dari query $in/$out di perulangan bulan. Kalau
+     * hanya filter di closure ini yang terhapus, totals tidak akan berubah
+     * (dihitung dari $incomeSeries/$expenseSeries, bukan dari $byCategory),
+     * tapi rincian per kategori (expenseByCat) akan salah menampilkan
+     * kategori yang HANYA punya baris non-kas. Kategori di test ini sengaja
+     * tidak dipakai transaksi kas apa pun supaya kemunculannya di
+     * expenseByCat murni bukti bahwa baris non-kas ikut ter-groupBy.
+     */
+    public function test_transaksi_non_kas_tidak_muncul_di_rincian_kategori_arus_kas(): void
+    {
+        $bebanNonKas = FinCategory::create(['name' => 'Beban Non-Kas Saja', 'type' => 'expense']);
+        $piutang     = FinCategory::create(['name' => 'Piutang Karyawan',  'type' => 'asset']);
+
+        \App\Models\FinTransaction::create([
+            'date'                   => '2026-09-12',
+            'direction'              => 'out',
+            'fin_category_id'        => $bebanNonKas->id,
+            'contra_fin_category_id' => $piutang->id,
+            'amount'                 => 1_500_000,
+        ]);
+
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+        $ref = new \ReflectionMethod($controller, 'cashFlowData');
+        $ref->setAccessible(true);
+        $data = $ref->invoke($controller, 2026);
+
+        $namaKategori = collect($data['expenseByCat'])->pluck('name')->all();
+
+        $this->assertNotContains('Beban Non-Kas Saja', $namaKategori,
+            'Kategori yang hanya punya baris non-kas tidak boleh muncul di rincian expenseByCat');
+    }
+
+    /**
+     * Spek §3.4 no. 6 — bukti regresi: untuk data yang HANYA berupa transaksi
+     * kas biasa (persis kondisi database saat ini, tidak ada satu pun baris
+     * dengan contra_fin_category_id terisi), totals hasil cashFlowData()
+     * versi baru (dengan whereNotNull('cash_account_id')) harus IDENTIK
+     * dengan hasil query lama (tanpa filter itu), karena semua baris memang
+     * sudah punya cash_account_id.
+     */
+    public function test_cash_flow_data_identik_dengan_logika_lama_untuk_transaksi_kas(): void
+    {
+        $kas = \App\Models\CashAccount::create(['name' => 'Kas Besar', 'type' => 'cash']);
+
+        $pendapatan = FinCategory::create(['name' => 'Penjualan Tour', 'type' => 'income']);
+        $beban      = FinCategory::create(['name' => 'Gaji Karyawan',  'type' => 'expense']);
+
+        \App\Models\FinTransaction::create([
+            'date' => '2026-01-10', 'direction' => 'in', 'fin_category_id' => $pendapatan->id,
+            'cash_account_id' => $kas->id, 'amount' => 500_000,
+        ]);
+        \App\Models\FinTransaction::create([
+            'date' => '2026-02-05', 'direction' => 'in', 'fin_category_id' => $pendapatan->id,
+            'cash_account_id' => $kas->id, 'amount' => 300_000,
+        ]);
+        \App\Models\FinTransaction::create([
+            'date' => '2026-03-15', 'direction' => 'out', 'fin_category_id' => $beban->id,
+            'cash_account_id' => $kas->id, 'amount' => 200_000,
+        ]);
+
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+        $ref = new \ReflectionMethod($controller, 'cashFlowData');
+        $ref->setAccessible(true);
+        $actual = $ref->invoke($controller, 2026);
+
+        // Oracle: salinan persis query totals SEBELUM Task 10 (tanpa
+        // whereNotNull('cash_account_id')).
+        $oldIncome  = (float) \App\Models\FinTransaction::whereYear('date', 2026)->where('direction', 'in')->sum('amount');
+        $oldExpense = (float) \App\Models\FinTransaction::whereYear('date', 2026)->where('direction', 'out')->sum('amount');
+
+        $this->assertSame($oldIncome, $actual['totals']['income'], 'totals.income harus identik dengan logika lama untuk data kas biasa');
+        $this->assertSame($oldExpense, $actual['totals']['expense'], 'totals.expense harus identik dengan logika lama untuk data kas biasa');
+
+        // Angka konkret, bukan hanya kesamaan dengan oracle.
+        $this->assertSame(800_000.0, $actual['totals']['income']);
+        $this->assertSame(200_000.0, $actual['totals']['expense']);
+    }
+
+    /**
+     * Spek §3.4 no. 6 — cabang BULANAN recapData(): baris non-kas (direction
+     * 'in' maupun 'out') tidak boleh mempengaruhi totals. Dua arah diuji
+     * dalam satu test karena keduanya independen secara matematis (jumlahnya
+     * beda), jadi kalau HANYA salah satu filter (query $in ATAU $out) yang
+     * terhapus, assertion yang bersangkutan akan gagal sendiri.
+     */
+    public function test_transaksi_non_kas_tidak_mempengaruhi_rekap_bulanan(): void
+    {
+        $pendapatan = FinCategory::create(['name' => 'Penjualan Tour',       'type' => 'income']);
+        $beban      = FinCategory::create(['name' => 'Gaji Karyawan',       'type' => 'expense']);
+        $piutang    = FinCategory::create(['name' => 'Piutang Karyawan',    'type' => 'asset']);
+        $hutang     = FinCategory::create(['name' => 'Hutang Karyawan Lain', 'type' => 'asset']);
+
+        \App\Models\FinTransaction::create([
+            'date' => '2026-04-10', 'direction' => 'out', 'fin_category_id' => $beban->id,
+            'contra_fin_category_id' => $piutang->id, 'amount' => 900_000,
+        ]);
+        \App\Models\FinTransaction::create([
+            'date' => '2026-05-10', 'direction' => 'in', 'fin_category_id' => $pendapatan->id,
+            'contra_fin_category_id' => $hutang->id, 'amount' => 600_000,
+        ]);
+
+        $request = \Illuminate\Http\Request::create('/finance/recap', 'GET', ['mode' => 'monthly', 'year' => 2026]);
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+        $ref = new \ReflectionMethod($controller, 'recapData');
+        $ref->setAccessible(true);
+        $data = $ref->invoke($controller, $request);
+
+        $this->assertSame(0.0, $data['totals']['income'], 'Baris non-kas (in) tidak boleh muncul di Rekap bulanan');
+        $this->assertSame(0.0, $data['totals']['expense'], 'Baris non-kas (out) tidak boleh muncul di Rekap bulanan');
+    }
+
+    /**
+     * Spek §3.4 no. 6 — cabang MINGGUAN recapData(): sama seperti cabang
+     * bulanan, tapi lewat query $txns yang berbeda (satu query untuk seluruh
+     * bulan, lalu di-bucket per minggu di PHP). Filter di cabang ini terpisah
+     * dari cabang bulanan, jadi butuh bukti sendiri.
+     */
+    public function test_transaksi_non_kas_tidak_mempengaruhi_rekap_mingguan(): void
+    {
+        $pendapatan = FinCategory::create(['name' => 'Penjualan Tour',       'type' => 'income']);
+        $beban      = FinCategory::create(['name' => 'Gaji Karyawan',       'type' => 'expense']);
+        $piutang    = FinCategory::create(['name' => 'Piutang Karyawan',    'type' => 'asset']);
+        $hutang     = FinCategory::create(['name' => 'Hutang Karyawan Lain', 'type' => 'asset']);
+
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-06', 'direction' => 'out', 'fin_category_id' => $beban->id,
+            'contra_fin_category_id' => $piutang->id, 'amount' => 400_000,
+        ]);
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-20', 'direction' => 'in', 'fin_category_id' => $pendapatan->id,
+            'contra_fin_category_id' => $hutang->id, 'amount' => 250_000,
+        ]);
+
+        $request = \Illuminate\Http\Request::create('/finance/recap', 'GET', ['mode' => 'weekly', 'month' => '2026-07']);
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+        $ref = new \ReflectionMethod($controller, 'recapData');
+        $ref->setAccessible(true);
+        $data = $ref->invoke($controller, $request);
+
+        $this->assertSame(0.0, $data['totals']['income'], 'Baris non-kas (in) tidak boleh muncul di Rekap mingguan');
+        $this->assertSame(0.0, $data['totals']['expense'], 'Baris non-kas (out) tidak boleh muncul di Rekap mingguan');
+    }
+
+    /**
+     * Spek §3.4 no. 6 — bukti regresi: untuk data yang HANYA berupa transaksi
+     * kas biasa, totals hasil recapData() versi baru (cabang bulanan) harus
+     * IDENTIK dengan logika lama (tanpa whereNotNull('cash_account_id')).
+     */
+    public function test_recap_data_identik_dengan_logika_lama_untuk_transaksi_kas_bulanan(): void
+    {
+        $kas = \App\Models\CashAccount::create(['name' => 'Kas Besar', 'type' => 'cash']);
+
+        $pendapatan = FinCategory::create(['name' => 'Penjualan Tour', 'type' => 'income']);
+        $beban      = FinCategory::create(['name' => 'Gaji Karyawan',  'type' => 'expense']);
+
+        \App\Models\FinTransaction::create([
+            'date' => '2026-02-05', 'direction' => 'in', 'fin_category_id' => $pendapatan->id,
+            'cash_account_id' => $kas->id, 'amount' => 1_200_000,
+        ]);
+        \App\Models\FinTransaction::create([
+            'date' => '2026-06-15', 'direction' => 'out', 'fin_category_id' => $beban->id,
+            'cash_account_id' => $kas->id, 'amount' => 450_000,
+        ]);
+
+        $request = \Illuminate\Http\Request::create('/finance/recap', 'GET', ['mode' => 'monthly', 'year' => 2026]);
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+        $ref = new \ReflectionMethod($controller, 'recapData');
+        $ref->setAccessible(true);
+        $actual = $ref->invoke($controller, $request);
+
+        $oldIncome  = (float) \App\Models\FinTransaction::whereYear('date', 2026)->where('direction', 'in')->sum('amount');
+        $oldExpense = (float) \App\Models\FinTransaction::whereYear('date', 2026)->where('direction', 'out')->sum('amount');
+
+        $this->assertSame($oldIncome, $actual['totals']['income'], 'totals.income harus identik dengan logika lama untuk data kas biasa');
+        $this->assertSame($oldExpense, $actual['totals']['expense'], 'totals.expense harus identik dengan logika lama untuk data kas biasa');
+
+        $this->assertSame(1_200_000.0, $actual['totals']['income']);
+        $this->assertSame(450_000.0, $actual['totals']['expense']);
+    }
+
+    /**
+     * Spek §3.4 no. 6 — bukti regresi cabang MINGGUAN recapData(): untuk data
+     * transaksi kas biasa dalam satu bulan, totals harus IDENTIK dengan
+     * logika lama (tanpa whereNotNull('cash_account_id')).
+     */
+    public function test_recap_data_identik_dengan_logika_lama_untuk_transaksi_kas_mingguan(): void
+    {
+        $kas = \App\Models\CashAccount::create(['name' => 'Kas Besar', 'type' => 'cash']);
+
+        $pendapatan = FinCategory::create(['name' => 'Penjualan Tour', 'type' => 'income']);
+        $beban      = FinCategory::create(['name' => 'Gaji Karyawan',  'type' => 'expense']);
+
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-03', 'direction' => 'in', 'fin_category_id' => $pendapatan->id,
+            'cash_account_id' => $kas->id, 'amount' => 700_000,
+        ]);
+        \App\Models\FinTransaction::create([
+            'date' => '2026-07-22', 'direction' => 'out', 'fin_category_id' => $beban->id,
+            'cash_account_id' => $kas->id, 'amount' => 150_000,
+        ]);
+
+        $request = \Illuminate\Http\Request::create('/finance/recap', 'GET', ['mode' => 'weekly', 'month' => '2026-07']);
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+        $ref = new \ReflectionMethod($controller, 'recapData');
+        $ref->setAccessible(true);
+        $actual = $ref->invoke($controller, $request);
+
+        $oldIncome  = (float) \App\Models\FinTransaction::whereYear('date', 2026)->whereMonth('date', 7)->where('direction', 'in')->sum('amount');
+        $oldExpense = (float) \App\Models\FinTransaction::whereYear('date', 2026)->whereMonth('date', 7)->where('direction', 'out')->sum('amount');
+
+        $this->assertSame($oldIncome, $actual['totals']['income'], 'totals.income harus identik dengan logika lama untuk data kas biasa');
+        $this->assertSame($oldExpense, $actual['totals']['expense'], 'totals.expense harus identik dengan logika lama untuk data kas biasa');
+
+        $this->assertSame(700_000.0, $actual['totals']['income']);
+        $this->assertSame(150_000.0, $actual['totals']['expense']);
+    }
+
+    /**
+     * Spek §3.4 no. 6 — balanceBefore(): baris non-kas (direction 'in' maupun
+     * 'out', tanggal sebelum tanggal acuan) tidak boleh mempengaruhi saldo
+     * berjalan sama sekali. Jumlah in/out sengaja dibuat BEDA supaya kalau
+     * hanya salah satu filter ($in ATAU $out) yang terhapus, hasilnya jadi
+     * bukan nol dan assertion menangkapnya.
+     */
+    public function test_transaksi_non_kas_tidak_mempengaruhi_saldo_berjalan(): void
+    {
+        $pendapatan = FinCategory::create(['name' => 'Penjualan Tour',       'type' => 'income']);
+        $beban      = FinCategory::create(['name' => 'Gaji Karyawan',       'type' => 'expense']);
+        $piutang    = FinCategory::create(['name' => 'Piutang Karyawan',    'type' => 'asset']);
+        $hutang     = FinCategory::create(['name' => 'Hutang Karyawan Lain', 'type' => 'asset']);
+
+        \App\Models\FinTransaction::create([
+            'date' => '2026-01-05', 'direction' => 'in', 'fin_category_id' => $pendapatan->id,
+            'contra_fin_category_id' => $hutang->id, 'amount' => 500_000,
+        ]);
+        \App\Models\FinTransaction::create([
+            'date' => '2026-01-10', 'direction' => 'out', 'fin_category_id' => $beban->id,
+            'contra_fin_category_id' => $piutang->id, 'amount' => 300_000,
+        ]);
+
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+        $ref = new \ReflectionMethod($controller, 'balanceBefore');
+        $ref->setAccessible(true);
+        $balance = $ref->invoke($controller, Carbon::create(2026, 2, 1));
+
+        $this->assertSame(0.0, $balance,
+            'Baris non-kas (in maupun out) tidak boleh mempengaruhi saldo berjalan');
+    }
+
+    /**
+     * Spek §3.4 no. 6 — bukti regresi: untuk data yang HANYA berupa transaksi
+     * kas biasa, hasil balanceBefore() versi baru harus IDENTIK dengan logika
+     * lama (tanpa whereNotNull('cash_account_id')).
+     */
+    public function test_balance_before_identik_dengan_logika_lama_untuk_transaksi_kas(): void
+    {
+        $kas = \App\Models\CashAccount::create(['name' => 'Kas Besar', 'type' => 'cash', 'opening_balance' => 0]);
+
+        $pendapatan = FinCategory::create(['name' => 'Penjualan Tour', 'type' => 'income']);
+        $beban      = FinCategory::create(['name' => 'Gaji Karyawan',  'type' => 'expense']);
+
+        \App\Models\FinTransaction::create([
+            'date' => '2026-01-05', 'direction' => 'in', 'fin_category_id' => $pendapatan->id,
+            'cash_account_id' => $kas->id, 'amount' => 1_000_000,
+        ]);
+        \App\Models\FinTransaction::create([
+            'date' => '2026-01-10', 'direction' => 'out', 'fin_category_id' => $beban->id,
+            'cash_account_id' => $kas->id, 'amount' => 400_000,
+        ]);
+
+        $refDate = Carbon::create(2026, 2, 1);
+
+        $controller = app(\App\Http\Controllers\FinanceReportController::class);
+        $ref = new \ReflectionMethod($controller, 'balanceBefore');
+        $ref->setAccessible(true);
+        $actual = $ref->invoke($controller, $refDate);
+
+        // Oracle: salinan persis logika lama SEBELUM Task 10 (tanpa
+        // whereNotNull('cash_account_id')).
+        $oldOpening = (float) \App\Models\CashAccount::sum('opening_balance');
+        $oldIn      = (float) \App\Models\FinTransaction::where('date', '<', $refDate)->where('direction', 'in')->sum('amount');
+        $oldOut     = (float) \App\Models\FinTransaction::where('date', '<', $refDate)->where('direction', 'out')->sum('amount');
+        $oldBalance = $oldOpening + $oldIn - $oldOut;
+
+        $this->assertSame($oldBalance, $actual, 'balanceBefore() harus identik dengan logika lama untuk data kas biasa');
+        $this->assertSame(600_000.0, $actual);
     }
 
     /**

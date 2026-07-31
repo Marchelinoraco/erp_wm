@@ -28,14 +28,15 @@ class FinanceReportController extends Controller
 
     private function cashFlowData(int $year): array
     {
+        // Spek §3.4 no. 6: baris non-kas tidak memindahkan uang.
         // Seri bulanan: pemasukan vs pengeluaran
         $months = [];
         $incomeSeries = [];
         $expenseSeries = [];
         $netSeries = [];
         for ($m = 1; $m <= 12; $m++) {
-            $in  = (float) FinTransaction::whereYear('date', $year)->whereMonth('date', $m)->where('direction', 'in')->sum('amount');
-            $out = (float) FinTransaction::whereYear('date', $year)->whereMonth('date', $m)->where('direction', 'out')->sum('amount');
+            $in  = (float) FinTransaction::whereYear('date', $year)->whereMonth('date', $m)->where('direction', 'in')->whereNotNull('cash_account_id')->sum('amount');
+            $out = (float) FinTransaction::whereYear('date', $year)->whereMonth('date', $m)->where('direction', 'out')->whereNotNull('cash_account_id')->sum('amount');
             $months[]        = Carbon::create($year, $m, 1)->translatedFormat('M');
             $incomeSeries[]  = $in;
             $expenseSeries[] = $out;
@@ -52,8 +53,9 @@ class FinanceReportController extends Controller
         }
 
         // Breakdown per kategori (tahun berjalan)
+        // Spek §3.4 no. 6: baris non-kas tidak memindahkan uang.
         $byCategory = fn (string $dir) => FinTransaction::with('category')
-            ->whereYear('date', $year)->where('direction', $dir)
+            ->whereYear('date', $year)->where('direction', $dir)->whereNotNull('cash_account_id')
             ->get()->groupBy('fin_category_id')
             ->map(fn ($g) => ['name' => $g->first()->category?->name ?? '-', 'total' => (float) $g->sum('amount')])
             ->sortByDesc('total')->values();
@@ -231,7 +233,8 @@ class FinanceReportController extends Controller
         if ($mode === 'weekly') {
             $month = $request->input('month', now()->format('Y-m'));
             [$y, $m] = array_pad(explode('-', $month), 2, now()->month);
-            $txns = FinTransaction::whereYear('date', (int) $y)->whereMonth('date', (int) $m)->get();
+            // Spek §3.4 no. 6: baris non-kas tidak memindahkan uang.
+            $txns = FinTransaction::whereYear('date', (int) $y)->whereMonth('date', (int) $m)->whereNotNull('cash_account_id')->get();
 
             $bucket = [];
             foreach ($txns as $t) {
@@ -249,9 +252,10 @@ class FinanceReportController extends Controller
             $periodLabel = Carbon::create((int) $y, (int) $m, 1)->translatedFormat('F Y');
         } else {
             $year = (int) $request->input('year', now()->year);
+            // Spek §3.4 no. 6: baris non-kas tidak memindahkan uang.
             for ($mo = 1; $mo <= 12; $mo++) {
-                $in  = (float) FinTransaction::whereYear('date', $year)->whereMonth('date', $mo)->where('direction', 'in')->sum('amount');
-                $out = (float) FinTransaction::whereYear('date', $year)->whereMonth('date', $mo)->where('direction', 'out')->sum('amount');
+                $in  = (float) FinTransaction::whereYear('date', $year)->whereMonth('date', $mo)->where('direction', 'in')->whereNotNull('cash_account_id')->sum('amount');
+                $out = (float) FinTransaction::whereYear('date', $year)->whereMonth('date', $mo)->where('direction', 'out')->whereNotNull('cash_account_id')->sum('amount');
                 $lab = Carbon::create($year, $mo, 1)->translatedFormat('M');
                 $labels[] = $lab; $income[] = $in; $expense[] = $out; $net[] = $in - $out;
                 $rows[] = ['label' => Carbon::create($year, $mo, 1)->translatedFormat('F'), 'income' => $in, 'expense' => $out, 'net' => $in - $out];
@@ -560,9 +564,10 @@ class FinanceReportController extends Controller
 
     private function balanceBefore(Carbon $date): float
     {
+        // Spek §3.4 no. 6: baris non-kas tidak memindahkan uang.
         $opening = (float) CashAccount::sum('opening_balance');
-        $in  = (float) FinTransaction::where('date', '<', $date)->where('direction', 'in')->sum('amount');
-        $out = (float) FinTransaction::where('date', '<', $date)->where('direction', 'out')->sum('amount');
+        $in  = (float) FinTransaction::where('date', '<', $date)->where('direction', 'in')->whereNotNull('cash_account_id')->sum('amount');
+        $out = (float) FinTransaction::where('date', '<', $date)->where('direction', 'out')->whereNotNull('cash_account_id')->sum('amount');
 
         return $opening + $in - $out;
     }
