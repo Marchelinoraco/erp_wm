@@ -167,7 +167,14 @@ class FinanceReportController extends Controller
             $catName  = $t->category?->name ?? '-';
 
             $touch($cashKey, $cashName, 'aset');
-            $touch($catKey, $catName, $t->direction === 'in' ? 'pendapatan' : 'beban');
+            // Spek §3.4 no. 1: jenis akun dibaca dari kategorinya, bukan ditebak
+            // dari arah uang. Sebelum ada kategori bertipe 'asset', kedua cara ini
+            // menghasilkan hasil yang sama persis.
+            $touch($catKey, $catName, match ($t->category?->type) {
+                'income' => 'pendapatan',
+                'asset'  => 'aset',
+                default  => 'beban',
+            });
 
             if ($t->direction === 'in') {
                 $acc[$cashKey]['debit'] += $amt;
