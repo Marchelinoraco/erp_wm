@@ -4,10 +4,13 @@ namespace Tests\Feature\Employee;
 
 use App\Models\CashAccount;
 use App\Models\Employee;
+use App\Models\EmployeeComponent;
 use App\Models\Payroll;
 use App\Models\PayrollItem;
 use App\Models\PayrollItemLine;
 use App\Models\User;
+use App\Services\Payroll\PayrollDraftBuilder;
+use App\Services\Payroll\PayrollProcessor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -120,5 +123,39 @@ class EmployeeAdvanceTest extends TestCase
 
         $this->assertDatabaseMissing('employee_advances', ['id' => $advance->id, 'deleted_at' => null]);
         $this->assertDatabaseMissing('fin_transactions', ['id' => $trxId]);
+    }
+
+    /**
+     * Spek §5 / gap yang dicatat dari review Task 3: sebelum Task 5,
+     * PayrollProcessor belum ada sehingga tidak ada cara membuat
+     * PayrollItemLine yang SUNGGUHAN merujuk kas bon lewat alur produksi
+     * (bukan Payroll/PayrollItem/PayrollItemLine::create() manual seperti
+     * di test lain di atas). Sekarang PayrollProcessor::pay() (Task 5) ada,
+     * test ini menutup kas bon lewat alur nyata: gajian diproses, potongan
+     * otomatis kena, lalu percobaan hapus kas bon lewat controller WAJIB
+     * ditolak 422 — bukan berhasil dihapus begitu saja.
+     */
+    public function test_kas_bon_yang_sudah_dipotong_lewat_gajian_tidak_bisa_dihapus(): void
+    {
+        $karyawan = Employee::create(['name' => 'Budi', 'base_salary' => 4_000_000]);
+        EmployeeComponent::create(['employee_id' => $karyawan->id, 'name' => 'Tunjangan Makan', 'type' => 'tunjangan', 'amount' => 800_000]);
+        $kas = CashAccount::create(['name' => 'Kas Besar', 'type' => 'cash']);
+        $admin = $this->makeAdmin();
+
+        $this->actingAs($admin)->post(route('employee-advances.store'), [
+            'employee_id' => $karyawan->id, 'date' => '2026-07-10',
+            'amount' => 1_000_000, 'cash_account_id' => $kas->id,
+        ])->assertSessionHasNoErrors();
+        $advance = $karyawan->advances()->first();
+
+        $draft = (new PayrollDraftBuilder())->build('2026-07');
+        (new PayrollProcessor())->pay('2026-07', $draft, $kas->id, $admin->name);
+
+        $this->assertTrue($advance->fresh()->sudahDipotong());
+
+        $this->actingAs($admin)->delete(route('employee-advances.destroy', $advance))
+            ->assertStatus(422);
+
+        $this->assertDatabaseHas('employee_advances', ['id' => $advance->id, 'deleted_at' => null]);
     }
 }
