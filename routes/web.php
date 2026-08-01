@@ -323,8 +323,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Gajian — Task 6: daftar periode, buka periode (hitung, tidak simpan), Bayar, Batalkan
         Route::get('/payrolls',                  [PayrollController::class, 'index'])->name('payrolls.index');
-        Route::get('/payrolls/{period}',         [PayrollController::class, 'show'])->name('payrolls.show')->where('period', '\d{4}-\d{2}');
-        Route::post('/payrolls/{period}/pay',    [PayrollController::class, 'pay'])->name('payrolls.pay')->where('period', '\d{4}-\d{2}');
+        // Fix wave final review 2026-08-01, Temuan #6: '\d{4}-\d{2}' menerima
+        // bulan tidak valid (2026-99, 2026-00, 9999-13) — POST payrolls.pay
+        // dengan bulan begitu berhasil membuat payroll paid permanen tanpa
+        // endpoint hapus. Regex diperketat ke tahun 4 digit + bulan 01-12.
+        Route::get('/payrolls/{period}',         [PayrollController::class, 'show'])->name('payrolls.show')->where('period', '\d{4}-(0[1-9]|1[0-2])');
+        Route::post('/payrolls/{period}/pay',    [PayrollController::class, 'pay'])->name('payrolls.pay')->where('period', '\d{4}-(0[1-9]|1[0-2])');
         Route::post('/payrolls/{payroll}/cancel', [PayrollController::class, 'cancel'])->name('payrolls.cancel');
     });
 });
