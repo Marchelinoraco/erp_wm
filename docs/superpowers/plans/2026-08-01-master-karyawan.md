@@ -2614,3 +2614,20 @@ Sebelum PR `dev` → `main`:
 1. Tambahkan `fiscalData()` sebagai laporan ke-7 di `finance:snapshot` (rekomendasi terbuka dari review Tahap A) — cek dulu apakah masih relevan mengingat Tahap B sekarang membuat `fiscalData()` benar-benar dipakai kode produksi (kategori aset kini punya data nyata).
 2. Jalankan `finance:snapshot` di dev-erp (salinan production) sebelum dan sesudah Tahap B, sama seperti gerbang Task 6/12 Tahap A — kali ini untuk membuktikan laporan **selain** yang disentuh langsung (Arus Kas, Rekap, Saldo Akun) juga tidak berubah untuk data yang sudah ada.
 3. Satu PR `dev` → `main` mencakup KEDUA tahap sekaligus (D9 Tahap A).
+
+---
+
+## Gerbang finance:snapshot sebelum dev→main (2026-08-08)
+
+Dibandingkan patokan-2025/2026.json (diambil 31 Jul, akhir Tahap A) dengan
+snapshot baru sesudah Tahap B (data contoh sudah dibersihkan dulu).
+
+Hasil: 7 baris beda untuk KEDUA tahun, seluruhnya expected:
+- `other_assets: []` + `other_assets_total: 0` (kunci baru skema, kosong)
+- `rekap.month` "2026-07"->"2026-08" (label bulan berjalan, bukan angka uang)
+
+Nol angka keuangan bergeser. dev-erp adalah salinan statis (tidak
+tersinkron kontinu), jadi tidak ada drift data produksi antara 31 Jul dan
+sekarang selain yang sengaja diubah di dev-erp sendiri (sudah dibersihkan).
+
+GERBANG LOLOS. Siap PR dev->main.
