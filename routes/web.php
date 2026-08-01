@@ -19,6 +19,7 @@ use App\Http\Controllers\BillPaymentController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\AssignmentController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EmployeeAdvanceController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\InvoiceController;
@@ -313,6 +314,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/employees/{employee}',                 [EmployeeController::class, 'update'])->name('employees.update');
         Route::post('/employees/{employee}/components',       [EmployeeController::class, 'storeComponent'])->name('employees.components.store');
         Route::patch('/employees/{employee}/components/{component}', [EmployeeController::class, 'updateComponent'])->name('employees.components.update');
+
+        // Kas Bon (uang muka gaji) — Task 3: Piutang Karyawan sebagai kategori utama
+        Route::get('/employee-advances',                      [EmployeeAdvanceController::class, 'index'])->name('employee-advances.index');
+        Route::post('/employee-advances',                     [EmployeeAdvanceController::class, 'store'])->name('employee-advances.store');
+        Route::delete('/employee-advances/{employeeAdvance}', [EmployeeAdvanceController::class, 'destroy'])->name('employee-advances.destroy');
     });
 });
 
