@@ -234,4 +234,33 @@ class PayrollProcessorTest extends TestCase
         $this->assertSame(422, $gagal->getStatusCode());
         $this->assertNull(Payroll::where('period', '2026-08')->first(), 'tidak boleh ada payroll "hantu" tercatat sama sekali');
     }
+
+    /**
+     * Item Cepat #2, fix wave final review 2026-08-01: D11 ("payroll_items
+     * menyimpan SALINAN, bukan rujukan — slip lama tidak berubah kalau master
+     * diedit") dijamin oleh struktur skema (payroll_items punya kolom
+     * employee_name/position/base_salary sendiri, bukan FK ke employees untuk
+     * data itu), tapi belum ada test eksplisit yang membuktikannya. Ditaruh di
+     * berkas ini (bukan berkas terpisah) karena ini murni perilaku
+     * PayrollProcessor::pay() — menulis salinan saat dibayar — bukan perilaku
+     * controller/HTTP.
+     */
+    public function test_payroll_items_menyimpan_salinan_tidak_ikut_berubah_saat_master_karyawan_diedit(): void
+    {
+        $karyawan = $this->siapkanBudi(); // base_salary 4_000_000
+        $kas = CashAccount::first();
+        $draft = (new PayrollDraftBuilder())->build('2026-07');
+        $payroll = (new PayrollProcessor())->pay('2026-07', $draft, $kas->id, 'Admin');
+
+        $item = $payroll->items()->where('employee_id', $karyawan->id)->firstOrFail();
+        $this->assertSame(4_000_000.0, (float) $item->base_salary);
+        $this->assertSame('Budi', $item->employee_name);
+
+        // Gaji pokok & nama master diubah SETELAH gajian Juli dibayar.
+        $karyawan->update(['base_salary' => 6_000_000, 'name' => 'Budi Santoso (Promosi)']);
+
+        $item->refresh();
+        $this->assertSame(4_000_000.0, (float) $item->base_salary, 'D11: slip gaji lama tidak boleh ikut berubah kalau master base_salary diedit');
+        $this->assertSame('Budi', $item->employee_name, 'D11: slip gaji lama tidak boleh ikut berubah kalau master name diedit');
+    }
 }
