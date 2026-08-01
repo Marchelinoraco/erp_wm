@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Head, router, useForm } from '@inertiajs/vue3'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { fmtRp } from '@/lib/fmt'
 
 const props = defineProps({
@@ -15,10 +15,26 @@ function bukaPeriode(p) {
     router.get(route('payrolls.show', p))
 }
 
+// D6: kas bon otomatis boleh diturunkan admin sebelum bayar (mis. "bulan ini
+// potong separuh dulu"). overrides dikeyakan per employee_advance_id — server
+// yang jadi otoritas final untuk net_amount (lihat PayrollController::pay()).
+const overrides = ref({})
+function overrideValue(id, default_) {
+    return overrides.value[id] ?? default_
+}
+function setOverride(id, value) {
+    overrides.value[id] = Number(value)
+}
+
 const payForm = useForm({ cash_account_id: '' })
 function bayar() {
     if (!confirm(`Bayar gajian periode ${props.period}? Setelah dibayar, berkas terkunci.`)) return
-    payForm.post(route('payrolls.pay', props.period))
+    payForm.transform(data => ({
+        ...data,
+        overrides: Object.entries(overrides.value).map(([employee_advance_id, potongan]) => ({
+            employee_advance_id: Number(employee_advance_id), potongan,
+        })),
+    })).post(route('payrolls.pay', props.period))
 }
 
 function batalkan(p) {
@@ -67,8 +83,18 @@ const totalNet = computed(() => props.draft.reduce((s, r) => s + r.net_amount, 0
                         <tr v-for="r in draft" :key="r.employee_id" class="border-t">
                             <td class="p-1">{{ r.employee_name }}</td>
                             <td class="p-1 text-right font-mono">{{ fmtRp(r.base_salary) }}</td>
-                            <td class="p-1 text-right font-mono text-amber-600">
-                                {{ fmtRp(r.advances.reduce((s,a)=>s+a.potongan,0)) }}
+                            <td class="p-1">
+                                <div v-for="a in r.advances" :key="a.employee_advance_id" class="flex items-center gap-1 justify-end mb-0.5">
+                                    <span class="text-xs text-gray-400">{{ a.label }}</span>
+                                    <input
+                                        type="number"
+                                        :value="overrideValue(a.employee_advance_id, a.potongan)"
+                                        @input="setOverride(a.employee_advance_id, $event.target.value)"
+                                        :max="a.potongan"
+                                        min="0"
+                                        class="border rounded px-1 py-0.5 text-xs w-24 text-right font-mono"
+                                    />
+                                </div>
                             </td>
                             <td class="p-1 text-right font-mono font-bold">{{ fmtRp(r.net_amount) }}</td>
                         </tr>

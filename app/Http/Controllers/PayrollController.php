@@ -50,8 +50,18 @@ class PayrollController extends Controller
         // tidak memvalidasi cash_account_id — ID yang tidak ada di
         // cash_accounts akan lempar QueryException mentah (500) kalau tidak
         // dijaga di sini.
+        //
+        // D6 (fix round ini): `overrides` adalah jalan SEMPIT dan AMAN untuk
+        // admin menurunkan potongan kas bon sebelum bayar (mis. "bulan ini
+        // potong separuh dulu") — TIDAK sama dengan celah `items` mentah yang
+        // sudah dihapus dari controller ini (lihat komentar di bawah): admin
+        // hanya boleh mengirim employee_advance_id -> nominal, tidak pernah
+        // employee_id/net_amount/baris lain apa pun.
         $data = $request->validate([
-            'cash_account_id' => 'required|integer|exists:cash_accounts,id',
+            'cash_account_id'                  => 'required|integer|exists:cash_accounts,id',
+            'overrides'                         => 'nullable|array',
+            'overrides.*.employee_advance_id'   => 'required_with:overrides|integer|exists:employee_advances,id',
+            'overrides.*.potongan'              => 'required_with:overrides|numeric|min:0',
         ]);
 
         // Item penutup review Task 5 (#2): draft SELALU dihitung ulang dari
@@ -60,9 +70,49 @@ class PayrollController extends Controller
         // lolos apa adanya ke payroll_items dan jurnal keuangan.
         $draft = $builder->build($period);
 
+        if (! empty($data['overrides'])) {
+            $draft = $this->terapkanOverridesKasBon($draft, $data['overrides']);
+        }
+
         $processor->pay($period, $draft, $data['cash_account_id'], $request->user()?->name);
 
         return redirect()->route('payrolls.index')->with('success', "Gajian {$period} dibayar.");
+    }
+
+    /**
+     * D6: kas bon otomatis (hasil FIFO dari PayrollDraftBuilder) boleh
+     * DITURUNKAN admin sebelum bayar, tidak pernah dinaikkan. `$overrides`
+     * berisi employee_advance_id -> nominal potongan baru; employee_advance_id
+     * yang tidak muncul di baris draft manapun (ID valid tapi tidak relevan
+     * untuk periode ini, mis. milik karyawan nonaktif) diabaikan dengan aman.
+     * Gross sebelum kas bon (gaji pokok + tunjangan - potongan komponen)
+     * tidak pernah berubah — hanya potongan kas bon yang disesuaikan turun.
+     */
+    private function terapkanOverridesKasBon(array $draft, array $overrides): array
+    {
+        $overridesByAdvanceId = collect($overrides)->keyBy('employee_advance_id');
+
+        foreach ($draft as &$row) {
+            $totalPotonganLama = array_sum(array_column($row['advances'], 'potongan'));
+            $totalPotonganBaru = 0.0;
+
+            foreach ($row['advances'] as &$advance) {
+                $override = $overridesByAdvanceId->get($advance['employee_advance_id']);
+                if ($override) {
+                    // HANYA boleh diturunkan — dibatasi tidak pernah melebihi
+                    // hasil FIFO otomatis yang sudah menjamin gaji bersih >= 0.
+                    $advance['potongan'] = min((float) $override['potongan'], $advance['potongan']);
+                }
+                $totalPotonganBaru += $advance['potongan'];
+            }
+            unset($advance);
+
+            $grossSebelumKasBon = $row['net_amount'] + $totalPotonganLama;
+            $row['net_amount']  = round($grossSebelumKasBon - $totalPotonganBaru, 2);
+        }
+        unset($row);
+
+        return $draft;
     }
 
     public function cancel(Payroll $payroll, PayrollProcessor $processor)
