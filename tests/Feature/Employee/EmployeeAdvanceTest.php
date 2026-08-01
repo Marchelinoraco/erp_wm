@@ -4,6 +4,9 @@ namespace Tests\Feature\Employee;
 
 use App\Models\CashAccount;
 use App\Models\Employee;
+use App\Models\Payroll;
+use App\Models\PayrollItem;
+use App\Models\PayrollItemLine;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -59,6 +62,45 @@ class EmployeeAdvanceTest extends TestCase
         ]);
 
         $this->assertSame(1_000_000.0, $karyawan->advances()->first()->sisa());
+    }
+
+    /**
+     * Task 4 D6/D10: sebelum Task 4, class_exists(PayrollItemLine::class)
+     * selalu false sehingga sisa() cuma mengembalikan amount penuh — guard
+     * itu belum pernah benar-benar teruji. Sekarang PayrollItemLine ada,
+     * begitu sebuah baris kind='kas_bon' merujuk kas bon ini (potongan
+     * otomatis lewat gajian), sisa() WAJIB dihitung ulang: amount dikurangi
+     * total payroll_item_lines yang merujuknya, bukan disimpan di kolom apa
+     * pun. Ini bukti self-healing itu sungguh terjadi, bukan asumsi.
+     */
+    public function test_sisa_kas_bon_berkurang_setelah_dipotong_lewat_payroll_item_line(): void
+    {
+        $karyawan = Employee::create(['name' => 'Budi', 'base_salary' => 4_000_000]);
+        $kas = CashAccount::create(['name' => 'Kas Besar', 'type' => 'cash']);
+
+        $this->actingAs($this->makeAdmin())->post(route('employee-advances.store'), [
+            'employee_id' => $karyawan->id, 'date' => '2026-07-10',
+            'amount' => 1_000_000, 'cash_account_id' => $kas->id,
+        ]);
+        $advance = $karyawan->advances()->first();
+
+        $this->assertSame(1_000_000.0, $advance->sisa());
+        $this->assertFalse($advance->sudahDipotong());
+
+        $payroll = Payroll::create(['period' => '2026-07', 'status' => 'paid', 'paid_date' => '2026-07-31']);
+        $item = PayrollItem::create([
+            'payroll_id' => $payroll->id, 'employee_id' => $karyawan->id,
+            'employee_name' => $karyawan->name, 'base_salary' => $karyawan->base_salary,
+            'net_amount' => 3_400_000,
+        ]);
+        PayrollItemLine::create([
+            'payroll_item_id' => $item->id, 'kind' => 'kas_bon',
+            'label' => 'Kas bon 10 Jul 2026', 'amount' => 600_000,
+            'employee_advance_id' => $advance->id,
+        ]);
+
+        $this->assertSame(400_000.0, $advance->sisa());
+        $this->assertTrue($advance->sudahDipotong());
     }
 
     public function test_kas_bon_yang_belum_dipotong_bisa_dihapus_dan_jurnal_ikut_hilang(): void
