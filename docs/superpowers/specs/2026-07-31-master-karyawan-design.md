@@ -273,7 +273,9 @@ Ditambah uji otomatis:
 | Gaji master diubah setelah gajian dibayar | Berkas gajian lama tidak berubah (D11) |
 | Batalkan gajian yang sudah dibayar | Jurnal hilang · sisa kas bon pulih |
 
-**Di setiap skenario diperiksa hal yang sama: Neraca tetap balance.** Kolom `balanced` sudah tersedia di `balanceSheetData()` dan tinggal dipakai. Ini pemeriksaan paling berharga di seluruh rencana — pembukuan double-entry yang salah hampir selalu ketahuan dari neraca yang tidak seimbang, dan satu baris uji itu menangkap seluruh kelas kesalahan sekaligus.
+**Di setiap skenario diperiksa hal yang sama: Neraca tetap balance.** Kolom `balanced` sudah tersedia di `balanceSheetData()` dan tinggal dipakai. Ini pemeriksaan yang berharga — pembukuan double-entry yang salah hampir selalu ketahuan dari neraca yang tidak seimbang.
+
+**Koreksi (fix wave final review, 2026-08-01):** kalimat di atas semula mengklaim satu baris uji `balanced` "menangkap seluruh kelas kesalahan sekaligus". Itu terlalu kuat. Dibuktikan lewat percobaan sengaja membalik `direction` (dari `out` jadi `in`) pada baris pelunasan kas bon saat gajian: hasilnya **`balanced` tetap `true`**, karena aset (Piutang Karyawan) dan ekuitas (laba ditahan lewat beban) bergerak bersama sebesar jumlah yang sama — neraca tetap seimbang meski arahnya salah secara akuntansi. `balanced` menangkap kesalahan **penukaran akun UTAMA/LAWAN** (mis. Piutang tertukar jadi Kas), tapi **tidak menangkap kesalahan `direction` yang salah pada baris non-kas**. Yang menangkap kelas kesalahan itu adalah assertion **TAMBAHAN** yang juga ada di `PayrollProcessorTest` — `other_assets_total` (Piutang Karyawan harus kembali ke 0, bukan naik) dan `totalOpex`/`netProfit` (beban gaji harus tercatat penuh di bulan yang benar). Assertion-assertion itu bukan sekadar pelengkap kosmetik; keduanya WAJIB tetap ada sebagai jaring pengaman kedua, karena `balanced` sendirian tidak cukup.
 
 ### 7.3 Setiap uji dibuktikan bisa gagal
 
