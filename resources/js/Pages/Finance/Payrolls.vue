@@ -15,6 +15,13 @@ function bukaPeriode(p) {
     router.get(route('payrolls.show', p))
 }
 
+// Fix wave final review 2026-08-01, Temuan #3: tombol "Buka Periode" cepat
+// hanya membuka bulan berjalan — begitu satu bulan terlewat tanpa diproses,
+// tidak ada jalan UI untuk membukanya lagi. periodeInput menampung pilihan
+// bebas (format YYYY-MM native dari <input type="month">), tombol cepat di
+// atas tetap ada untuk bulan berjalan.
+const periodeInput = ref(props.currentMonth)
+
 // D6: kas bon otomatis boleh diturunkan admin sebelum bayar (mis. "bulan ini
 // potong separuh dulu"). overrides dikeyakan per employee_advance_id — server
 // yang jadi otoritas final untuk net_amount (lihat PayrollController::pay()).
@@ -23,7 +30,32 @@ function overrideValue(id, default_) {
     return overrides.value[id] ?? default_
 }
 function setOverride(id, value) {
+    // Fix wave final review 2026-08-01, Temuan #2 (bonus bug): Number('') === 0,
+    // jadi mengosongkan input (blur tanpa isi) sebelumnya diam-diam memotong
+    // kas bon jadi nol. String kosong sekarang menghapus override — field
+    // kosong kembali ke nilai otomatis, bukan "potong nol".
+    if (value === '') {
+        delete overrides.value[id]
+        return
+    }
     overrides.value[id] = Number(value)
+}
+
+// Fix wave final review 2026-08-01, Temuan #2: net_amount mentah (r.net_amount)
+// dan totalNet TIDAK bereaksi terhadap overrides yang diketik admin — angka
+// yang tampil di tabel/dialog konfirmasi tetap angka lama sementara server
+// membukukan angka baru. netAmountTampil mem-mirror logika
+// PayrollController::terapkanOverridesKasBon() persis: gross sebelum kas bon
+// tidak berubah (base_salary + tunjangan - potongan komponen), hanya alokasi
+// potongan kas bon yang disesuaikan turun (di-cap ke potongan otomatis, D6).
+function netAmountTampil(row) {
+    const totalPotonganAsli = row.advances.reduce((s, a) => s + a.potongan, 0)
+    const gross = row.net_amount + totalPotonganAsli
+    const totalPotonganEfektif = row.advances.reduce((s, a) => {
+        const efektif = Math.min(overrideValue(a.employee_advance_id, a.potongan), a.potongan)
+        return s + efektif
+    }, 0)
+    return gross - totalPotonganEfektif
 }
 
 const payForm = useForm({ cash_account_id: '' })
@@ -42,7 +74,7 @@ function batalkan(p) {
     router.post(route('payrolls.cancel', p.id))
 }
 
-const totalNet = computed(() => props.draft.reduce((s, r) => s + r.net_amount, 0))
+const totalNet = computed(() => props.draft.reduce((s, r) => s + netAmountTampil(r), 0))
 </script>
 
 <template>
@@ -51,9 +83,22 @@ const totalNet = computed(() => props.draft.reduce((s, r) => s + r.net_amount, 0
         <div class="p-6 max-w-4xl mx-auto space-y-6">
             <div class="flex justify-between items-center">
                 <h1 class="text-lg font-bold">Gajian</h1>
-                <button @click="bukaPeriode(currentMonth)" class="px-3 py-1.5 bg-indigo-600 text-white rounded text-sm">
-                    Buka Periode {{ currentMonth }}
-                </button>
+                <div class="flex gap-2 items-center">
+                    <button @click="bukaPeriode(currentMonth)" class="px-3 py-1.5 bg-indigo-600 text-white rounded text-sm">
+                        Buka Periode {{ currentMonth }}
+                    </button>
+                    <!-- Fix wave final review 2026-08-01, Temuan #3: bulan yang
+                         terlewat tanpa diproses tidak punya jalan UI untuk
+                         dibuka lagi selain tombol cepat di atas (bulan berjalan
+                         saja). Input type="month" menghasilkan YYYY-MM native,
+                         cocok dengan format period yang dipakai backend. -->
+                    <div class="flex gap-2 items-center">
+                        <input v-model="periodeInput" type="month" class="border rounded px-2 py-1 text-sm" />
+                        <button @click="bukaPeriode(periodeInput)" class="px-3 py-1.5 bg-indigo-600 text-white rounded text-sm">
+                            Buka Periode
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <table class="w-full text-sm border">
@@ -96,7 +141,7 @@ const totalNet = computed(() => props.draft.reduce((s, r) => s + r.net_amount, 0
                                     />
                                 </div>
                             </td>
-                            <td class="p-1 text-right font-mono font-bold">{{ fmtRp(r.net_amount) }}</td>
+                            <td class="p-1 text-right font-mono font-bold">{{ fmtRp(netAmountTampil(r)) }}</td>
                         </tr>
                     </tbody>
                     <tfoot><tr class="border-t font-bold"><td class="p-1">TOTAL</td><td></td><td></td>
