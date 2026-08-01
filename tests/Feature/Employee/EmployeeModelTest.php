@@ -2,9 +2,11 @@
 
 namespace Tests\Feature\Employee;
 
+use App\Models\CashAccount;
 use App\Models\Employee;
 use App\Models\EmployeeComponent;
 use App\Models\FinCategory;
+use App\Models\FinTransaction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -56,5 +58,49 @@ class EmployeeModelTest extends TestCase
 
         $this->assertSame(500_000.0, (float) $karyawan->components()->first()->amount);
         $this->assertSame('tunjangan', $karyawan->components()->first()->type);
+    }
+
+    public function test_down_migrasi_menolak_rollback_jika_ada_transaksi_kas_bon(): void
+    {
+        $piutang = FinCategory::where('name', 'Piutang Karyawan')->first();
+        $kas = CashAccount::create(['name' => 'Kas Test', 'type' => 'cash']);
+
+        // Buat transaksi yang merujuk kategori Piutang Karyawan via fin_category_id
+        FinTransaction::create([
+            'date'            => '2026-08-01',
+            'direction'       => 'out',
+            'fin_category_id' => $piutang->id,
+            'cash_account_id' => $kas->id,
+            'amount'          => 1_000_000,
+        ]);
+
+        $migration = require database_path('migrations/2026_08_01_000000_seed_piutang_karyawan_dan_kunci_gaji_karyawan.php');
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('masih ada 1 transaksi yang merujuk kategori Piutang Karyawan');
+
+        $migration->down();
+    }
+
+    public function test_down_migrasi_menolak_rollback_jika_ada_transaksi_contra_fin_category(): void
+    {
+        $piutang = FinCategory::where('name', 'Piutang Karyawan')->first();
+        $gaji = FinCategory::where('name', 'Gaji Karyawan')->first();
+
+        // Buat transaksi yang merujuk kategori Piutang Karyawan via contra_fin_category_id
+        FinTransaction::create([
+            'date'                   => '2026-08-01',
+            'direction'              => 'out',
+            'fin_category_id'        => $gaji->id,
+            'contra_fin_category_id' => $piutang->id,
+            'amount'                 => 500_000,
+        ]);
+
+        $migration = require database_path('migrations/2026_08_01_000000_seed_piutang_karyawan_dan_kunci_gaji_karyawan.php');
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('masih ada 1 transaksi yang merujuk kategori Piutang Karyawan');
+
+        $migration->down();
     }
 }
