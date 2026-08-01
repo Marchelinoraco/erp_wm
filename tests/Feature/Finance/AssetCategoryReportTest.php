@@ -29,7 +29,7 @@ class AssetCategoryReportTest extends TestCase
     {
         FinCategory::create(['name' => 'Gaji Karyawan',    'type' => 'expense']);
         FinCategory::create(['name' => 'Penjualan Tour',   'type' => 'income']);
-        FinCategory::create(['name' => 'Piutang Karyawan', 'type' => 'asset']);
+        // 'Piutang Karyawan' sudah di-seed oleh migrasi 2026_08_01_000000
 
         $this->assertSame(['Piutang Karyawan'], FinCategory::asset()->pluck('name')->all());
     }
@@ -42,12 +42,13 @@ class AssetCategoryReportTest extends TestCase
      */
     public function test_down_menolak_rollback_saat_masih_ada_kategori_asset(): void
     {
-        FinCategory::create(['name' => 'Piutang Karyawan', 'type' => 'asset']);
+        // 'Piutang Karyawan' sudah di-seed oleh migrasi 2026_08_01_000000, tambah 1 lagi untuk test
+        FinCategory::create(['name' => 'Hutang Karyawan', 'type' => 'asset']);
 
         $migration = require database_path('migrations/2026_07_31_000000_add_asset_type_to_fin_categories.php');
 
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage("masih ada 1 kategori bertipe 'asset'");
+        $this->expectExceptionMessage("masih ada 2 kategori bertipe 'asset'");
 
         $migration->down();
     }
