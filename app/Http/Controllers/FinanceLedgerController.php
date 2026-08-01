@@ -70,10 +70,12 @@ class FinanceLedgerController extends Controller
             'description'     => 'nullable|string|max:255',
         ]);
 
-        // Pastikan jenis kategori selaras dengan arah (in=income, out=expense)
+        // Pastikan jenis kategori selaras dengan arah (in=income, out=expense).
+        // Kategori asset dikecualikan: sah untuk kedua arah (kas bon diberikan
+        // = out, kas bon dilunasi = in).
         $cat = FinCategory::find($data['fin_category_id']);
         $want = $data['direction'] === 'in' ? 'income' : 'expense';
-        abort_if($cat && $cat->type !== $want, 422, 'Kategori tidak sesuai dengan jenis transaksi.');
+        abort_if($cat && $cat->type !== 'asset' && $cat->type !== $want, 422, 'Kategori tidak sesuai dengan jenis transaksi.');
 
         return $data;
     }
@@ -83,7 +85,7 @@ class FinanceLedgerController extends Controller
     {
         $data = $request->validate([
             'name' => 'required|string|max:100',
-            'type' => 'required|in:income,expense',
+            'type' => 'required|in:income,expense,asset',
         ]);
         $data['sort_order'] = FinCategory::max('sort_order') + 1;
         FinCategory::create($data);
@@ -97,6 +99,23 @@ class FinanceLedgerController extends Controller
             'name'      => 'required|string|max:100',
             'is_active' => 'boolean',
         ]);
+
+        // Fix wave final review 2026-08-01, Temuan #1: destroyCategory() sudah
+        // menolak MENGHAPUS kategori is_system, tapi updateCategory() tidak
+        // menolak mengganti NAMANYA. Kategori "Piutang Karyawan" dan "Gaji
+        // Karyawan" dicari oleh KODE lewat nama persis
+        // (EmployeeAdvanceController::store(), PayrollProcessor::pay() —
+        // FinCategory::where('name', ...)->firstOrFail()), bukan cuma dibaca
+        // manusia. Role accountant (bukan cuma admin) punya akses ke layar
+        // Transaksi biasa dan bisa mengganti nama kategori ini tanpa sadar,
+        // membuat kas bon dan gajian gagal 404. is_active tetap boleh diubah
+        // untuk kategori sistem — tidak ada bahaya berbeda menonaktifkannya.
+        abort_if(
+            $finCategory->is_system && $data['name'] !== $finCategory->name,
+            422,
+            'Kategori bawaan tidak bisa diganti nama — dipakai kode di tempat lain.'
+        );
+
         $finCategory->update($data);
 
         return back()->with('success', 'Kategori diperbarui.');
@@ -106,6 +125,11 @@ class FinanceLedgerController extends Controller
     {
         abort_if($finCategory->is_system, 403, 'Kategori bawaan tidak bisa dihapus.');
         abort_if($finCategory->transactions()->exists(), 422, 'Kategori masih dipakai transaksi.');
+        // Fix wave final review 2026-08-01, Temuan #6: transactions() hanya
+        // mengecek fin_category_id. Kategori yang HANYA dipakai sebagai
+        // contra_fin_category_id (Task 2, FK restrictOnDelete) lolos guard di
+        // atas lalu gagal di level database dengan QueryException mentah.
+        abort_if(FinTransaction::where('contra_fin_category_id', $finCategory->id)->exists(), 422, 'Kategori masih dipakai sebagai lawan transaksi.');
         $finCategory->delete();
 
         return back()->with('success', 'Kategori dihapus.');

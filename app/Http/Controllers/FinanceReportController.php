@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Bill;
 use App\Models\BillPayment;
 use App\Models\CashAccount;
+use App\Models\FinCategory;
 use App\Models\FinTransaction;
 use App\Models\Invoice;
 use App\Models\InvoicePayment;
@@ -22,16 +23,20 @@ class FinanceReportController extends Controller
     // ── Halaman: Arus Kas (chart) ─────────────────────────────────────────────
     public function cashFlow(Request $request)
     {
-        $year = (int) $request->input('year', now()->year);
+        return Inertia::render('Finance/CashFlow', $this->cashFlowData((int) $request->input('year', now()->year)));
+    }
 
+    private function cashFlowData(int $year): array
+    {
+        // Spek §3.4 no. 6: baris non-kas tidak memindahkan uang.
         // Seri bulanan: pemasukan vs pengeluaran
         $months = [];
         $incomeSeries = [];
         $expenseSeries = [];
         $netSeries = [];
         for ($m = 1; $m <= 12; $m++) {
-            $in  = (float) FinTransaction::whereYear('date', $year)->whereMonth('date', $m)->where('direction', 'in')->sum('amount');
-            $out = (float) FinTransaction::whereYear('date', $year)->whereMonth('date', $m)->where('direction', 'out')->sum('amount');
+            $in  = (float) FinTransaction::whereYear('date', $year)->whereMonth('date', $m)->where('direction', 'in')->whereNotNull('cash_account_id')->sum('amount');
+            $out = (float) FinTransaction::whereYear('date', $year)->whereMonth('date', $m)->where('direction', 'out')->whereNotNull('cash_account_id')->sum('amount');
             $months[]        = Carbon::create($year, $m, 1)->translatedFormat('M');
             $incomeSeries[]  = $in;
             $expenseSeries[] = $out;
@@ -48,8 +53,9 @@ class FinanceReportController extends Controller
         }
 
         // Breakdown per kategori (tahun berjalan)
+        // Spek §3.4 no. 6: baris non-kas tidak memindahkan uang.
         $byCategory = fn (string $dir) => FinTransaction::with('category')
-            ->whereYear('date', $year)->where('direction', $dir)
+            ->whereYear('date', $year)->where('direction', $dir)->whereNotNull('cash_account_id')
             ->get()->groupBy('fin_category_id')
             ->map(fn ($g) => ['name' => $g->first()->category?->name ?? '-', 'total' => (float) $g->sum('amount')])
             ->sortByDesc('total')->values();
@@ -61,7 +67,7 @@ class FinanceReportController extends Controller
             return ['name' => $a->name, 'type' => $a->type, 'balance' => (float) $a->opening_balance + $in - $out];
         });
 
-        return Inertia::render('Finance/CashFlow', [
+        return [
             'year'          => $year,
             'years'         => $this->availableYears(),
             'months'        => $months,
@@ -77,7 +83,7 @@ class FinanceReportController extends Controller
                 'net'     => array_sum($netSeries),
                 'balance' => $accounts->sum('balance'),
             ],
-        ]);
+        ];
     }
 
     // ── Halaman: Jurnal Bulanan (debit = kredit) ─────────────────────────────
@@ -144,7 +150,7 @@ class FinanceReportController extends Controller
 
     private function ledgerData(int $year, $month): array
     {
-        $q = FinTransaction::with(['category', 'cashAccount'])->whereYear('date', $year);
+        $q = FinTransaction::with(['category', 'cashAccount', 'contraCategory'])->whereYear('date', $year);
         if ($month) {
             $q->whereMonth('date', (int) $month);
         }
@@ -155,27 +161,49 @@ class FinanceReportController extends Controller
             $acc[$key] ??= ['name' => $name, 'group' => $group, 'debit' => 0.0, 'credit' => 0.0, 'postings' => []];
         };
 
-        foreach ($txns as $t) {
-            $amt      = (float) $t->amount;
-            $date     = $t->date->format('Y-m-d');
-            $cashKey  = 'cash-' . $t->cash_account_id;
-            $catKey   = 'cat-' . $t->fin_category_id;
-            $cashName = $t->cashAccount?->name ?? 'Kas';
-            $catName  = $t->category?->name ?? '-';
+        // Fix wave N1 (review lanjutan setelah final review, 2026-08-01): group
+        // akun ditentukan dari type kategorinya lewat SATU aturan, dipakai untuk
+        // kategori utama MAUPUN kategori lawan. Sebelumnya kategori lawan punya
+        // aturan sendiri (ternary yang cuma bisa hasil 'aset'/'beban') — beda
+        // dari aturan kategori utama, walau merujuk kategori yang sama persis.
+        $groupUntukType = fn (?string $type) => match ($type) {
+            'income' => 'pendapatan',
+            'asset'  => 'aset',
+            default  => 'beban',
+        };
 
-            $touch($cashKey, $cashName, 'aset');
-            $touch($catKey, $catName, $t->direction === 'in' ? 'pendapatan' : 'beban');
+        foreach ($txns as $t) {
+            $amt  = (float) $t->amount;
+            $date = $t->date->format('Y-m-d');
+            // Fix wave N1: key kategori lawan disatukan dengan key kategori utama
+            // ('cat-<id>' untuk keduanya), BUKAN 'contra-<id>' terpisah. Tanpa ini,
+            // kategori yang sama (mis. Piutang Karyawan) yang pernah jadi kategori
+            // utama di satu transaksi dan kategori lawan di transaksi lain (spek
+            // §4.2: kas bon diberikan lalu dilunasi saat gajian) muncul sebagai DUA
+            // baris akun terpisah di Buku Besar, bukan satu akun dengan saldo
+            // bersih yang benar. Akun kas (cash_account_id terisi) TIDAK berubah:
+            // tetap 'cash-<id>', terpisah dari key kategori manapun.
+            $lawanKey  = $t->cash_account_id ? 'cash-' . $t->cash_account_id : 'cat-' . $t->contra_fin_category_id;
+            $catKey    = 'cat-' . $t->fin_category_id;
+            $lawanName = $t->cashAccount?->name ?? $t->contraCategory?->name ?? 'Kas';
+            $catName   = $t->category?->name ?? '-';
+
+            $touch($lawanKey, $lawanName, $t->cash_account_id ? 'aset' : $groupUntukType($t->contraCategory?->type));
+            // Spek §3.4 no. 1: jenis akun dibaca dari kategorinya, bukan ditebak
+            // dari arah uang. Sebelum ada kategori bertipe 'asset', kedua cara ini
+            // menghasilkan hasil yang sama persis.
+            $touch($catKey, $catName, $groupUntukType($t->category?->type));
 
             if ($t->direction === 'in') {
-                $acc[$cashKey]['debit'] += $amt;
-                $acc[$cashKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $catName, 'debit' => $amt, 'credit' => 0];
+                $acc[$lawanKey]['debit'] += $amt;
+                $acc[$lawanKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $catName, 'debit' => $amt, 'credit' => 0];
                 $acc[$catKey]['credit'] += $amt;
-                $acc[$catKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $cashName, 'debit' => 0, 'credit' => $amt];
+                $acc[$catKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $lawanName, 'debit' => 0, 'credit' => $amt];
             } else {
                 $acc[$catKey]['debit'] += $amt;
-                $acc[$catKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $cashName, 'debit' => $amt, 'credit' => 0];
-                $acc[$cashKey]['credit'] += $amt;
-                $acc[$cashKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $catName, 'debit' => 0, 'credit' => $amt];
+                $acc[$catKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $lawanName, 'debit' => $amt, 'credit' => 0];
+                $acc[$lawanKey]['credit'] += $amt;
+                $acc[$lawanKey]['postings'][] = ['date' => $date, 'desc' => $t->description ?: $catName, 'debit' => 0, 'credit' => $amt];
             }
         }
 
@@ -220,7 +248,8 @@ class FinanceReportController extends Controller
         if ($mode === 'weekly') {
             $month = $request->input('month', now()->format('Y-m'));
             [$y, $m] = array_pad(explode('-', $month), 2, now()->month);
-            $txns = FinTransaction::whereYear('date', (int) $y)->whereMonth('date', (int) $m)->get();
+            // Spek §3.4 no. 6: baris non-kas tidak memindahkan uang.
+            $txns = FinTransaction::whereYear('date', (int) $y)->whereMonth('date', (int) $m)->whereNotNull('cash_account_id')->get();
 
             $bucket = [];
             foreach ($txns as $t) {
@@ -238,9 +267,10 @@ class FinanceReportController extends Controller
             $periodLabel = Carbon::create((int) $y, (int) $m, 1)->translatedFormat('F Y');
         } else {
             $year = (int) $request->input('year', now()->year);
+            // Spek §3.4 no. 6: baris non-kas tidak memindahkan uang.
             for ($mo = 1; $mo <= 12; $mo++) {
-                $in  = (float) FinTransaction::whereYear('date', $year)->whereMonth('date', $mo)->where('direction', 'in')->sum('amount');
-                $out = (float) FinTransaction::whereYear('date', $year)->whereMonth('date', $mo)->where('direction', 'out')->sum('amount');
+                $in  = (float) FinTransaction::whereYear('date', $year)->whereMonth('date', $mo)->where('direction', 'in')->whereNotNull('cash_account_id')->sum('amount');
+                $out = (float) FinTransaction::whereYear('date', $year)->whereMonth('date', $mo)->where('direction', 'out')->whereNotNull('cash_account_id')->sum('amount');
                 $lab = Carbon::create($year, $mo, 1)->translatedFormat('M');
                 $labels[] = $lab; $income[] = $in; $expense[] = $out; $net[] = $in - $out;
                 $rows[] = ['label' => Carbon::create($year, $mo, 1)->translatedFormat('F'), 'income' => $in, 'expense' => $out, 'net' => $in - $out];
@@ -355,7 +385,30 @@ class FinanceReportController extends Controller
         $totalFixedCost = (float) $fixedAssets->sum('acquisition_cost');
         $totalFixedAccum = round((float) $fixedAssets->map(fn ($a) => $a->accumulatedAsOf($year))->sum(), 2);
 
-        $asetTotal = $cashTotal + $ar + $totalFixedNet;
+        // Spek §3.4 no. 4: saldo kategori bertipe aset (mis. Piutang Karyawan).
+        // Dihitung dari KEDUA kolom kategori: fin_category_id (baris asli —
+        // 'out' menaikkan, 'in' menurunkan) DAN contra_fin_category_id (baris
+        // lawan non-kas, mis. pelunasan kas bon saat gajian — 'out' pada baris
+        // itu berarti kategori UTAMA naik dan kategori LAWAN/aset ini turun;
+        // 'in' kebalikannya). Tanpa bagian contra, pelunasan kas bon non-kas
+        // (spek §4.2 baris ke-3) tidak pernah mengurangi saldo aset ini.
+        // Fix wave final review 2026-08-01, Temuan #1 (Critical).
+        $otherAssets = FinCategory::asset()->orderBy('name')->get()->map(function ($c) use ($endDate) {
+            $naikUtama  = (float) FinTransaction::where('fin_category_id', $c->id)
+                ->where('direction', 'out')->where('date', '<=', $endDate)->sum('amount');
+            $turunUtama = (float) FinTransaction::where('fin_category_id', $c->id)
+                ->where('direction', 'in')->where('date', '<=', $endDate)->sum('amount');
+            $turunLawan = (float) FinTransaction::where('contra_fin_category_id', $c->id)
+                ->where('direction', 'out')->where('date', '<=', $endDate)->sum('amount');
+            $naikLawan  = (float) FinTransaction::where('contra_fin_category_id', $c->id)
+                ->where('direction', 'in')->where('date', '<=', $endDate)->sum('amount');
+
+            return ['name' => $c->name, 'balance' => ($naikUtama + $naikLawan) - ($turunUtama + $turunLawan)];
+        })->filter(fn ($a) => abs($a['balance']) > 0.001)->values();
+
+        $otherAssetsTotal = (float) $otherAssets->sum('balance');
+
+        $asetTotal = $cashTotal + $ar + $totalFixedNet + $otherAssetsTotal;
 
         // KEWAJIBAN — AP + hutang bank/leasing
         $loans = Loan::where('is_active', true)->orderBy('loan_type')->orderBy('name')->get();
@@ -379,8 +432,17 @@ class FinanceReportController extends Controller
         $modal         = FinanceSetting::get('modal_disetor');
         $invoicedRev   = (float) Invoice::where('date', '<=', $endDate)->sum('total_idr');
         $billedCost    = (float) Bill::where('date', '<=', $endDate)->sum('amount');
-        $manualIncome  = (float) FinTransaction::where('source', 'manual')->where('direction', 'in')->where('date', '<=', $endDate)->sum('amount');
-        $manualExpense = (float) FinTransaction::where('source', 'manual')->where('direction', 'out')->where('date', '<=', $endDate)->sum('amount');
+        // Spek §3.4 no. 2 & 3: 'manual' diganti "bukan invoice/bill" supaya nilai
+        // source baru (advance, payroll) ikut terhitung — tanpa ini beban gaji
+        // hilang dari laba ditahan dan Neraca berhenti balance. Kategori aset
+        // dikeluarkan karena bukan pendapatan maupun beban.
+        $bukanARAP = fn ($q) => $q->whereNotIn('source', ['invoice', 'bill'])
+            ->whereHas('category', fn ($c) => $c->where('type', '!=', 'asset'));
+
+        $manualIncome  = (float) FinTransaction::where('direction', 'in')
+            ->where('date', '<=', $endDate)->tap($bukanARAP)->sum('amount');
+        $manualExpense = (float) FinTransaction::where('direction', 'out')
+            ->where('date', '<=', $endDate)->tap($bukanARAP)->sum('amount');
         $totalAccumDepreciation = (float) $fixedAssets->map(fn ($a) => $a->accumulatedAsOf($year))->sum();
         $labaDitahan   = ($invoicedRev + $manualIncome) - ($billedCost + $manualExpense) - $totalAccumDepreciation;
         $ekuitasTotal  = $modal + $labaDitahan;
@@ -395,6 +457,8 @@ class FinanceReportController extends Controller
                 'fixed_cost'  => $totalFixedCost,
                 'fixed_accum' => $totalFixedAccum,
                 'fixed_net'   => $totalFixedNet,
+                'other_assets'       => $otherAssets,
+                'other_assets_total' => $otherAssetsTotal,
                 'total'       => $asetTotal,
             ],
             'kewajiban' => [
@@ -470,10 +534,16 @@ class FinanceReportController extends Controller
         $grossProfit = $totalRev - $totalCogs;
 
         // Biaya operasional — transaksi kas manual keluar, dikelompok per kategori
+        // Spek §3.4 no. 5: kategori aset bukan pendapatan/beban.
+        // Fix wave final review 2026-08-01, Temuan #3: filter source disamakan
+        // dengan balanceSheetData() ("bukan invoice/bill") supaya source baru
+        // (advance, payroll) tidak diam-diam hilang dari Laba Rugi begitu
+        // Tahap B mulai menulisnya.
         $opexTxns = FinTransaction::with('category')
-            ->where('source', 'manual')
+            ->whereNotIn('source', ['invoice', 'bill'])
             ->where('direction', 'out')
             ->whereYear('date', $year)
+            ->whereHas('category', fn ($q) => $q->where('type', '!=', 'asset'))
             ->get();
 
         $opex = $opexTxns
@@ -486,9 +556,13 @@ class FinanceReportController extends Controller
             ->values();
 
         $totalOpex   = (float) $opexTxns->sum('amount');
-        $otherIncome = (float) FinTransaction::where('source', 'manual')
+        // Spek §3.4 no. 5: kategori aset bukan pendapatan/beban.
+        // Fix wave final review 2026-08-01, Temuan #3: sama seperti $opexTxns
+        // di atas — filter source disamakan dengan balanceSheetData().
+        $otherIncome = (float) FinTransaction::whereNotIn('source', ['invoice', 'bill'])
             ->where('direction', 'in')
             ->whereYear('date', $year)
+            ->whereHas('category', fn ($q) => $q->where('type', '!=', 'asset'))
             ->sum('amount');
 
         // Beban penyusutan aset tetap (non-kas, garis lurus)
@@ -521,9 +595,10 @@ class FinanceReportController extends Controller
 
     private function balanceBefore(Carbon $date): float
     {
+        // Spek §3.4 no. 6: baris non-kas tidak memindahkan uang.
         $opening = (float) CashAccount::sum('opening_balance');
-        $in  = (float) FinTransaction::where('date', '<', $date)->where('direction', 'in')->sum('amount');
-        $out = (float) FinTransaction::where('date', '<', $date)->where('direction', 'out')->sum('amount');
+        $in  = (float) FinTransaction::where('date', '<', $date)->where('direction', 'in')->whereNotNull('cash_account_id')->sum('amount');
+        $out = (float) FinTransaction::where('date', '<', $date)->where('direction', 'out')->whereNotNull('cash_account_id')->sum('amount');
 
         return $opening + $in - $out;
     }

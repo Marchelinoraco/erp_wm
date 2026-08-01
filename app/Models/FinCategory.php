@@ -14,6 +14,12 @@ class FinCategory extends Model
         'sort_order' => 'integer',
     ];
 
+    public const TYPES = [
+        'income'  => 'Pendapatan',
+        'expense' => 'Beban',
+        'asset'   => 'Aset',
+    ];
+
     public function transactions()
     {
         return $this->hasMany(FinTransaction::class);
@@ -21,4 +27,5 @@ class FinCategory extends Model
 
     public function scopeIncome($q)  { return $q->where('type', 'income'); }
     public function scopeExpense($q) { return $q->where('type', 'expense'); }
+    public function scopeAsset($q)   { return $q->where('type', 'asset'); }
 }

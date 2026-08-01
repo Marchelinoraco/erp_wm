@@ -37,7 +37,9 @@ const form = useForm({
 })
 
 const formCategories = computed(() =>
-    props.categories.filter(c => c.is_active && c.type === (form.direction === 'in' ? 'income' : 'expense'))
+    props.categories.filter(c => c.is_active && (
+        c.type === 'asset' || c.type === (form.direction === 'in' ? 'income' : 'expense')
+    ))
 )
 
 function setDirection(dir) {
@@ -134,6 +136,7 @@ async function deleteAccount(a) {
 const net = computed(() => props.summary.income - props.summary.expense)
 const incomeCats = computed(() => props.categories.filter(c => c.type === 'income'))
 const expenseCats = computed(() => props.categories.filter(c => c.type === 'expense'))
+const assetCats = computed(() => props.categories.filter(c => c.type === 'asset'))
 </script>
 
 <template>
@@ -178,7 +181,14 @@ const expenseCats = computed(() => props.categories.filter(c => c.type === 'expe
                     <div class="space-y-1 mb-3">
                         <div v-for="c in categories" :key="c.id" class="flex items-center justify-between text-sm py-1">
                             <span>
-                                <span class="text-xs px-1.5 py-0.5 rounded mr-1" :class="c.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">{{ c.type === 'income' ? 'Masuk' : 'Keluar' }}</span>
+                                <span class="text-xs px-1.5 py-0.5 rounded mr-1"
+                                      :class="{
+                                        'bg-green-100 text-green-700': c.type === 'income',
+                                        'bg-red-100 text-red-700':     c.type === 'expense',
+                                        'bg-blue-100 text-blue-700':   c.type === 'asset',
+                                      }">
+                                    {{ c.type === 'income' ? 'Masuk' : c.type === 'expense' ? 'Keluar' : 'Aset' }}
+                                </span>
                                 {{ c.name }}
                                 <span v-if="c.is_system" class="text-[10px] text-gray-400">(bawaan)</span>
                             </span>
@@ -189,6 +199,7 @@ const expenseCats = computed(() => props.categories.filter(c => c.type === 'expe
                         <select v-model="catForm.type" class="text-sm border rounded-md px-2">
                             <option value="income">Masuk</option>
                             <option value="expense">Keluar</option>
+                            <option value="asset">Aset</option>
                         </select>
                         <Input v-model="catForm.name" placeholder="Nama kategori" class="h-8 text-sm" />
                         <Button type="submit" size="sm" variant="outline" :disabled="catForm.processing">+</Button>

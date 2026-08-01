@@ -74,6 +74,17 @@ const ICON = {
     // Kontak Brevo dulu memakai ICON.customers, sama dengan menu Customers —
     // dan keduanya tampil bersamaan untuk admin.
     marketing: `<path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />`,
+
+    // Karyawan (Tahap B, Data Master) — ikon briefcase, sengaja berbeda dari
+    // ICON.users (Kelola Akun) supaya tidak berulang bug ikon identik.
+    karyawan:  `<path stroke-linecap="round" stroke-linejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.16 2.16 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0M12 12.75h.008v.008H12v-.008z" />`,
+
+    // Kas Bon & Gajian (Tahap B, sub-judul "Gaji" di Keuangan) — brief awal
+    // menyarankan path yang ternyata byte-identik dengan ICON.hutang dan
+    // ICON.transaksi (keduanya sudah dipakai); diganti dua ikon heroicons
+    // asli lain (hand-raised, calculator) yang jelas berbeda secara visual.
+    kasbon:    `<path stroke-linecap="round" stroke-linejoin="round" d="M10.05 4.575a1.575 1.575 0 1 0-3.15 0v3m3.15-3v-1.5a1.575 1.575 0 0 1 3.15 0v1.5m-3.15 0 .075 5.925m3.075.75V4.575m0 0a1.575 1.575 0 0 1 3.15 0V15M6.9 7.575a1.575 1.575 0 1 0-3.15 0v8.175a6.75 6.75 0 0 0 6.75 6.75h2.018a5.25 5.25 0 0 0 3.712-1.538l1.732-1.732a5.25 5.25 0 0 0 1.538-3.712l.003-2.024a.668.668 0 0 1 .198-.471 1.575 1.575 0 1 0-2.228-2.228 3.818 3.818 0 0 0-1.12 2.687M6.9 7.575V12m6.27 4.318A4.49 4.49 0 0 1 16.35 15m.002 0h-.002" />`,
+    gajian:    `<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 15.75V18m-7.5-6.75h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25V13.5zm0 2.25h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25V18zm2.498-6.75h.007v.008h-.007v-.008zm0 2.25h.007v.008h-.007V13.5zm0 2.25h.007v.008h-.007v-.008zm0 2.25h.007v.008h-.007V18zm2.504-6.75h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V13.5zm0 2.25h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V18zm2.498-6.75h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V13.5zM8.25 6h7.5v2.25h-7.5V6zM12 2.25c-1.892 0-3.758.11-5.593.322C5.307 2.7 4.5 3.65 4.5 4.757V19.5a2.25 2.25 0 0 0 2.25 2.25h10.5a2.25 2.25 0 0 0 2.25-2.25V4.757c0-1.108-.806-2.057-1.907-2.185A48.507 48.507 0 0 0 12 2.25z" />`,
 }
 
 const navGroups = computed(() => {
@@ -131,6 +142,13 @@ const navGroups = computed(() => {
             // dipertahankan di grup Keuangan saja, karena peran accountant tidak
             // pernah mendapat grup Data Master.
         ]
+
+        // Karyawan khusus admin (spek Tahap B D3) — role sales tidak boleh
+        // lihat menu ini meski keduanya sama-sama dapat grup Data Master.
+        if (role === 'admin') {
+            dataItems.push({ label: 'Karyawan', route: 'employees.index', match: 'employees.*', icon: ICON.karyawan })
+        }
+
         groups.push({ label: 'Data Master', items: dataItems })
 
         groups.push({ label: 'Marketing', items: [
@@ -149,7 +167,7 @@ const navGroups = computed(() => {
         // laporan periodik di tengah, data akun yang jarang disentuh di bawah.
         // `sub` menyisipkan judul kecil sebagai pemisah — 13 baris tanpa jeda
         // terlalu panjang untuk dipindai sekali lihat.
-        groups.push({ label: 'Keuangan', items: [
+        const keuanganItems = [
             { label: 'Invoice & Tagihan', route: 'finance.index', match: ['finance.index', 'finance.tour'], icon: ICON.invoice },
             { label: 'Transaksi', route: 'finance.transactions', match: 'finance.transactions', icon: ICON.transaksi },
             { label: 'Arus Kas',  route: 'finance.cashflow',     match: 'finance.cashflow', icon: ICON.cashflow },
@@ -167,7 +185,19 @@ const navGroups = computed(() => {
             { label: 'Rekening',   route: 'bank-accounts.index',      match: 'bank-accounts.*',          icon: ICON.rekening },
             { label: 'Aset Tetap', route: 'finance.fixed-assets',     match: 'finance.fixed-assets',     icon: ICON.aset },
             { label: 'Hutang',     route: 'finance.loans',            match: 'finance.loans',            icon: ICON.hutang },
-        ]})
+        ]
+
+        // Gaji khusus admin (spek Tahap B D3) — accountant tetap dapat
+        // seluruh Keuangan lain, tapi tidak sub-judul ini.
+        if (role === 'admin') {
+            keuanganItems.push(
+                { sub: 'Gaji' },
+                { label: 'Kas Bon', route: 'employee-advances.index', match: 'employee-advances.*', icon: ICON.kasbon },
+                { label: 'Gajian',  route: 'payrolls.index',          match: 'payrolls.*',           icon: ICON.gajian },
+            )
+        }
+
+        groups.push({ label: 'Keuangan', items: keuanganItems })
     }
 
     return groups

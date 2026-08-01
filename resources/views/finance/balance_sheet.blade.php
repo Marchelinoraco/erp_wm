@@ -15,6 +15,11 @@
                 @endforeach
                 <tr class="group"><td colspan="2">Piutang</td></tr>
                 <tr><td>Piutang Usaha (AR)</td><td class="r">{{ $rp($aset['ar']) }}</td></tr>
+                @if(!empty($aset['other_assets']) && count($aset['other_assets']))
+                @foreach($aset['other_assets'] as $a)
+                <tr><td>{{ $a['name'] }}</td><td class="r">{{ $rp($a['balance']) }}</td></tr>
+                @endforeach
+                @endif
                 @if(!empty($aset['fixed']) && count($aset['fixed']))
                 <tr class="group"><td colspan="2">Aset Tetap</td></tr>
                 @foreach($aset['fixed'] as $grp)

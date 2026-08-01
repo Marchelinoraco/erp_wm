@@ -83,6 +83,16 @@ const donutSeries = computed(() => asetParts.value.map(p => p.value))
                             <span class="font-mono">{{ fmtRp(aset.ar) }}</span>
                         </div>
 
+                        <!-- Aset Lain (kategori bertipe aset, mis. kas bon) -->
+                        <template v-if="aset.other_assets && aset.other_assets.length">
+                            <template v-for="a in aset.other_assets" :key="a.name">
+                                <div class="flex justify-between text-sm mt-1.5">
+                                    <span class="text-gray-600">{{ a.name }}</span>
+                                    <span class="font-mono">{{ fmtRp(a.balance) }}</span>
+                                </div>
+                            </template>
+                        </template>
+
                         <!-- Aset Tetap -->
                         <template v-if="aset.fixed && aset.fixed.length">
                             <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mt-4 mb-2">Aset Tetap</p>

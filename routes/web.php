@@ -19,6 +19,8 @@ use App\Http\Controllers\BillPaymentController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\AssignmentController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EmployeeAdvanceController;
+use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\MarketingContactController;
@@ -33,6 +35,7 @@ use App\Http\Controllers\FiscalController;
 use App\Http\Controllers\FixedAssetController;
 use App\Http\Controllers\LoanController;
 use App\Http\Controllers\MiceTemplateController;
+use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\SupplierController;
@@ -303,6 +306,30 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Review permintaan biaya tambahan dari sales
         Route::post('/cost-requests/{costRequest}/approve', [CostRequestController::class, 'approve'])->name('cost-requests.approve');
         Route::post('/cost-requests/{costRequest}/reject',  [CostRequestController::class, 'reject'])->name('cost-requests.reject');
+    });
+
+    // Master Karyawan, Kas Bon, Gajian — Tahap B, D3: khusus admin
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/employees',                              [EmployeeController::class, 'index'])->name('employees.index');
+        Route::post('/employees',                             [EmployeeController::class, 'store'])->name('employees.store');
+        Route::patch('/employees/{employee}',                 [EmployeeController::class, 'update'])->name('employees.update');
+        Route::post('/employees/{employee}/components',       [EmployeeController::class, 'storeComponent'])->name('employees.components.store');
+        Route::patch('/employees/{employee}/components/{component}', [EmployeeController::class, 'updateComponent'])->name('employees.components.update');
+
+        // Kas Bon (uang muka gaji) — Task 3: Piutang Karyawan sebagai kategori utama
+        Route::get('/employee-advances',                      [EmployeeAdvanceController::class, 'index'])->name('employee-advances.index');
+        Route::post('/employee-advances',                     [EmployeeAdvanceController::class, 'store'])->name('employee-advances.store');
+        Route::delete('/employee-advances/{employeeAdvance}', [EmployeeAdvanceController::class, 'destroy'])->name('employee-advances.destroy');
+
+        // Gajian — Task 6: daftar periode, buka periode (hitung, tidak simpan), Bayar, Batalkan
+        Route::get('/payrolls',                  [PayrollController::class, 'index'])->name('payrolls.index');
+        // Fix wave final review 2026-08-01, Temuan #6: '\d{4}-\d{2}' menerima
+        // bulan tidak valid (2026-99, 2026-00, 9999-13) — POST payrolls.pay
+        // dengan bulan begitu berhasil membuat payroll paid permanen tanpa
+        // endpoint hapus. Regex diperketat ke tahun 4 digit + bulan 01-12.
+        Route::get('/payrolls/{period}',         [PayrollController::class, 'show'])->name('payrolls.show')->where('period', '\d{4}-(0[1-9]|1[0-2])');
+        Route::post('/payrolls/{period}/pay',    [PayrollController::class, 'pay'])->name('payrolls.pay')->where('period', '\d{4}-(0[1-9]|1[0-2])');
+        Route::post('/payrolls/{payroll}/cancel', [PayrollController::class, 'cancel'])->name('payrolls.cancel');
     });
 });
 

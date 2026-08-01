@@ -38,10 +38,18 @@ class FiscalController extends Controller
         $totalCogs    = (float) Bill::whereYear('date', $year)->sum('amount');
         $grossProfit  = $totalRevenue - $totalCogs;
 
-        $totalOpex   = (float) FinTransaction::where('source', 'manual')
-            ->where('direction', 'out')->whereYear('date', $year)->sum('amount');
-        $otherIncome = (float) FinTransaction::where('source', 'manual')
-            ->where('direction', 'in')->whereYear('date', $year)->sum('amount');
+        // Spek §3.4 no. 2/3/5 — sama seperti incomeStatementData(), lihat rasional di sana.
+        // Fix wave final review 2026-08-01, Temuan #2 (Critical).
+        $totalOpex   = (float) FinTransaction::whereNotIn('source', ['invoice', 'bill'])
+            ->where('direction', 'out')->whereYear('date', $year)
+            ->whereHas('category', fn ($q) => $q->where('type', '!=', 'asset'))
+            ->sum('amount');
+        // Spek §3.4 no. 2/3/5 — sama seperti incomeStatementData(), lihat rasional di sana.
+        // Fix wave final review 2026-08-01, Temuan #2 (Critical).
+        $otherIncome = (float) FinTransaction::whereNotIn('source', ['invoice', 'bill'])
+            ->where('direction', 'in')->whereYear('date', $year)
+            ->whereHas('category', fn ($q) => $q->where('type', '!=', 'asset'))
+            ->sum('amount');
 
         $assets        = FixedAsset::where('is_active', true)->orderBy('name')->get();
         $depKomersial  = (float) $assets->sum(fn ($a) => $a->depreciationForYear($year));
