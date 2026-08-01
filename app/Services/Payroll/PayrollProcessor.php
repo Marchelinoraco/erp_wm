@@ -17,6 +17,20 @@ class PayrollProcessor
 {
     public function pay(string $period, array $items, int $cashAccountId, ?string $createdBy): Payroll
     {
+        // Fix review Task 5 (Critical): pay() dua kali tanpa cancel() di
+        // antaranya menggandakan jurnal secara diam-diam — items() lama
+        // dibersihkan tapi FinTransaction lama TIDAK, dan gerbang `balanced`
+        // Neraca tidak menangkapnya (aset & ekuitas bergerak bersama sama
+        // besar). Satu-satunya jalan mengubah payroll yang sudah paid adalah
+        // cancel() dulu (lihat docblock kelas).
+        $sebelumnya = Payroll::where('period', $period)->first();
+        abort_if($sebelumnya?->status === 'paid', 422, "Gajian {$period} sudah dibayar — Batalkan dulu sebelum bayar ulang.");
+
+        // Fix review Task 5 (Important 2): items kosong akan membuat "periode
+        // hantu" — payroll berstatus paid tanpa item/jurnal apa pun, terkunci
+        // tanpa ada yang salah untuk di-"Batalkan" secara wajar.
+        abort_if(empty($items), 422, 'Tidak ada karyawan aktif untuk periode ini.');
+
         return DB::transaction(function () use ($period, $items, $cashAccountId, $createdBy) {
             $payroll = Payroll::updateOrCreate(
                 ['period' => $period],
