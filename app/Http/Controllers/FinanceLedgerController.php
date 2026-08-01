@@ -99,6 +99,23 @@ class FinanceLedgerController extends Controller
             'name'      => 'required|string|max:100',
             'is_active' => 'boolean',
         ]);
+
+        // Fix wave final review 2026-08-01, Temuan #1: destroyCategory() sudah
+        // menolak MENGHAPUS kategori is_system, tapi updateCategory() tidak
+        // menolak mengganti NAMANYA. Kategori "Piutang Karyawan" dan "Gaji
+        // Karyawan" dicari oleh KODE lewat nama persis
+        // (EmployeeAdvanceController::store(), PayrollProcessor::pay() —
+        // FinCategory::where('name', ...)->firstOrFail()), bukan cuma dibaca
+        // manusia. Role accountant (bukan cuma admin) punya akses ke layar
+        // Transaksi biasa dan bisa mengganti nama kategori ini tanpa sadar,
+        // membuat kas bon dan gajian gagal 404. is_active tetap boleh diubah
+        // untuk kategori sistem — tidak ada bahaya berbeda menonaktifkannya.
+        abort_if(
+            $finCategory->is_system && $data['name'] !== $finCategory->name,
+            422,
+            'Kategori bawaan tidak bisa diganti nama — dipakai kode di tempat lain.'
+        );
+
         $finCategory->update($data);
 
         return back()->with('success', 'Kategori diperbarui.');
