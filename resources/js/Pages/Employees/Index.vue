@@ -117,6 +117,14 @@ function addComponent(employeeId) {
                         <input v-model="componentForm(e.id).amount" type="number" placeholder="Nominal" class="border rounded px-2 py-0.5 text-xs w-28" />
                         <button type="submit" class="text-indigo-600 text-xs px-2">+</button>
                     </form>
+                    <!-- Item Cepat #3, fix wave final review 2026-08-01: keputusan
+                         pemilik produk — "Potongan" hanya untuk penyesuaian
+                         prorata, BUKAN withholding pajak/BPJS/koperasi (itu
+                         butuh akun liabilitas terpisah, di luar cakupan rilis
+                         ini). Teks statis saja, tidak ada validasi/logika baru. -->
+                    <p class="text-[11px] text-gray-400 mt-1">
+                        Potongan mengurangi beban gaji langsung — pakai untuk penyesuaian prorata (mis. masuk/keluar tengah bulan), BUKAN untuk withholding pajak/BPJS/koperasi (itu perlu dicatat sebagai utang, bukan potongan).
+                    </p>
                 </div>
             </div>
         </div>
