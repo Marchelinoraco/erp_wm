@@ -35,6 +35,7 @@ use App\Http\Controllers\FiscalController;
 use App\Http\Controllers\FixedAssetController;
 use App\Http\Controllers\LoanController;
 use App\Http\Controllers\MiceTemplateController;
+use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\SupplierController;
@@ -319,6 +320,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/employee-advances',                      [EmployeeAdvanceController::class, 'index'])->name('employee-advances.index');
         Route::post('/employee-advances',                     [EmployeeAdvanceController::class, 'store'])->name('employee-advances.store');
         Route::delete('/employee-advances/{employeeAdvance}', [EmployeeAdvanceController::class, 'destroy'])->name('employee-advances.destroy');
+
+        // Gajian — Task 6: daftar periode, buka periode (hitung, tidak simpan), Bayar, Batalkan
+        Route::get('/payrolls',                  [PayrollController::class, 'index'])->name('payrolls.index');
+        Route::get('/payrolls/{period}',         [PayrollController::class, 'show'])->name('payrolls.show')->where('period', '\d{4}-\d{2}');
+        Route::post('/payrolls/{period}/pay',    [PayrollController::class, 'pay'])->name('payrolls.pay')->where('period', '\d{4}-\d{2}');
+        Route::post('/payrolls/{payroll}/cancel', [PayrollController::class, 'cancel'])->name('payrolls.cancel');
     });
 });
 
