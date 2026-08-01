@@ -19,6 +19,7 @@ use App\Http\Controllers\BillPaymentController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\AssignmentController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\MarketingContactController;
@@ -303,6 +304,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Review permintaan biaya tambahan dari sales
         Route::post('/cost-requests/{costRequest}/approve', [CostRequestController::class, 'approve'])->name('cost-requests.approve');
         Route::post('/cost-requests/{costRequest}/reject',  [CostRequestController::class, 'reject'])->name('cost-requests.reject');
+    });
+
+    // Master Karyawan, Kas Bon, Gajian — Tahap B, D3: khusus admin
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/employees',                              [EmployeeController::class, 'index'])->name('employees.index');
+        Route::post('/employees',                             [EmployeeController::class, 'store'])->name('employees.store');
+        Route::patch('/employees/{employee}',                 [EmployeeController::class, 'update'])->name('employees.update');
+        Route::post('/employees/{employee}/components',       [EmployeeController::class, 'storeComponent'])->name('employees.components.store');
+        Route::patch('/employees/{employee}/components/{component}', [EmployeeController::class, 'updateComponent'])->name('employees.components.update');
     });
 });
 
