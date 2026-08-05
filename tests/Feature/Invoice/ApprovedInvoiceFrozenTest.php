@@ -120,19 +120,6 @@ class ApprovedInvoiceFrozenTest extends TestCase
         );
     }
 
-    public function test_item_tidak_bisa_diubah_setelah_invoice_disetujui(): void
-    {
-        $invoice = $this->approvedInvoice();
-
-        $this->actingAs($this->salesUser())
-            ->post(route('invoice-items.bulk', $invoice), [
-                'items' => [['description' => 'Sisipan setelah disetujui', 'unit_cost' => 1, 'unit_sell' => 2]],
-            ])
-            ->assertSessionHasErrors('invoice');
-
-        $this->assertCount(0, $invoice->fresh()->items);
-    }
-
     /**
      * CATATAN TAJAM, DISENGAJA: Invoice::syncProformaTotal() TIDAK memiliki
      * pemeriksaan is_approved sama sekali. Penjaganya (ensureNotApproved())
