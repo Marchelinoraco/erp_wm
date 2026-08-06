@@ -771,7 +771,7 @@ function addProduct(product, extra = {}) {
                         </span>
                     </button>
 
-                    <div v-if="profitOpen[inv.id]" class="border-t p-3 space-y-2">
+                    <div v-show="profitOpen[inv.id]" class="border-t p-3 space-y-2">
                         <p class="text-[11px] text-muted-foreground">
                             Tidak muncul di PDF customer. Hanya untuk memantau modal vs jual (IDR). Tidak wajib untuk menyetujui.
                             <span v-if="profitFromRevenue" class="block">Profit tour = Total tagihan (harga/pax × pax) − total cost item.</span>

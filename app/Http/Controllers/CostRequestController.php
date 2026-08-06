@@ -11,8 +11,10 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Biaya tak terduga saat tour berjalan — sales ajukan, akuntan verifikasi
- * (boleh sesuaikan nominal) jadi Bill, atau tolak dengan alasan. Rincian
- * Profit (invoice items) tetap terkunci; ini jalur pelaporan terpisah.
+ * (boleh sesuaikan nominal) jadi Bill, atau tolak dengan alasan. Ini jalur
+ * pelaporan terpisah dari Rincian Profit (invoice items), yang sejak fitur
+ * Rincian Profit Tetap Terbuka bisa diedit langsung kapan pun oleh sales
+ * maupun akuntan/admin — lihat InvoiceItemController.
  */
 class CostRequestController extends Controller
 {

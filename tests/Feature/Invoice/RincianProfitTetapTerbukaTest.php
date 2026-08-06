@@ -4,6 +4,7 @@ namespace Tests\Feature\Invoice;
 
 use App\Models\Bill;
 use App\Models\Invoice;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\CreatesSalesFixtures;
 use Tests\TestCase;
@@ -213,5 +214,33 @@ class RincianProfitTetapTerbukaTest extends TestCase
             ->assertSessionDoesntHaveErrors();
 
         $this->assertCount(1, $invoice->fresh()->items);
+    }
+
+    public function test_role_di_luar_admin_sales_accountant_ditolak_pada_rute_item(): void
+    {
+        $invoice = $this->approvedInvoice();
+        $item    = $invoice->items()->create([
+            'description' => 'Hotel test', 'qty' => 1, 'nights' => 1,
+            'unit_cost' => 500_000, 'unit_sell' => 700_000, 'sort_order' => 1,
+        ]);
+        $guide = User::create([
+            'name'     => 'Guide Uji',
+            'email'    => 'guide-uji@test.local',
+            'password' => bcrypt('password'),
+            'role'     => 'guide',
+        ]);
+
+        $this->actingAs($guide)
+            ->postJson(route('invoice-items.bulk', $invoice), [
+                'items' => [['description' => 'Coba tembus middleware role', 'unit_cost' => 1, 'unit_sell' => 2]],
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($guide)
+            ->deleteJson(route('invoice-items.destroy', $item))
+            ->assertForbidden();
+
+        $this->assertCount(1, $invoice->fresh()->items, 'Role di luar admin,sales,accountant tidak boleh berhasil menambah item.');
+        $this->assertNotNull($item->fresh(), 'Role di luar admin,sales,accountant tidak boleh berhasil menghapus item.');
     }
 }

@@ -167,7 +167,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/invoices/{invoice}/deposits',          [InvoicePaymentController::class, 'store'])->name('invoice-deposits.store');
         Route::delete('/invoice-deposits/{invoicePayment}',  [InvoicePaymentController::class, 'destroy'])->name('invoice-deposits.destroy');
 
-        // Permintaan biaya tambahan (Rincian Profit terkunci setelah approve — ini jalur terpisah)
+        // Permintaan biaya tambahan — jalur pelaporan terpisah dari Rincian Profit
+        // (item invoice), yang sejak fitur Rincian Profit Tetap Terbuka bisa diedit
+        // kapan pun oleh sales/akuntan/admin (lihat grup role:admin,sales,accountant
+        // untuk invoice-items.* di bawah).
         Route::post('/tours/{tour}/cost-requests',    [CostRequestController::class, 'store'])->name('cost-requests.store');
         Route::delete('/cost-requests/{costRequest}', [CostRequestController::class, 'destroy'])->name('cost-requests.destroy');
 

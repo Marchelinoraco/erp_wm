@@ -139,6 +139,24 @@ onBeforeUnmount(() => {
     clearTimeout(saveTimer)
 })
 
+// Textarea deskripsi menyesuaikan tinggi dengan isinya — teks panjang tidak terpotong
+const vAutogrow = {
+    mounted: (el) => autoGrow(el),
+    updated: (el) => autoGrow(el),
+}
+function autoGrow(el) {
+    el.style.height = 'auto'
+    el.style.height = el.scrollHeight + 'px'
+}
+
+// Enter = pindah ke baris berikutnya, kolom sama (input angka/deskripsi cepat dari atas ke bawah)
+function focusNextRow(event) {
+    const { col, row } = event.target.dataset
+    const next = event.target.closest('table')
+        ?.querySelector(`[data-col="${col}"][data-row="${Number(row) + 1}"]`)
+    if (next) { next.focus(); next.select?.() }
+}
+
 // ── Tambah item manual (deskripsi bebas, tanpa katalog produk) ─────────────
 // Katalog produk & tempel-dari-clipboard tetap jadi fitur khusus sales di
 // InvoicesPanel.vue (lihat plan Task 4) — di sini hanya jalur tambah paling
@@ -165,16 +183,16 @@ function submitAdd() {
     <div class="rounded-md border">
         <div class="px-3 py-2 flex items-center justify-between border-b">
             <span class="text-xs font-semibold uppercase text-muted-foreground">Rincian Profit (internal · IDR)</span>
-            <span v-if="invoice.is_approved" class="text-[11px] text-amber-600">
+            <span v-if="invoice.approved_at" class="text-[11px] text-amber-600">
                 Perubahan di sini tercatat di riwayat tour.
             </span>
         </div>
 
         <p v-if="errorMsg" class="px-3 py-1.5 text-xs text-red-600 bg-red-50 border-b">{{ errorMsg }}</p>
 
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto max-h-[28rem] overflow-y-auto">
             <table class="w-full text-sm">
-                <thead>
+                <thead class="sticky top-0 z-10">
                     <tr class="border-b bg-muted text-muted-foreground text-xs uppercase">
                         <th class="px-3 py-2 text-left">Deskripsi</th>
                         <th class="px-2 py-2 text-center w-24">Tanggal</th>
@@ -190,12 +208,14 @@ function submitAdd() {
                     <tr v-if="!(invoice.items ?? []).length">
                         <td colspan="8" class="text-center py-6 text-muted-foreground">Belum ada item.</td>
                     </tr>
-                    <tr v-for="item in invoice.items" :key="item.id" class="border-b last:border-0">
+                    <tr v-for="(item, idx) in invoice.items" :key="item.id" class="border-b last:border-0">
                         <td class="px-2 py-1">
                             <span class="block text-xs text-muted-foreground mb-0.5">
                                 {{ TYPE_LABELS[item.product_type] ?? item.product_type ?? '—' }}
                             </span>
-                            <Input v-model="itemForms[item.id].description" @input="markDirty(item.id)" class="text-sm" />
+                            <textarea v-model="itemForms[item.id].description" @input="markDirty(item.id)" rows="1"
+                                v-autogrow data-col="description" :data-row="idx" @keydown.enter.prevent="focusNextRow($event)"
+                                class="border rounded px-2 py-1 text-sm w-full min-w-[10rem] resize-none overflow-hidden leading-snug block focus:outline-none focus:ring-1 focus:ring-primary"></textarea>
                         </td>
                         <td class="px-2 py-1">
                             <input type="date" v-model="itemForms[item.id].start_date" @change="markDirty(item.id)"
@@ -205,18 +225,22 @@ function submitAdd() {
                         </td>
                         <td class="px-2 py-1">
                             <input type="number" v-model="itemForms[item.id].qty" @input="markDirty(item.id)" min="1"
+                                data-col="qty" :data-row="idx" @keydown.enter.prevent="focusNextRow($event)"
                                 class="w-14 border rounded px-1 py-1 text-center text-sm" />
                         </td>
                         <td class="px-2 py-1">
                             <input type="number" v-model="itemForms[item.id].nights" @input="markDirty(item.id)" min="1"
+                                data-col="nights" :data-row="idx" @keydown.enter.prevent="focusNextRow($event)"
                                 class="w-14 border rounded px-1 py-1 text-center text-sm" />
                         </td>
                         <td class="px-2 py-1">
                             <input type="number" v-model="itemForms[item.id].unit_cost" @input="markDirty(item.id)" min="0"
+                                data-col="unit_cost" :data-row="idx" @keydown.enter.prevent="focusNextRow($event)"
                                 class="w-28 border rounded px-2 py-1 text-right text-sm font-mono" />
                         </td>
                         <td class="px-2 py-1">
                             <input type="number" v-model="itemForms[item.id].unit_sell" @input="markDirty(item.id)" min="0"
+                                data-col="unit_sell" :data-row="idx" @keydown.enter.prevent="focusNextRow($event)"
                                 class="w-28 border rounded px-2 py-1 text-right text-sm font-mono" />
                         </td>
                         <td class="px-2 py-1 text-right font-mono text-sm font-medium">{{ fmtRp(lineSellLocal(item.id)) }}</td>
