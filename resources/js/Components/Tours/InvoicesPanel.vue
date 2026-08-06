@@ -1,11 +1,12 @@
 <script setup>
-import { ref, reactive, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, watch, nextTick } from 'vue'
 import { router } from '@inertiajs/vue3'
 import { Button } from '@/Components/ui/button'
 import { Input } from '@/Components/ui/input'
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/Components/ui/dialog'
+import RincianProfitEditor from '@/Components/Tours/RincianProfitEditor.vue'
 import { confirm } from '@/lib/confirm'
 import { fmtNum, fmtRp, fmtCur } from '@/lib/fmt'
 import { TYPE_LABELS } from '@/lib/tourConstants'
@@ -45,17 +46,11 @@ const dateLabel = computed(() => {
 const proformaForms = reactive({})   // { currency, unit_price, description_lines[], additional_lines[], notes }
 const exchangeForms = reactive({})   // kurs input (non-IDR)
 const dueForms      = reactive({})   // jatuh tempo
-const itemForms     = reactive({})   // rincian profit (keyed by item id)
 const profitOpen    = reactive({})   // collapsible panel profit
-
-// ── Autosave pintar rincian profit: baris kotor dikumpulkan, disimpan sekali ──
-const dirtyIds  = ref(new Set())   // id item yang berubah & belum tersimpan
-const saveState = ref('idle')      // idle | pending | saving | saved
 
 watch(
     () => props.tour.invoices,
     (list) => {
-        const itemIds = []
         const invIds  = []
         ;(list ?? []).forEach(inv => {
             invIds.push(inv.id)
@@ -87,22 +82,7 @@ watch(
                 notes: inv.notes || '',
             }
             if (!(inv.id in profitOpen)) profitOpen[inv.id] = false
-            ;(inv.items ?? []).forEach(item => {
-                itemIds.push(item.id)
-                // Baris yang sedang diedit (belum ter-autosave) jangan ditimpa data server
-                if (dirtyIds.value.has(item.id)) return
-                itemForms[item.id] = {
-                    qty:         item.qty,
-                    nights:      item.nights,
-                    description: item.description ?? '',
-                    unit_cost:   item.unit_cost,
-                    unit_sell:   item.unit_sell,
-                    start_date:  item.start_date ? String(item.start_date).slice(0, 10) : '',
-                    end_date:    item.end_date ? String(item.end_date).slice(0, 10) : '',
-                }
-            })
         })
-        Object.keys(itemForms).forEach(id => { if (!itemIds.includes(Number(id))) delete itemForms[id] })
         Object.keys(dueForms).forEach(id => { if (!invIds.includes(Number(id))) delete dueForms[id] })
     },
     { immediate: true, deep: true }
@@ -180,7 +160,7 @@ const copiedProfit = ref(null)
 async function copyProfitTable(inv) {
     const rows = [['Deskripsi', 'Tipe', 'Qty', 'Mlm', 'Cost/unit', 'Sell/unit', 'Total Cost', 'Total Jual']]
     ;(inv.items ?? []).forEach(item => {
-        const f = itemForms[item.id] ?? item
+        const f = item
         const qty    = Number(f.qty) || 0
         const nights = Number(f.nights) || 0
         const cost   = Number(f.unit_cost) || 0
@@ -348,7 +328,7 @@ function removeAdditionalLine(invId, idx) {
 }
 function lockBaseline(inv) {
     errorMsg.value = ''
-    afterFlush(() => router.patch(route('invoices.baseline', inv.id), {}, reload))
+    router.patch(route('invoices.baseline', inv.id), {}, reload)
 }
 function saveDueDate(invId) {
     errorMsg.value = ''
@@ -379,7 +359,7 @@ async function approve(inv) {
         description: 'Setelah disetujui, invoice masuk ke Keuangan dan tidak bisa diubah lagi.',
         confirmLabel: 'Setujui',
     })) {
-        afterFlush(() => router.post(route('invoices.approve', inv.id), {}, reload))
+        router.post(route('invoices.approve', inv.id), {}, reload)
     }
 }
 async function submitApprove() {
@@ -407,181 +387,12 @@ async function submitApprove() {
     }
 
     errorMsg.value = ''
-    afterFlush(() => router.post(route('invoices.approve', inv.id), { exchange_rate: rate }, reload))
+    router.post(route('invoices.approve', inv.id), { exchange_rate: rate }, reload)
 }
 const approveIdrPreview = computed(() => {
     const inv = approveTarget.value
     if (!inv) return 0
     return proformaTotal(inv.id) * (Number(approveRate.value) || 0)
-})
-
-// ── Aksi baris item (rincian profit internal) ───────────────────────────────────
-// Autosave: markDirty() dipanggil tiap ketikan; 1,5 dtk setelah berhenti,
-// semua baris kotor dikirim dalam SATU request bulk per invoice.
-let saveTimer     = null
-let pendingAction = null   // aksi yang menunggu flush selesai (hapus/kunci/setujui)
-
-const itemInvoiceMap = computed(() => {
-    const map = {}
-    ;(props.tour.invoices ?? []).forEach(inv =>
-        (inv.items ?? []).forEach(i => { map[i.id] = inv.id })
-    )
-    return map
-})
-
-function markDirty(itemId) {
-    dirtyIds.value.add(itemId)
-    saveState.value = 'pending'
-    clearTimeout(saveTimer)
-    saveTimer = setTimeout(flushSaves, 1500)
-}
-
-function flushSaves() {
-    clearTimeout(saveTimer)
-    if (saveState.value === 'saving') return
-    if (!dirtyIds.value.size) {
-        const act = pendingAction
-        pendingAction = null
-        act?.()
-        return
-    }
-
-    const byInvoice = {}
-    dirtyIds.value.forEach(id => {
-        const invId = itemInvoiceMap.value[id]
-        if (invId && itemForms[id]) (byInvoice[invId] ??= []).push({ id, ...itemForms[id] })
-    })
-    dirtyIds.value = new Set()
-    saveState.value = 'saving'
-    errorMsg.value = ''
-
-    // Satu tour praktis punya satu invoice draft, jadi loop ini satu request
-    Object.entries(byInvoice).forEach(([invId, rows]) => {
-        router.patch(route('invoice-items.bulk-update', invId), { items: rows }, {
-            preserveScroll: true,
-            only: ['tour'],
-            onSuccess: () => { saveState.value = dirtyIds.value.size ? 'pending' : 'saved' },
-            onError: (errors) => {
-                onError(errors)
-                rows.forEach(r => dirtyIds.value.add(r.id))  // jangan hilang, coba lagi
-                saveState.value = 'pending'
-            },
-            onFinish: () => {
-                if (saveState.value === 'saving') saveState.value = 'idle'
-                if (dirtyIds.value.size) {
-                    // ada ketikan baru selama request — simpan dulu, aksi tetap menunggu
-                    saveTimer = setTimeout(flushSaves, 300)
-                } else {
-                    const act = pendingAction
-                    pendingAction = null
-                    act?.()
-                }
-            },
-        })
-    })
-}
-
-/** Jalankan aksi setelah semua perubahan pending tersimpan (hindari race Inertia). */
-function afterFlush(action) {
-    if (!dirtyIds.value.size && saveState.value !== 'saving') return action()
-    pendingAction = action
-    flushSaves()
-}
-
-async function deleteItem(itemId) {
-    if (await confirm({ title: 'Hapus item ini?', confirmLabel: 'Hapus' })) {
-        errorMsg.value = ''
-        dirtyIds.value.delete(itemId)  // item mau dihapus, tak perlu disimpan dulu
-        afterFlush(() => router.delete(route('invoice-items.destroy', itemId), reload))
-    }
-}
-
-// Total jual per baris dihitung lokal — langsung berubah saat mengetik
-function lineSellLocal(itemId) {
-    const f = itemForms[itemId]
-    if (!f) return 0
-    return (Number(f.qty) || 0) * (Number(f.nights) || 0) * (Number(f.unit_sell) || 0)
-}
-
-// ── Popover tanggal per baris (satu yang terbuka, posisi fixed anti-terpotong) ──
-const dateOpenId = ref(null)
-const datePopPos = ref({ top: 0, left: 0 })
-const datePopRef = ref(null)
-
-function toggleDatePopover(itemId, event) {
-    if (dateOpenId.value === itemId) { dateOpenId.value = null; return }
-    const rect = event.currentTarget.getBoundingClientRect()
-    datePopPos.value = {
-        top:  Math.min(rect.bottom + 6, window.innerHeight - 130),
-        left: Math.max(8, Math.min(rect.left - 110, window.innerWidth - 260)),
-    }
-    dateOpenId.value = itemId
-}
-
-function clearDates(itemId) {
-    itemForms[itemId].start_date = ''
-    itemForms[itemId].end_date   = ''
-    markDirty(itemId)
-    dateOpenId.value = null
-}
-
-function dateTitle(itemId) {
-    const f = itemForms[itemId]
-    if (!f?.start_date) return 'Atur tanggal item'
-    return f.end_date && f.end_date !== f.start_date
-        ? `${fmtDateID(f.start_date)} – ${fmtDateID(f.end_date)}`
-        : fmtDateID(f.start_date)
-}
-
-function onDocMouseDown(e) {
-    if (!dateOpenId.value) return
-    if (datePopRef.value?.contains(e.target)) return
-    if (e.target.closest?.('[data-date-btn]')) return
-    dateOpenId.value = null
-}
-
-// Textarea deskripsi menyesuaikan tinggi dengan isinya — teks panjang tidak terpotong
-const vAutogrow = {
-    mounted: (el) => autoGrow(el),
-    updated: (el) => autoGrow(el),
-}
-function autoGrow(el) {
-    el.style.height = 'auto'
-    el.style.height = el.scrollHeight + 'px'
-}
-
-// Enter = pindah ke baris berikutnya, kolom sama (input angka cepat dari atas ke bawah)
-function focusNextRow(event) {
-    const { col, row } = event.target.dataset
-    const next = event.target.closest('table')
-        ?.querySelector(`[data-col="${col}"][data-row="${Number(row) + 1}"]`)
-    if (next) { next.focus(); next.select?.() }
-}
-
-// Cegah pindah halaman / reload saat masih ada perubahan belum tersimpan
-function onBeforeUnload(e) {
-    if (dirtyIds.value.size || saveState.value === 'saving') {
-        e.preventDefault()
-        e.returnValue = ''
-    }
-}
-let removeBeforeHook = null
-onMounted(() => {
-    document.addEventListener('mousedown', onDocMouseDown)
-    window.addEventListener('beforeunload', onBeforeUnload)
-    removeBeforeHook = router.on('before', (event) => {
-        if (event.detail.visit.method !== 'get') return
-        if (!dirtyIds.value.size && saveState.value !== 'saving') return
-        if (!window.confirm('Ada perubahan Rincian Profit yang belum tersimpan. Tetap tinggalkan halaman?')) {
-            event.preventDefault()
-        }
-    })
-})
-onBeforeUnmount(() => {
-    document.removeEventListener('mousedown', onDocMouseDown)
-    window.removeEventListener('beforeunload', onBeforeUnload)
-    removeBeforeHook?.()
-    clearTimeout(saveTimer)
 })
 
 // ── Pembayaran / DP (sales dapat input langsung) ────────────────────────────────
@@ -648,13 +459,6 @@ const DATED_TYPES = ['hotel', 'transport', 'guide']
 const isDated = (t) => DATED_TYPES.includes(t)
 const pendingProduct = ref(null)   // produk menunggu input tanggal
 const addDates = reactive({ start: '', end: '' })
-
-function fmtDateID(d) {
-    if (!d) return ''
-    return new Date(String(d).slice(0, 10)).toLocaleDateString('id-ID', {
-        day: 'numeric', month: 'short', year: 'numeric',
-    })
-}
 
 function openAddDialog(inv) {
     addTargetInvoice.value = inv
@@ -968,112 +772,17 @@ function addProduct(product, extra = {}) {
                     </button>
 
                     <div v-if="profitOpen[inv.id]" class="border-t p-3 space-y-2">
-                        <div class="flex items-center justify-between gap-3">
-                            <p class="text-[11px] text-muted-foreground">
-                                Tidak muncul di PDF customer. Hanya untuk memantau modal vs jual (IDR). Tidak wajib untuk menyetujui.
-                                <span v-if="profitFromRevenue" class="block">Profit tour = Total tagihan (harga/pax × pax) − total cost item.</span>
-                            </p>
-                            <div class="flex items-center gap-2 shrink-0">
-                                <span v-if="!isApproved(inv) && saveState !== 'idle'" class="text-[11px] whitespace-nowrap"
-                                    :class="saveState === 'saved' ? 'text-green-600' : 'text-amber-600'">
-                                    {{ saveState === 'pending' ? '● Ada perubahan…' : saveState === 'saving' ? '⏳ Menyimpan…' : '✓ Tersimpan' }}
-                                </span>
-                                <Button v-if="!isApproved(inv)" size="sm" variant="outline" @click="openPasteDialog(inv)">📥 Tempel</Button>
-                                <Button v-if="(inv.items ?? []).length" size="sm" variant="outline" @click="copyProfitTable(inv)">
-                                    {{ copiedProfit === inv.id ? '✓ Tersalin' : '📋 Salin' }}
-                                </Button>
-                            </div>
-                        </div>
-                        <div class="overflow-x-auto max-h-[28rem] overflow-y-auto rounded-md border" @scroll="dateOpenId = null">
-                            <table class="w-full text-sm">
-                                <thead class="sticky top-0 z-10">
-                                    <tr class="border-b bg-muted text-muted-foreground text-xs uppercase">
-                                        <th class="px-3 py-2 text-left">Deskripsi</th>
-                                        <th v-if="!isApproved(inv)" class="px-2 py-2 text-left w-24">Tipe</th>
-                                        <th v-if="!isApproved(inv)" class="px-1 py-2 text-center w-10" title="Tanggal">📅</th>
-                                        <th class="px-2 py-2 text-center w-14">Qty</th>
-                                        <th class="px-2 py-2 text-center w-14">Mlm</th>
-                                        <th class="px-2 py-2 text-right w-28">Cost/unit</th>
-                                        <th class="px-2 py-2 text-right w-28">Sell/unit</th>
-                                        <th class="px-2 py-2 text-right w-28">Total Jual</th>
-                                        <th v-if="!isApproved(inv)" class="px-2 py-2 w-8"></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-if="(inv.items ?? []).length === 0">
-                                        <td :colspan="isApproved(inv) ? 6 : 9" class="text-center py-6 text-muted-foreground">
-                                            Belum ada item.
-                                        </td>
-                                    </tr>
-                                    <template v-if="isApproved(inv)">
-                                        <tr v-for="item in inv.items" :key="item.id" class="border-b last:border-0">
-                                            <td class="px-3 py-1.5">
-                                                {{ item.description || item.product?.name }}
-                                                <span class="block text-xs text-muted-foreground">
-                                                    {{ TYPE_LABELS[item.product_type] ?? item.product_type }}
-                                                    <template v-if="item.start_date">
-                                                        · 📅 {{ fmtDateID(item.start_date) }}<template v-if="item.end_date && item.end_date !== item.start_date"> – {{ fmtDateID(item.end_date) }}</template>
-                                                    </template>
-                                                </span>
-                                            </td>
-                                            <td class="px-3 py-1.5 text-center">{{ item.qty }}</td>
-                                            <td class="px-3 py-1.5 text-center">{{ item.nights }}</td>
-                                            <td class="px-3 py-1.5 text-right font-mono">{{ fmtNum(item.unit_cost) }}</td>
-                                            <td class="px-3 py-1.5 text-right font-mono">{{ fmtNum(item.unit_sell) }}</td>
-                                            <td class="px-3 py-1.5 text-right font-mono font-medium">{{ fmtRp(item.line_sell) }}</td>
-                                        </tr>
-                                    </template>
-                                    <template v-else>
-                                        <tr v-for="(item, idx) in inv.items" :key="item.id" class="border-b last:border-0 hover:bg-muted/20">
-                                            <td class="px-2 py-1">
-                                                <textarea v-model="itemForms[item.id].description" @input="markDirty(item.id)" rows="1"
-                                                    v-autogrow data-col="description" :data-row="idx" @keydown.enter.prevent="focusNextRow($event)"
-                                                    class="border rounded px-2 py-1 text-sm w-full min-w-[12rem] resize-none overflow-hidden leading-snug block focus:outline-none focus:ring-1 focus:ring-primary"></textarea>
-                                            </td>
-                                            <td class="px-2 py-1">
-                                                <span class="block max-w-[6rem] truncate text-[11px] text-muted-foreground"
-                                                    :title="TYPE_LABELS[item.product_type] ?? item.product_type">
-                                                    {{ TYPE_LABELS[item.product_type] ?? item.product_type ?? '—' }}
-                                                </span>
-                                            </td>
-                                            <td class="px-1 py-1 text-center">
-                                                <button type="button" data-date-btn @click="toggleDatePopover(item.id, $event)"
-                                                    :title="dateTitle(item.id)"
-                                                    class="text-base leading-none align-middle transition-transform hover:scale-110"
-                                                    :class="itemForms[item.id].start_date ? '' : 'grayscale opacity-40'">📅</button>
-                                            </td>
-                                            <td class="px-2 py-1">
-                                                <input type="number" v-model="itemForms[item.id].qty" @input="markDirty(item.id)" min="1"
-                                                    data-col="qty" :data-row="idx" @keydown.enter.prevent="focusNextRow($event)"
-                                                    class="w-14 border rounded px-1 py-1 text-center text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
-                                            </td>
-                                            <td class="px-2 py-1">
-                                                <input type="number" v-model="itemForms[item.id].nights" @input="markDirty(item.id)" min="1"
-                                                    data-col="nights" :data-row="idx" @keydown.enter.prevent="focusNextRow($event)"
-                                                    class="w-14 border rounded px-1 py-1 text-center text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
-                                            </td>
-                                            <td class="px-2 py-1">
-                                                <input type="number" v-model="itemForms[item.id].unit_cost" @input="markDirty(item.id)" min="0"
-                                                    data-col="unit_cost" :data-row="idx" @keydown.enter.prevent="focusNextRow($event)"
-                                                    class="w-32 border rounded px-2 py-1 text-right text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary" />
-                                            </td>
-                                            <td class="px-2 py-1">
-                                                <input type="number" v-model="itemForms[item.id].unit_sell" @input="markDirty(item.id)" min="0"
-                                                    data-col="unit_sell" :data-row="idx" @keydown.enter.prevent="focusNextRow($event)"
-                                                    class="w-32 border rounded px-2 py-1 text-right text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary" />
-                                            </td>
-                                            <td class="px-2 py-1 text-right font-mono text-sm font-medium whitespace-nowrap">{{ fmtRp(lineSellLocal(item.id)) }}</td>
-                                            <td class="px-2 py-1 text-center">
-                                                <button type="button" @click="deleteItem(item.id)"
-                                                    class="text-muted-foreground hover:text-destructive transition-colors" title="Hapus item">✕</button>
-                                            </td>
-                                        </tr>
-                                    </template>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div v-if="!isApproved(inv)">
-                            <Button size="sm" variant="outline" @click="openAddDialog(inv)">+ Tambah Produk</Button>
+                        <p class="text-[11px] text-muted-foreground">
+                            Tidak muncul di PDF customer. Hanya untuk memantau modal vs jual (IDR). Tidak wajib untuk menyetujui.
+                            <span v-if="profitFromRevenue" class="block">Profit tour = Total tagihan (harga/pax × pax) − total cost item.</span>
+                        </p>
+                        <RincianProfitEditor :invoice="inv" />
+                        <div class="flex items-center gap-2">
+                            <Button v-if="!isApproved(inv)" size="sm" variant="outline" @click="openPasteDialog(inv)">📥 Tempel</Button>
+                            <Button v-if="(inv.items ?? []).length" size="sm" variant="outline" @click="copyProfitTable(inv)">
+                                {{ copiedProfit === inv.id ? '✓ Tersalin' : '📋 Salin' }}
+                            </Button>
+                            <Button v-if="!isApproved(inv)" size="sm" variant="outline" @click="openAddDialog(inv)">+ Tambah Produk</Button>
                         </div>
                     </div>
                 </div>
@@ -1354,26 +1063,5 @@ function addProduct(product, extra = {}) {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
-
-        <!-- Popover tanggal item (satu instance, posisi fixed agar tidak terpotong scroll tabel) -->
-        <div v-if="dateOpenId && itemForms[dateOpenId]" ref="datePopRef"
-            class="fixed z-50 w-64 rounded-md border bg-white p-3 shadow-lg space-y-2"
-            :style="{ top: datePopPos.top + 'px', left: datePopPos.left + 'px' }">
-            <p class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Tanggal Item</p>
-            <div class="flex items-center gap-1.5">
-                <input type="date" v-model="itemForms[dateOpenId].start_date" @change="markDirty(dateOpenId)"
-                    class="border rounded px-1.5 py-1 text-xs flex-1 focus:outline-none focus:ring-1 focus:ring-primary" />
-                <span class="text-xs text-muted-foreground">–</span>
-                <input type="date" v-model="itemForms[dateOpenId].end_date" @change="markDirty(dateOpenId)"
-                    :min="itemForms[dateOpenId].start_date"
-                    class="border rounded px-1.5 py-1 text-xs flex-1 focus:outline-none focus:ring-1 focus:ring-primary" />
-            </div>
-            <div class="flex items-center justify-between">
-                <button type="button" @click="clearDates(dateOpenId)"
-                    class="text-xs text-destructive hover:underline">Hapus tanggal</button>
-                <button type="button" @click="dateOpenId = null"
-                    class="text-xs text-muted-foreground hover:underline">Tutup</button>
-            </div>
-        </div>
     </div>
 </template>
