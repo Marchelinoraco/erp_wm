@@ -782,7 +782,7 @@ function addProduct(product, extra = {}) {
                             <Button v-if="(inv.items ?? []).length" size="sm" variant="outline" @click="copyProfitTable(inv)">
                                 {{ copiedProfit === inv.id ? '✓ Tersalin' : '📋 Salin' }}
                             </Button>
-                            <Button v-if="!isApproved(inv)" size="sm" variant="outline" @click="openAddDialog(inv)">+ Tambah Produk</Button>
+                            <Button size="sm" variant="outline" @click="openAddDialog(inv)">+ Tambah Produk</Button>
                         </div>
                     </div>
                 </div>
