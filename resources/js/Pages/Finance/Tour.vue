@@ -4,7 +4,6 @@ import { Head, Link, useForm, router } from '@inertiajs/vue3'
 import { computed, ref } from 'vue'
 import { confirm } from '@/lib/confirm'
 import { fmtRp, fmtCur, fmtNum } from '@/lib/fmt'
-import { TYPE_LABELS } from '@/lib/tourConstants'
 import { Button } from '@/Components/ui/button'
 import { Input } from '@/Components/ui/input'
 import { Label } from '@/Components/ui/label'
@@ -15,6 +14,7 @@ import {
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/Components/ui/dialog'
+import RincianProfitEditor from '@/Components/Tours/RincianProfitEditor.vue'
 
 const props = defineProps({
     tour:         Object,
@@ -43,9 +43,7 @@ const STATUS_COLOR = {
     inquiry:   'bg-gray-100 text-gray-600',
 }
 
-// ── Rincian Profit (internal, read-only) ─────────────────────────────────────
-const profitOpen = ref({})
-
+// ── Rincian Profit — ringkasan (helper untuk footer summary di bawah editor) ─
 function invTotalCost(inv) {
     return (inv.items ?? []).reduce((s, i) => s + Number(i.line_cost), 0)
 }
@@ -416,67 +414,24 @@ const CAT_LABEL = {
                             </div>
                         </div>
 
-                        <!-- Rincian Profit (internal, read-only untuk akuntan) -->
-                        <div v-if="inv.items?.length" class="mt-3 rounded-md border">
-                            <button type="button" @click="profitOpen[inv.id] = !profitOpen[inv.id]"
-                                class="w-full flex items-center justify-between px-3 py-2 text-left text-xs font-semibold uppercase text-gray-400 hover:bg-gray-50">
-                                <span>Rincian Profit (internal · IDR)</span>
-                                <span class="flex items-center gap-2">
-                                    <span class="font-mono normal-case text-[11px]"
-                                        :class="invProfit(inv) >= 0 ? 'text-green-700' : 'text-red-600'">
-                                        {{ fmtRp(invProfit(inv)) }} ({{ invMargin(inv) }}%)
-                                    </span>
-                                    <span>{{ profitOpen[inv.id] ? '▾' : '▸' }}</span>
-                                </span>
-                            </button>
-                            <div v-if="profitOpen[inv.id]" class="border-t">
-                                <div class="overflow-x-auto">
-                                    <table class="w-full text-sm">
-                                        <thead>
-                                            <tr class="border-b bg-gray-50 text-gray-400 text-xs uppercase">
-                                                <th class="px-3 py-2 text-left">Deskripsi</th>
-                                                <th class="px-3 py-2 text-center w-14">Qty</th>
-                                                <th class="px-3 py-2 text-center w-14">Mlm</th>
-                                                <th class="px-3 py-2 text-right w-28">Cost/unit</th>
-                                                <th class="px-3 py-2 text-right w-28">Sell/unit</th>
-                                                <th class="px-3 py-2 text-right w-28">Total Cost</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr v-for="item in inv.items" :key="item.id" class="border-b last:border-0">
-                                                <td class="px-3 py-1.5">
-                                                    {{ item.description }}
-                                                    <span class="block text-xs text-gray-400">
-                                                        {{ TYPE_LABELS[item.product_type] ?? item.product_type }}
-                                                        <template v-if="item.start_date">
-                                                            · 📅 {{ fmtDate(item.start_date) }}<template v-if="item.end_date && item.end_date !== item.start_date"> – {{ fmtDate(item.end_date) }}</template>
-                                                        </template>
-                                                    </span>
-                                                </td>
-                                                <td class="px-3 py-1.5 text-center">{{ item.qty }}</td>
-                                                <td class="px-3 py-1.5 text-center">{{ item.nights }}</td>
-                                                <td class="px-3 py-1.5 text-right font-mono">{{ fmtNum(item.unit_cost) }}</td>
-                                                <td class="px-3 py-1.5 text-right font-mono">{{ fmtNum(item.unit_sell) }}</td>
-                                                <td class="px-3 py-1.5 text-right font-mono font-medium">{{ fmtRp(item.line_cost) }}</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                                <div class="border-t bg-gray-50/50 px-4 py-3 text-sm space-y-1">
-                                    <div class="flex justify-between text-xs text-gray-500">
-                                        <span>Total Cost (Modal)</span>
-                                        <span class="font-mono">{{ fmtRp(invTotalCost(inv)) }}</span>
-                                    </div>
-                                    <div class="flex justify-between text-xs text-gray-500">
-                                        <span>{{ profitFromRevenue ? 'Total Tagihan Customer (IDR)' : 'Total Jual Item' }}</span>
-                                        <span class="font-mono">{{ fmtRp(profitFromRevenue ? inv.total_idr : invTotalSell(inv)) }}</span>
-                                    </div>
-                                    <div class="flex justify-between font-semibold"
-                                        :class="invProfit(inv) >= 0 ? 'text-green-700' : 'text-red-600'">
-                                        <span>Profit</span>
-                                        <span class="font-mono">{{ fmtRp(invProfit(inv)) }} ({{ invMargin(inv) }}%)</span>
-                                    </div>
-                                </div>
+                        <!-- Rincian Profit (internal, akuntan bisa mengedit langsung) -->
+                        <div v-if="inv.items?.length || true" class="mt-3">
+                            <RincianProfitEditor :invoice="inv" />
+                        </div>
+
+                        <div class="border-t bg-gray-50/50 px-4 py-3 text-sm space-y-1">
+                            <div class="flex justify-between text-xs text-gray-500">
+                                <span>Total Cost (Modal)</span>
+                                <span class="font-mono">{{ fmtRp(invTotalCost(inv)) }}</span>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500">
+                                <span>{{ profitFromRevenue ? 'Total Tagihan Customer (IDR)' : 'Total Jual Item' }}</span>
+                                <span class="font-mono">{{ fmtRp(profitFromRevenue ? inv.total_idr : invTotalSell(inv)) }}</span>
+                            </div>
+                            <div class="flex justify-between font-semibold"
+                                :class="invProfit(inv) >= 0 ? 'text-green-700' : 'text-red-600'">
+                                <span>Profit</span>
+                                <span class="font-mono">{{ fmtRp(invProfit(inv)) }} ({{ invMargin(inv) }}%)</span>
                             </div>
                         </div>
 
