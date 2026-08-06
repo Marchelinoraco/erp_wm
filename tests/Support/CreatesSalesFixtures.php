@@ -32,6 +32,19 @@ trait CreatesSalesFixtures
         ]);
     }
 
+    /** Pengguna ber-role accountant — sejak fitur Rincian Profit Terbuka, ikut bisa mengedit item. */
+    protected function accountantUser(): User
+    {
+        $this->userCounter++;
+
+        return User::create([
+            'name'     => 'Akuntan Uji ' . $this->userCounter,
+            'email'    => 'akuntan' . $this->userCounter . '@test.local',
+            'password' => bcrypt('password'),
+            'role'     => 'accountant',
+        ]);
+    }
+
     /**
      * Tour untuk satu jenis penjualan. Status confirmed karena panel invoice
      * hanya muncul pada status itu.

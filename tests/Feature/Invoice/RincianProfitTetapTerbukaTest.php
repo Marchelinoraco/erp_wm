@@ -201,4 +201,17 @@ class RincianProfitTetapTerbukaTest extends TestCase
             'Rincian Profit adalah internal — menambah item tidak boleh menggeser tagihan customer (unit_price × pax)'
         );
     }
+
+    public function test_akuntan_bisa_menambah_item_setelah_disetujui(): void
+    {
+        $invoice = $this->approvedInvoice();
+
+        $this->actingAs($this->accountantUser())
+            ->post(route('invoice-items.bulk', $invoice), [
+                'items' => [['description' => 'Koreksi biaya oleh akuntan', 'unit_cost' => 10_000, 'unit_sell' => 0]],
+            ])
+            ->assertSessionDoesntHaveErrors();
+
+        $this->assertCount(1, $invoice->fresh()->items);
+    }
 }
