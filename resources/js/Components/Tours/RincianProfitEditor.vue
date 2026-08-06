@@ -139,14 +139,34 @@ onBeforeUnmount(() => {
     clearTimeout(saveTimer)
 })
 
-// Textarea deskripsi menyesuaikan tinggi dengan isinya — teks panjang tidak terpotong
+// Textarea deskripsi menyesuaikan tinggi dengan isinya — teks panjang tidak terpotong.
+// Panel Rincian Profit di InvoicesPanel.vue disembunyikan lewat v-show, jadi textarea
+// ini bisa ter-mount saat ancestor-nya masih display:none (scrollHeight terbaca 0 di
+// saat itu). ResizeObserver mendeteksi begitu ancestor jadi visible dan elemen benar-
+// benar mendapat ukuran alami, lalu mengukur ulang — tanpa InvoicesPanel.vue perlu
+// memberi tahu komponen ini secara eksplisit (v-show hanya toggle CSS, tidak memicu
+// ulang hook directive pada child yang sudah ter-mount).
 const vAutogrow = {
-    mounted: (el) => autoGrow(el),
+    mounted(el) {
+        autoGrow(el)
+        const observer = new ResizeObserver(() => autoGrow(el))
+        observer.observe(el)
+        el.__autogrowObserver = observer
+    },
     updated: (el) => autoGrow(el),
+    unmounted(el) {
+        el.__autogrowObserver?.disconnect()
+        delete el.__autogrowObserver
+    },
 }
 function autoGrow(el) {
+    const prevHeight = el.style.height
     el.style.height = 'auto'
-    el.style.height = el.scrollHeight + 'px'
+    const nextHeight = el.scrollHeight + 'px'
+    // Guard: kalau tinggi target sama dengan sebelumnya, jangan tulis ulang.
+    // Tanpa ini, ResizeObserver bisa memicu dirinya sendiri terus-menerus karena
+    // callback-nya mengubah ukuran elemen yang sedang ia amati sendiri.
+    el.style.height = nextHeight === prevHeight ? prevHeight : nextHeight
 }
 
 // Enter = pindah ke baris berikutnya, kolom sama (input angka/deskripsi cepat dari atas ke bawah)
