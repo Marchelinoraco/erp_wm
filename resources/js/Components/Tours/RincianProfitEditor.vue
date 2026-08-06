@@ -12,6 +12,10 @@ import { TYPE_LABELS } from '@/lib/tourConstants'
 
 const props = defineProps({
     invoice: { type: Object, required: true },
+    // Tours (sales) sudah punya "+ Tambah Produk" (katalog) sebagai jalur tambah
+    // item, jadi tombol tambah manual di sini disembunyikan di sana. Finance
+    // (akuntan) tidak punya alternatif lain, jadi default tetap tampil.
+    allowManualAdd: { type: Boolean, default: true },
 })
 
 // ── State per-item, di-scope ke SATU invoice ini saja ───────────────────────
@@ -279,11 +283,11 @@ function submitAdd() {
                 {{ saveState === 'pending' ? '● Ada perubahan…' : saveState === 'saving' ? '⏳ Menyimpan…' : '✓ Tersimpan' }}
             </span>
             <span v-else></span>
-            <Button size="sm" variant="outline" @click="addOpen = true">+ Tambah Item</Button>
+            <Button v-if="allowManualAdd" size="sm" variant="outline" @click="addOpen = true">+ Tambah Item</Button>
         </div>
     </div>
 
-    <Dialog v-model:open="addOpen">
+    <Dialog v-if="allowManualAdd" v-model:open="addOpen">
         <DialogContent class="max-w-md">
             <DialogHeader><DialogTitle>Tambah Item Rincian Profit</DialogTitle></DialogHeader>
             <form @submit.prevent="submitAdd" class="space-y-3 mt-2">

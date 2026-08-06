@@ -776,7 +776,7 @@ function addProduct(product, extra = {}) {
                             Tidak muncul di PDF customer. Hanya untuk memantau modal vs jual (IDR). Tidak wajib untuk menyetujui.
                             <span v-if="profitFromRevenue" class="block">Profit tour = Total tagihan (harga/pax × pax) − total cost item.</span>
                         </p>
-                        <RincianProfitEditor :invoice="inv" />
+                        <RincianProfitEditor :invoice="inv" :allow-manual-add="false" />
                         <div class="flex items-center gap-2">
                             <Button v-if="!isApproved(inv)" size="sm" variant="outline" @click="openPasteDialog(inv)">📥 Tempel</Button>
                             <Button v-if="(inv.items ?? []).length" size="sm" variant="outline" @click="copyProfitTable(inv)">
