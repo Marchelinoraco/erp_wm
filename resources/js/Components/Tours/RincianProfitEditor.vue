@@ -126,7 +126,8 @@ function handleBeforeUnload(e) {
 let stopRouterGuard = null
 onMounted(() => {
     window.addEventListener('beforeunload', handleBeforeUnload)
-    stopRouterGuard = router.on('before', () => {
+    stopRouterGuard = router.on('before', (event) => {
+        if (event.detail.visit.method !== 'get') return
         if (dirtyIds.value.size || saveState.value === 'saving') {
             return window.confirm('Ada perubahan Rincian Profit yang belum tersimpan. Tetap pindah halaman?')
         }
