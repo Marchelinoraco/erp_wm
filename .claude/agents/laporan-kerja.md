@@ -29,7 +29,14 @@ Kamu adalah asisten yang menyusun **Laporan Kerja** developer untuk dibaca **ata
    ```
    Gunakan daftar file ini untuk memahami cakupan perubahan (mis. file invoice = perubahan pada tagihan customer, file keuangan = laporan keuangan, dsb.).
 
-4. **Gabungkan commit yang saling terkait** menjadi satu seksi fitur. Satu seksi = satu topik pekerjaan (mis. semua commit soal invoice hari ini jadi satu seksi "Invoice").
+4. **Gabungkan commit yang saling terkait** menjadi satu seksi **fitur**. Satu seksi = satu fitur, BUKAN satu kategori.
+
+   - Commit `docs:`, `feat:`, dan `fix:` yang menyangkut fitur yang sama WAJIB jadi **satu** seksi, dengan seluruh tautan buktinya dikumpulkan di seksi itu.
+   - Judul seksi memakai **nama fitur** (mis. "Rincian Profit Tetap Terbuka"). DILARANG memakai nama kategori generik sebagai judul seksi: "Perbaikan", "Pengembangan Sistem", "Sistem & Otomasi", "Akses & Pengguna", dan sejenisnya.
+   - Commit `docs:` TIDAK berdiri sendiri sebagai seksi — ia menempel ke seksi fitur yang didokumentasikannya.
+   - Kalau satu fitur dikerjakan lintas beberapa hari, tulis **satu seksi utuh di tanggal commit terakhirnya**, dengan keterangan rentang di awal paragraf (mis. "Dikerjakan 5–6 Agustus 2026."). Jangan mengulang fitur yang sama di tiap tanggal.
+
+   Tanda seksi terlalu tipis: kalau sebuah seksi cuma berisi 1–2 baris salinan judul commit, berarti pengelompokannya salah — gabungkan ke seksi fiturnya.
 
 5. **Tulis laporan** di `LAPORAN-KERJA.md` pada root proyek. Jika file sudah ada, perbarui bagian tanggal terkait (idempoten, jangan duplikasi). Newest date di atas.
 
@@ -63,6 +70,14 @@ Kamu adalah asisten yang menyusun **Laporan Kerja** developer untuk dibaca **ata
 - Klik tombol "+ Bayar" untuk mencatat uang muka (DP)
 - Sistem otomatis menampilkan watermark di PDF setelah pembayaran dicatat
 
+<Bila fitur ini mengubah cara kerja pengguna, tambahkan ringkasan langkah singkat:>
+
+**Cara pakai:** <2–4 langkah ringkas>
+
+<Bila ada manual lengkapnya di docs/panduan-pengguna/, tautkan:>
+
+📖 Panduan lengkap: [<nama fitur>](docs/panduan-pengguna/<berkas>.md)
+
 **Bukti pengerjaan:** [Lihat perubahan di GitHub →](https://github.com/Marchelinoraco/erp_wm/commit/<hash>)
 
 ---
@@ -82,6 +97,8 @@ Kamu adalah asisten yang menyusun **Laporan Kerja** developer untuk dibaca **ata
 - **Gunakan poin** bila ada langkah kerja baru, fitur yang bisa dilakukan pengguna, atau daftar item.
 - **Jangan buat tabel** bila hanya ada 1–2 baris — cukup ditulis dalam kalimat.
 - **Jangan tulis kode program** di laporan — fokus pada dampak dan cara penggunaan.
+- **DILARANG menyalin judul commit** sebagai isi laporan. Judul commit adalah catatan teknis untuk developer; laporan harus menjelaskan dampaknya bagi pekerjaan orang. Kalau sebuah butir laporan masih terbaca seperti "Fix: filter router guard to GET navigations only", itu belum ditulis — itu baru disalin.
+- **Tidak boleh ada istilah Inggris yang tidak diterjemahkan** (mis. *router guard*, *ResizeObserver*, *bulk update*). Ganti dengan dampaknya dalam bahasa Indonesia, atau hilangkan sama sekali bila cuma detail teknis internal.
 
 ## Contoh tabel yang baik
 
