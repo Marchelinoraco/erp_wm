@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Bill;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Product;
@@ -12,8 +13,6 @@ class InvoiceItemController extends Controller
 {
     public function store(Request $request, Invoice $invoice)
     {
-        $this->ensureEditable($invoice);
-
         $request->validate([
             'product_id' => 'required|exists:products,id',
             'qty'        => 'integer|min:1',
@@ -43,14 +42,17 @@ class InvoiceItemController extends Controller
 
         $item->save();
 
+        $this->catatRiwayatPascaApprove(
+            $invoice,
+            "Item Rincian Profit ditambahkan pasca-approve oleh {$this->namaPengguna()}: {$item->description}."
+        );
+
         return redirect()->back();
     }
 
     /** Tempel massal dari clipboard (Excel/Sheets) — item manual tanpa product_id. */
     public function bulkStore(Request $request, Invoice $invoice)
     {
-        $this->ensureEditable($invoice);
-
         $data = $request->validate([
             'items'                => 'required|array|min:1|max:200',
             'items.*.description'  => 'required|string|max:500',
@@ -75,14 +77,19 @@ class InvoiceItemController extends Controller
             ]);
         }
 
+        $jumlah = count($data['items']);
+        $deskripsi = collect($data['items'])->pluck('description')->join(', ');
+        $this->catatRiwayatPascaApprove(
+            $invoice,
+            "{$jumlah} item Rincian Profit ditambahkan pasca-approve oleh {$this->namaPengguna()}: {$deskripsi}."
+        );
+
         return redirect()->back();
     }
 
     /** Autosave massal dari tabel Rincian Profit — satu request untuk semua baris yang berubah. */
     public function bulkUpdate(Request $request, Invoice $invoice)
     {
-        $this->ensureEditable($invoice);
-
         $data = $request->validate([
             'items'               => 'required|array|min:1|max:200',
             'items.*.id'          => 'required|integer',
@@ -101,7 +108,20 @@ class InvoiceItemController extends Controller
             ->keyBy('id');
 
         foreach ($data['items'] as $row) {
-            $items->get($row['id'])?->update(collect($row)->except('id')->all());
+            $item = $items->get($row['id']);
+            if (! $item) {
+                continue;
+            }
+
+            $perubahan = collect($row)->except('id')->all();
+            $before    = $item->only(array_keys($perubahan));
+            $item->update($perubahan);
+
+            $ringkasan = $this->ringkasPerubahan($item, $before);
+            $this->catatRiwayatPascaApprove(
+                $invoice,
+                "Item Rincian Profit diubah pasca-approve oleh {$this->namaPengguna()} ({$item->description}): {$ringkasan}."
+            );
         }
 
         return redirect()->back();
@@ -109,8 +129,6 @@ class InvoiceItemController extends Controller
 
     public function update(Request $request, InvoiceItem $invoiceItem)
     {
-        $this->ensureEditable($invoiceItem->invoice);
-
         $data = $request->validate([
             'qty'         => 'sometimes|integer|min:1',
             'nights'      => 'sometimes|integer|min:1',
@@ -122,27 +140,76 @@ class InvoiceItemController extends Controller
             'end_date'    => 'sometimes|nullable|date|after_or_equal:start_date',
         ]);
 
+        $before = $invoiceItem->only(array_keys($data));
         $invoiceItem->update($data);
+
+        $ringkasan = $this->ringkasPerubahan($invoiceItem, $before);
+        $this->catatRiwayatPascaApprove(
+            $invoiceItem->invoice,
+            "Item Rincian Profit diubah pasca-approve oleh {$this->namaPengguna()} ({$invoiceItem->description}): {$ringkasan}."
+        );
 
         return redirect()->back();
     }
 
     public function destroy(InvoiceItem $invoiceItem)
     {
-        $this->ensureEditable($invoiceItem->invoice);
+        if (Bill::where('invoice_item_id', $invoiceItem->id)->exists()) {
+            throw ValidationException::withMessages([
+                'invoice' => 'Item ini sudah dibuatkan Bill — hapus Bill-nya dulu bila memang keliru.',
+            ]);
+        }
+
+        $invoice = $invoiceItem->invoice;
+        $label   = $invoiceItem->description ?: ($invoiceItem->product_type ?? 'item');
 
         $invoiceItem->delete();
+
+        $this->catatRiwayatPascaApprove(
+            $invoice,
+            "Item Rincian Profit dihapus pasca-approve oleh {$this->namaPengguna()}: {$label}."
+        );
 
         return redirect()->back();
     }
 
-    /** Invoice yang sudah disetujui (masuk Keuangan) terkunci — tidak boleh diubah. */
-    private function ensureEditable(Invoice $invoice): void
+    /** Mencatat satu baris riwayat tour, HANYA bila invoice sudah disetujui (spec D5). */
+    private function catatRiwayatPascaApprove(Invoice $invoice, string $keterangan): void
     {
-        if ($invoice->is_approved) {
-            throw ValidationException::withMessages([
-                'invoice' => 'Invoice sudah disetujui dan masuk Keuangan, tidak bisa diubah. Buat invoice tambahan bila ada perubahan.',
-            ]);
+        if (! $invoice->is_approved) {
+            return;
         }
+
+        $invoice->tour?->histories()->create([
+            'type'            => 'note',
+            'status_snapshot' => $invoice->tour->status,
+            'description'     => $keterangan,
+            'created_by'      => $this->namaPengguna(),
+        ]);
+    }
+
+    private function namaPengguna(): string
+    {
+        return auth()->user()?->name ?? 'Sistem';
+    }
+
+    /** Ringkasan "field lama → baru" untuk field yang benar-benar berubah, dipakai di riwayat tour. */
+    private function ringkasPerubahan(InvoiceItem $item, array $before): string
+    {
+        $label = [
+            'qty' => 'qty', 'nights' => 'nights', 'description' => 'deskripsi',
+            'unit_cost' => 'unit_cost', 'unit_sell' => 'unit_sell',
+            'start_date' => 'tanggal mulai', 'end_date' => 'tanggal selesai',
+        ];
+
+        $perubahan = [];
+        foreach ($before as $field => $nilaiLama) {
+            $nilaiBaru = $item->{$field};
+            if ((string) $nilaiLama !== (string) $nilaiBaru) {
+                $perubahan[] = ($label[$field] ?? $field) . " {$nilaiLama} → {$nilaiBaru}";
+            }
+        }
+
+        return $perubahan ? implode(', ', $perubahan) : 'tidak ada field yang berubah';
     }
 }

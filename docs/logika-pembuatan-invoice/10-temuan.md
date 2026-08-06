@@ -142,22 +142,11 @@ Berkaitan dengan [§10.3](#103-perubahan-pax-tour-dapat-memblokir-persetujuan-ta
 
 ---
 
-## 10.5 Pesan galat menyarankan jalan keluar yang tidak ada
+## 10.5 (Selesai) Pesan galat menyarankan jalan keluar yang tidak ada
 
-**Temuan.** `InvoiceItemController::ensureEditable()` menampilkan:
+**Status: tidak berlaku lagi.** `InvoiceItemController::ensureEditable()` — dan pesan galatnya — dihapus seluruhnya oleh fitur Rincian Profit Tetap Terbuka (D1, lihat [04-rincian-profit.md §4.3](04-rincian-profit.md)). Item Rincian Profit tidak lagi terkunci oleh status approval invoice, jadi tidak ada lagi jalan buntu untuk dikoreksi di sini — sales maupun akuntan/admin tinggal mengedit langsung.
 
-> "Invoice sudah disetujui dan masuk Keuangan, tidak bisa diubah. **Buat invoice tambahan bila ada perubahan.**"
-
-Namun `InvoiceController::store()` menolaknya:
-
-> "Tour ini sudah punya invoice — satu tour hanya boleh satu invoice."
-
-**Dampak.** Sales yang mengikuti saran pada pesan pertama akan menemui penolakan pada pesan kedua, tanpa jalan keluar lain. Setelah invoice disetujui dan ternyata ada kekeliruan nominal, tidak ada mekanisme koreksi apa pun di aplikasi — hanya intervensi database.
-
-**Dua arah penyelesaian**, keduanya keputusan bisnis, bukan teknis:
-
-- **Terima aturan satu invoice**, lalu ubah pesan galat agar tidak menjanjikan sesuatu yang tidak ada. Termurah.
-- **Izinkan invoice tambahan** untuk tour yang invoice sebelumnya sudah disetujui. Berdampak luas: penomoran, penjumlahan tagihan, Ringkasan Biaya, dan pelaporan Keuangan semuanya berasumsi satu invoice per tour.
+Temuan ini disimpan sebagai catatan historis (pesan galat lama memang menyarankan "buat invoice tambahan" padahal `InvoiceController::store()` menolaknya dengan "satu tour hanya boleh satu invoice" — ketidakkonsistenan itulah yang memicu keputusan D1). Aturan **satu tour satu invoice** untuk invoice itu sendiri (bukan item Rincian Profit-nya) tetap tidak berubah — lihat §6.5 di [06-penguncian-setelah-disetujui.md](06-penguncian-setelah-disetujui.md).
 
 ---
 

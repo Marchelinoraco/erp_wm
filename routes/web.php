@@ -162,17 +162,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/invoices/{invoice}/due-date',  [InvoiceController::class, 'updateDueDate'])->name('invoices.due-date');
         Route::post('/invoices/{invoice}/approve',    [InvoiceController::class, 'approve'])->name('invoices.approve');
         Route::delete('/invoices/{invoice}',          [InvoiceController::class, 'destroy'])->name('invoices.destroy');
-        Route::post('/invoices/{invoice}/items',      [InvoiceItemController::class, 'store'])->name('invoice-items.store');
-        Route::post('/invoices/{invoice}/items/bulk', [InvoiceItemController::class, 'bulkStore'])->name('invoice-items.bulk');
-        Route::patch('/invoices/{invoice}/items/bulk', [InvoiceItemController::class, 'bulkUpdate'])->name('invoice-items.bulk-update');
-        Route::patch('/invoice-items/{invoiceItem}',  [InvoiceItemController::class, 'update'])->name('invoice-items.update');
-        Route::delete('/invoice-items/{invoiceItem}', [InvoiceItemController::class, 'destroy'])->name('invoice-items.destroy');
 
         // Sales bisa catat pembayaran / DP langsung dari panel tour
         Route::post('/invoices/{invoice}/deposits',          [InvoicePaymentController::class, 'store'])->name('invoice-deposits.store');
         Route::delete('/invoice-deposits/{invoicePayment}',  [InvoicePaymentController::class, 'destroy'])->name('invoice-deposits.destroy');
 
-        // Permintaan biaya tambahan (Rincian Profit terkunci setelah approve — ini jalur terpisah)
+        // Permintaan biaya tambahan — jalur pelaporan terpisah dari Rincian Profit
+        // (item invoice), yang sejak fitur Rincian Profit Tetap Terbuka bisa diedit
+        // kapan pun oleh sales/akuntan/admin (lihat grup role:admin,sales,accountant
+        // untuk invoice-items.* di bawah).
         Route::post('/tours/{tour}/cost-requests',    [CostRequestController::class, 'store'])->name('cost-requests.store');
         Route::delete('/cost-requests/{costRequest}', [CostRequestController::class, 'destroy'])->name('cost-requests.destroy');
 
@@ -194,6 +192,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/tours/{tour}/assignments',   [AssignmentController::class, 'store'])->name('assignments.store');
         Route::patch('/assignments/{assignment}',  [AssignmentController::class, 'update'])->name('assignments.update');
         Route::delete('/assignments/{assignment}', [AssignmentController::class, 'destroy'])->name('assignments.destroy');
+    });
+
+    // Rincian Profit (InvoiceItem) tetap bisa diedit setelah invoice disetujui —
+    // sales DAN akuntan/admin (spec 2026-08-05-rincian-profit-tetap-terbuka-design.md D2).
+    Route::middleware('role:admin,sales,accountant')->group(function () {
+        Route::post('/invoices/{invoice}/items',       [InvoiceItemController::class, 'store'])->name('invoice-items.store');
+        Route::post('/invoices/{invoice}/items/bulk',  [InvoiceItemController::class, 'bulkStore'])->name('invoice-items.bulk');
+        Route::patch('/invoices/{invoice}/items/bulk', [InvoiceItemController::class, 'bulkUpdate'])->name('invoice-items.bulk-update');
+        Route::patch('/invoice-items/{invoiceItem}',   [InvoiceItemController::class, 'update'])->name('invoice-items.update');
+        Route::delete('/invoice-items/{invoiceItem}',  [InvoiceItemController::class, 'destroy'])->name('invoice-items.destroy');
     });
 
     // Reminders — admin + sales

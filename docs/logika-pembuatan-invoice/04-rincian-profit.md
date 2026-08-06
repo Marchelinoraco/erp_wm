@@ -41,13 +41,17 @@ Nilai lokal ini hanya untuk tampilan; yang tersimpan tetap hasil hitungan databa
 
 ## 4.3 Kondisi umum semua operasi item
 
+Sejak keputusan D1 (lihat [spec Rincian Profit Tetap Terbuka](../superpowers/specs/2026-08-05-rincian-profit-tetap-terbuka-design.md)), item Rincian Profit **tidak lagi terkunci oleh status approval invoice**. `InvoiceItemController::ensureEditable()` sudah dihapus seluruhnya; `store`, `bulkStore`, `bulkUpdate`, `update`, dan `destroy` tidak lagi memeriksa `approved_at` sebelum mengizinkan perubahan.
+
 | # | Kondisi | Ditegakkan di | Pesan galat |
 |---|---|---|---|
-| K-30 | `approved_at` masih `null` | `InvoiceItemController::ensureEditable()` | "Invoice sudah disetujui dan masuk Keuangan, tidak bisa diubah. Buat invoice tambahan bila ada perubahan." |
+| K-30 | Item sudah punya `Bill` terkait | `InvoiceItemController::destroy()` | "Item ini sudah dibuatkan Bill — hapus Bill-nya dulu bila memang keliru." |
 
-Berlaku untuk `store`, `bulkStore`, `bulkUpdate`, `update`, dan `destroy` — kelimanya memanggil `ensureEditable()` lebih dulu.
+K-30 hanya berlaku untuk `destroy` (D3) — item ber-Bill tetap boleh **diedit** (`update`/`bulkUpdate`), hanya tidak boleh **dihapus** sebelum Bill-nya dihapus lebih dulu.
 
-> Saran "buat invoice tambahan" di pesan galat itu tidak dapat dijalankan; aturan satu tour satu invoice menolaknya. Lihat [10-temuan.md §10.5](10-temuan.md).
+**Siapa yang boleh mengedit.** Middleware route `role:admin,sales,accountant` (lihat `routes/web.php`) — sales dan akuntan/admin, sama-sama lewat komponen bersama `RincianProfitEditor.vue` (D2, D8).
+
+**Riwayat tour.** Setiap tambah/ubah/hapus item **setelah** invoice disetujui dicatat satu baris di riwayat tour (`InvoiceItemController::catatRiwayatPascaApprove()`, D5). Edit **sebelum** approve tidak dicatat — itu area kerja normal sales.
 
 ## 4.4 Menambah item dari produk
 

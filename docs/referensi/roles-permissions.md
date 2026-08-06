@@ -49,7 +49,8 @@ Akses penuh ke **semua route berikut** (selalu ikut disertakan di setiap grup ro
 - **Laporan**: Arus Kas, Jurnal, Buku Besar, Rekap, Neraca, Laba Rugi, Saldo Akun Kas (+ semua unduhan PDF-nya)
 - **Aset Tetap, Koreksi Fiskal (PPh Badan), Hutang & Pinjaman** — CRUD penuh
 - **Transaksi manual, Kategori, Akun Kas** — CRUD penuh (kelola akun kas & kategori pembukuan)
-- **Invoice** (dari sisi Keuangan) — hanya update status/tanggal/catatan (`invoices.update`) dan catat/hapus pembayaran AR — **tidak bisa membuat/menyetujui/mengubah rincian item invoice**, itu dikunci ke sales
+- **Invoice** (dari sisi Keuangan) — hanya update status/tanggal/catatan (`invoices.update`) dan catat/hapus pembayaran AR — **tidak bisa membuat/menyetujui invoice**
+- **Rincian Profit (item invoice)** — bisa tambah, ubah, dan hapus item langsung dari `Finance/Tour.vue` (sejak fitur Rincian Profit Tetap Terbuka, sama seperti sales — lihat `role:admin,sales,accountant` di `routes/web.php` untuk `invoice-items.*`); perubahan setelah invoice disetujui dicatat ke riwayat tour
 - **Bill (AP ke supplier)** — CRUD penuh, catat/hapus pembayaran
 - **Biaya Tambahan** — **approve/reject** pengajuan sales (satu-satunya role yang bisa, selain admin)
 - **Rekening pembayaran** — tambah, edit, **dan hapus** (satu-satunya non-admin yang boleh hapus)
@@ -86,6 +87,7 @@ Itu saja — role paling sempit setelah field. **Tidak** bisa akses Keuangan, To
 |---|---|
 | `/profile` (edit profil sendiri) | **Semua role yang login** |
 | PDF invoice customer (preview/download/rincian profit) | admin, sales, **accountant** |
+| Rincian Profit (item invoice) — tambah/ubah/hapus, kapan pun (draft maupun sudah disetujui) | admin, sales, **accountant** |
 | Rekening pembayaran — tambah/edit | admin, sales, **accountant** |
 | Rekening pembayaran — **hapus** | admin, **accountant** saja (sales dikecualikan sejak commit `b972b50`) |
 | Booking operasional | admin, sales, **operation** |
