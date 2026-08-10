@@ -582,7 +582,9 @@ function addProduct(product, extra = {}) {
                     <div><span class="text-muted-foreground">Guest Name:</span> <span class="font-medium">{{ inv.guest_name || guestName }}</span></div>
                     <div><span class="text-muted-foreground">Reservation:</span> <span class="font-medium">{{ reservationLabel }}</span></div>
                     <div><span class="text-muted-foreground">Date:</span> <span class="font-medium">{{ dateLabel }}</span></div>
-                    <div><span class="text-muted-foreground">Total Pax:</span> <span class="font-medium">{{ tourPax || '—' }} pax</span></div>
+                    <!-- Disembunyikan untuk komposisi line_items: PDF pun tidak
+                         mencetaknya, dan blok ini pratinjau header PDF. -->
+                    <div v-if="!isLineItems"><span class="text-muted-foreground">Total Pax:</span> <span class="font-medium">{{ tourPax || '—' }} pax</span></div>
                 </div>
 
                 <!-- ── EDITOR PROFORMA (belum disetujui) ── -->

@@ -187,7 +187,13 @@
                             @if($resvDate)
                             <tr><td class="k">Date</td><td class="s">:</td><td>{{ $resvDate }}</td></tr>
                             @endif
-                            @if($tour?->pax)
+                            {{-- Baris pax dilewati untuk jenis yang total-nya tersusun
+                                 dari baris bernominal: di sana pax tidak ikut menghitung
+                                 apa pun (base 0, lihat Invoice::syncProformaTotal), jadi
+                                 mencetaknya cuma menyatakan angka yang tidak menjelaskan
+                                 dokumen ini. Patokannya aturan jenis, BUKAN tour.pax —
+                                 kolom itu tetap terisi untuk semua jenis. --}}
+                            @if($tour?->pax && !($fromLineItems ?? false))
                             <tr><td class="k">Total Pax</td><td class="s">:</td><td>{{ $tour->pax }} pax</td></tr>
                             @endif
 

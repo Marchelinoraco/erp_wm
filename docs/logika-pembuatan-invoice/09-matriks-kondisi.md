@@ -142,6 +142,10 @@ Rujukan cepat seluruh kondisi yang disebut di dokumen ini. Kolom **Kekuatan** me
 | K-120 | Selain itu | Turunan | Ringkasan Biaya dari `tour_items` |
 | K-121 | `pax = 1` | Turunan | `unit_price` = nilai tagihan |
 | K-122 | `pax > 1` pada tipe non-pax | Turunan | total berlipat |
+| K-123 | `totalComposition() === 'line_items'` | Turunan | PDF tanpa baris "Total Pax" |
+| K-124 | Komposisi `per_unit` + `tour.pax` terisi | Turunan | PDF dengan baris "Total Pax" |
+
+K-121/K-122 tidak lagi berlaku untuk `rental` sejak jenis itu memakai komposisi `line_items` — lihat [08 §8.7](08-perbedaan-per-tipe.md).
 
 ## 9.9 Ringkasan kekuatan penegakan
 
@@ -149,7 +153,7 @@ Rujukan cepat seluruh kondisi yang disebut di dokumen ini. Kolom **Kekuatan** me
 |---|:---:|---|
 | Server | 34 | tidak bisa dilewati |
 | UI saja | 30 | permintaan langsung ke API tetap lolos |
-| Turunan | 29 | nilai hitungan, bukan penjaga |
-| **Total** | **93** | K-01 s/d K-122 |
+| Turunan | 31 | nilai hitungan, bukan penjaga |
+| **Total** | **95** | K-01 s/d K-124 |
 
 Kondisi bertanda **UI saja** yang paling berdampak pada aturan bisnis: **K-01** (status confirmed) dan **K-90** (pembayaran hanya setelah disetujui). Keduanya dibahas di [10-temuan.md](10-temuan.md).

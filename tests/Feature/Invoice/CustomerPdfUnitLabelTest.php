@@ -147,4 +147,39 @@ class CustomerPdfUnitLabelTest extends TestCase
 
         $this->assertStringContainsString('>Price<', $html);
     }
+
+    public function test_total_pax_tidak_dicetak_untuk_komposisi_baris_bernominal(): void
+    {
+        // Rental tidak mengenal jumlah peserta (§8.7) dan sejak Fase 3 pax tidak
+        // ikut menghitung totalnya sama sekali — base-nya 0, seluruh nilai
+        // datang dari baris bernominal. Mencetak "Total Pax : 10 pax" ke
+        // customer menyatakan angka yang tidak menjelaskan apa pun di dokumen
+        // itu. Patokannya aturan jenis (totalComposition), BUKAN tour.pax:
+        // nilainya tetap terisi di database untuk semua jenis.
+        $invoice = $this->makeInvoice($this->makeTour('rental', ['pax' => 10]), 2_050_000, [
+            'description_lines' => self::BARIS_RENTAL,
+        ]);
+
+        $html = $this->renderInvoice($invoice, unitPrice: 2_050_000, pax: 10, lines: self::BARIS_RENTAL);
+
+        $this->assertStringNotContainsString('Total Pax', $html);
+        $this->assertStringNotContainsString('10 pax', $html);
+        // Rinciannya tetap utuh — yang hilang hanya baris pax, bukan isi invoice.
+        $this->assertStringContainsString('Innova Reborn', $html);
+    }
+
+    public function test_total_pax_tetap_dicetak_untuk_jenis_per_unit(): void
+    {
+        // Pasangan pengunci: pada jenis per_unit pax justru MENJELASKAN totalnya
+        // (baris "Price : × N pax"), jadi menghapusnya di sana akan membuang
+        // keterangan yang customer butuhkan.
+        foreach (array_diff(self::SALES_TYPES, ['rental']) as $type) {
+            $invoice = $this->makeInvoice($this->makeTour($type, ['pax' => 7]), 100_000);
+
+            $html = $this->renderInvoice($invoice, unitPrice: 100_000, pax: 7);
+
+            $this->assertStringContainsString('Total Pax', $html, "Jenis {$type}");
+            $this->assertStringContainsString('7 pax', $html, "Jenis {$type}");
+        }
+    }
 }
