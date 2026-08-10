@@ -9,6 +9,7 @@ Peta seluruh dokumentasi proyek. **Mulai dari [ikhtisar-proyek.md](ikhtisar-proy
 | **[ikhtisar-proyek.md](ikhtisar-proyek.md)** | Gambaran umum & status proyek — titik masuk utama |
 | [`../CHANGELOG.md`](../CHANGELOG.md) | Riwayat perubahan yang terasa oleh pengguna, per tanggal |
 | **[design-system/](design-system/README.md)** | *Bagaimana tiap fitur bekerja* — dokumentasi per modul (alur bisnis, model data, route/controller, pola UI), ditulis dari pembacaan kode |
+| **[panduan-pengguna/](panduan-pengguna/README.md)** | *Bagaimana memakai tiap fitur* — panduan operasional langkah demi langkah untuk staf (sales, akuntan, admin), berbasis skenario |
 | **[logika-pembuatan-invoice/](logika-pembuatan-invoice/README.md)** | Alur pembuatan invoice dipecah per tahap, tiap kondisi bernomor rujukan dan ditandai ditegakkan di server atau hanya UI |
 | **[desain/](desain/README.md)** | Dokumen desain / usulan perubahan arsitektur (sebelum & selama implementasi) |
 | **[rencana/](rencana/README.md)** | Rencana implementasi bertahap (task-by-task) untuk fitur/refactor tertentu |
@@ -18,6 +19,7 @@ Peta seluruh dokumentasi proyek. **Mulai dari [ikhtisar-proyek.md](ikhtisar-proy
 
 - **design-system/** menjelaskan fitur **sebagaimana berjalan sekarang** (as-built) — untuk memahami sistem yang ada.
 - **desain/** berisi **usulan/keputusan arsitektur** untuk perubahan — sering berpasangan dengan sebuah plan di **rencana/**.
+- **panduan-pengguna/** menjelaskan **cara memakai** fitur untuk staf non-developer — `design-system/` menjawab *bagaimana fitur bekerja*, `panduan-pengguna/` menjawab *bagaimana saya memakainya*.
 
 ## Konvensi
 

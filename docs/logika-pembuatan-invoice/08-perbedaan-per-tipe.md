@@ -130,7 +130,7 @@ Diperiksa satu per satu, bukan diasumsikan:
 
 | Aspek | Bukti |
 |---|---|
-| PDF invoice ke customer | `invoice.blade.php` tidak punya satu pun percabangan tipe |
+| PDF invoice ke customer | `invoice.blade.php` tidak punya satu pun percabangan **tipe**. Dua baris memang bersyarat — "Price" dan "Total Pax" — tetapi syaratnya `$fromLineItems`, yaitu `totalComposition()` dari registry, bukan `type === 'rental'`. Lihat §8.7 |
 | Tiga tahap alur dan seluruh gerbangnya | `InvoiceController` tidak membaca `tour->type` di `store`, `updateProforma`, `lockBaseline`, `approve`, `destroy` |
 | Rumus `total = unit_price × pax` | `syncProformaTotal()` tidak membaca tipe |
 | Penanganan mata uang dan kurs | sama di semua jalur |
@@ -144,13 +144,30 @@ Satu-satunya pembacaan `tour->type` di `InvoiceController` ada di `profitPdf()` 
 
 ## 8.7 Catatan untuk tipe tanpa konsep "pax"
 
-Rental, document, dan ticketing tidak mengenal jumlah peserta secara alami. Karena `total = unit_price × pax` berlaku tanpa kecuali:
+Rental, document, dan ticketing tidak mengenal jumlah peserta secara alami.
+
+**Rental sudah lepas dari pax sepenuhnya.** Sejak `TransportRule::totalComposition() === 'line_items'`, base perhitungannya `0.0` dan seluruh nilai datang dari baris bernominal — `pax` tidak mengalikan apa pun. K-121/K-122 di bawah **tidak lagi berlaku untuk rental**.
+
+Untuk **document** dan **ticketing** (dan `guide`), `total = unit_price × pax` masih berlaku tanpa kecuali:
 
 | # | Kondisi | Akibat praktis |
 |---|---|---|
 | K-121 | `pax = 1` | `unit_price` efektif **adalah** nilai tagihan |
 | K-122 | `pax > 1` pada tipe ini | total ikut berlipat — pastikan memang diinginkan |
 
-PDF invoice tetap menampilkan baris "Total Pax" untuk semua tipe, karena template tidak membedakan tipe.
+### Baris "Total Pax" di PDF
+
+> **Diperbarui 10 Agu 2026.** Dulu baris ini tercetak untuk ketujuh tipe karena template tidak bercabang. Sekarang dilewati bila `$fromLineItems` — jadi rental tidak lagi mencetak "Total Pax : N pax".
+
+| # | Kondisi | PDF customer |
+|---|---|---|
+| K-123 | `totalComposition() === 'line_items'` (rental) | baris "Total Pax" **tidak** dicetak |
+| K-124 | `per_unit` (enam tipe lain), `tour.pax` terisi | baris "Total Pax" dicetak |
+
+Syaratnya sengaja aturan jenis, bukan `tour.pax` maupun `type === 'rental'`: `tours.pax` tetap terisi untuk semua jenis (`syncProformaTotal()` selalu menyimpannya), sehingga nilai kolom itu tidak bisa dipakai menyimpulkan apa pun. Dikunci `CustomerPdfUnitLabelTest`.
+
+Alasannya sama dengan pengecualian baris "Price": pada rental, pax tidak ikut menghitung total, jadi mencetaknya hanya menyatakan angka yang tidak menjelaskan dokumen tersebut. Pada enam tipe lain pax justru **menjelaskan** totalnya (`Price : IDR X × N pax`), jadi di sana baris itu tetap perlu.
+
+**Yang belum diubah:** nama guest masih menjadi `<customer> & Party` bila `tour.pax > 1` ([invoice.blade.php:101](../../resources/views/invoice.blade.php#L101)) — termasuk untuk rental. Itu soal siapa yang bepergian, bukan satuan tagihan, jadi dibiarkan sampai ada keputusan tersendiri.
 
 Label di panel juga tetap berbunyi "Harga / pax" untuk keempat tipe ini, meskipun yang sebenarnya ditagih adalah per hari, per unit, atau per dokumen. Bila `tour.pax` bernilai selain 1, sales terpaksa membagi nilai tagihan dengan jumlah pax agar totalnya benar. Dibahas lengkap di [10-temuan.md §10.4](10-temuan.md).
