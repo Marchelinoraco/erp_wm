@@ -49,6 +49,12 @@ abstract class BaseSalesLineRule implements SalesLineInvoiceRule
         return false;
     }
 
+    /** Mayoritas jenis memakai tata letak lama: label di kiri, tanggal menyatu dengan keterangan. */
+    public function chargeLinesDateFirstInPdf(): bool
+    {
+        return false;
+    }
+
     /** Ukuran rombongan, minimal 1. Sumber sama dengan rumus lama. */
     protected function paxOf(Invoice $invoice): int
     {

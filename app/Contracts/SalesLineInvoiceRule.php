@@ -68,4 +68,14 @@ interface SalesLineInvoiceRule
      * biaya dokumen atau izin terjadi pada satu titik tanggal.
      */
     public function chargeLinesUseDateRange(): bool;
+
+    /**
+     * true = di PDF customer, baris bernominal menaruh rentang tanggal di kolom
+     * kiri (tempat label) dan menurunkan nama/unit ke kolom kanan.
+     *
+     * SENGAJA terpisah dari chargeLinesUseDateRange(): hotel juga punya tanggal
+     * mulai & selesai, tapi tata letak PDF-nya tidak ikut berubah. Melebur
+     * keduanya berarti mengubah dokumen hotel tanpa ada yang memintanya.
+     */
+    public function chargeLinesDateFirstInPdf(): bool;
 }
