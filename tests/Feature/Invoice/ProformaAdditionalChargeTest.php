@@ -103,4 +103,55 @@ class ProformaAdditionalChargeTest extends TestCase
         $this->assertNotNull($invoice->total_idr);
         $this->assertEquals(0, $invoice->total_idr, 'Non-IDR: total_idr tetap menunggu kurs sampai disetujui');
     }
+
+    public function test_tanggal_selesai_baris_tagihan_tersimpan_dan_terbaca_ulang(): void
+    {
+        $tour    = $this->makeTour('rental', ['pax' => 4]);
+        $invoice = $this->makeInvoice($tour, 0);
+
+        $this->actingAs($this->salesUser())
+            ->patch(route('invoices.proforma', $invoice), [
+                'currency'          => 'IDR',
+                'unit_price'        => 0,
+                'description_lines' => [
+                    [
+                        'label'    => 'Innova Reborn',
+                        'date'     => '2026-08-15',
+                        'date_end' => '2026-08-17',
+                        'detail'   => 'Dengan Sopir',
+                        'amount'   => 1_700_000,
+                    ],
+                ],
+            ])
+            ->assertRedirect();
+
+        $baris = $invoice->fresh()->description_lines[0];
+
+        $this->assertSame('2026-08-15', $baris['date']);
+        $this->assertSame('2026-08-17', $baris['date_end'], 'date_end tidak boleh dibuang validasi');
+    }
+
+    public function test_baris_tanpa_tanggal_selesai_tetap_tersimpan(): void
+    {
+        // Jaminan bahwa date_end benar-benar opsional: jenis selain rental/hotel
+        // tidak pernah mengirimnya sama sekali.
+        $tour    = $this->makeTour('tour', ['pax' => 4]);
+        $invoice = $this->makeInvoice($tour, 250_000);
+
+        $this->actingAs($this->salesUser())
+            ->patch(route('invoices.proforma', $invoice), [
+                'currency'          => 'IDR',
+                'unit_price'        => 250_000,
+                'description_lines' => [
+                    ['label' => 'Dokumen', 'date' => '2026-08-15', 'detail' => 'Visa', 'amount' => 200_000],
+                ],
+            ])
+            ->assertRedirect();
+
+        $baris = $invoice->fresh()->description_lines[0];
+
+        $this->assertSame('2026-08-15', $baris['date']);
+        $this->assertArrayNotHasKey('date_end', $baris);
+        $this->assertEquals(1_200_000, $invoice->fresh()->total, '250.000 × 4 + 200.000');
+    }
 }
