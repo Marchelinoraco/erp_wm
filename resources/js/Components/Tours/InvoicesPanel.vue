@@ -73,7 +73,7 @@ watch(
                     : [],
                 // Baris dengan amount = "Biaya Tambahan" — ikut menambah total di luar harga/pax.
                 additional_lines: Array.isArray(inv.description_lines)
-                    ? inv.description_lines.filter(l => l.amount !== undefined && l.amount !== null).map(l => ({ label: l.label ?? '', date: l.date ?? '', detail: l.detail ?? '', amount: Number(l.amount) || 0 }))
+                    ? inv.description_lines.filter(l => l.amount !== undefined && l.amount !== null).map(l => ({ label: l.label ?? '', date: l.date ?? '', date_end: l.date_end ?? '', detail: l.detail ?? '', amount: Number(l.amount) || 0 }))
                     : [],
                 // Kosong di server = tampilkan semua rekening aktif → checkbox mulai tercentang semua
                 bank_account_ids: Array.isArray(inv.bank_account_ids) && inv.bank_account_ids.length
@@ -125,6 +125,11 @@ const profitFromRevenue = computed(() => props.salesLine.profitFromRevenue)
 // D6: rental menyusun total dari baris bernominal, jadi blok "Harga / pax"
 // tidak berlaku dan baris bernominal naik jadi bagian utama.
 const isLineItems = computed(() => props.salesLine.totalComposition === 'line_items')
+
+// Rental & hotel menagih layanan yang berjalan sepanjang rentang tanggal.
+// Aturannya datang dari backend (SalesLineRuleRegistry), BUKAN percabangan
+// tipe di sini — lihat spec §4.
+const useDateRange = computed(() => props.salesLine.chargeLinesUseDateRange)
 
 // R1/§5c: invoice rental lama yang nilainya masih di unit_price. Totalnya
 // akan terbaca Rp0 sampai sales memasukkan rinciannya sebagai baris.
@@ -293,7 +298,7 @@ function saveProforma(invId) {
         ...f,
         description_lines: [
             ...f.description_lines,
-            ...f.additional_lines.map(l => ({ label: l.label, date: l.date ?? '', detail: l.detail, amount: Number(l.amount) || 0 })),
+            ...f.additional_lines.map(l => ({ label: l.label, date: l.date ?? '', date_end: l.date_end ?? '', detail: l.detail, amount: Number(l.amount) || 0 })),
         ],
     }
     delete payload.additional_lines
@@ -320,7 +325,7 @@ function removeLine(invId, idx) {
     saveProforma(invId)
 }
 function addAdditionalLine(invId) {
-    proformaForms[invId].additional_lines.push({ label: '', date: '', detail: '', amount: '' })
+    proformaForms[invId].additional_lines.push({ label: '', date: '', date_end: '', detail: '', amount: '' })
 }
 function removeAdditionalLine(invId, idx) {
     proformaForms[invId].additional_lines.splice(idx, 1)
@@ -660,12 +665,33 @@ function addProduct(product, extra = {}) {
                                 : 'Belum ada biaya tambahan. Klik "+ Biaya" untuk menambah (mis. biaya dokumen, izin khusus).' }}
                         </div>
                         <div v-else class="divide-y">
+                            <!-- Input bertipe date tidak bisa punya placeholder, jadi dua
+                                 kotak tanggal berdampingan butuh penanda kolom sendiri. -->
+                            <div v-if="useDateRange"
+                                class="flex flex-wrap items-center gap-2 px-3 py-1.5 bg-muted/20 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                                <span class="w-36">Mulai</span>
+                                <span class="w-36">Selesai</span>
+                                <span class="w-32">Nama/Unit</span>
+                                <span class="flex-1 min-w-[10rem]">Keterangan</span>
+                                <span class="w-36 text-right">Nominal</span>
+                                <span class="w-4"></span>
+                            </div>
                             <div v-for="(ln, idx) in proformaForms[inv.id].additional_lines" :key="idx"
                                 class="flex flex-wrap items-start gap-2 px-3 py-2">
-                                <input type="text" v-model="ln.label" @blur="saveProforma(inv.id)" placeholder="Label (mis. Dokumen)"
-                                    class="w-32 border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
-                                <input type="date" v-model="ln.date" @blur="saveProforma(inv.id)"
-                                    class="w-36 border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                                <template v-if="useDateRange">
+                                    <input type="date" v-model="ln.date" @blur="saveProforma(inv.id)"
+                                        class="w-36 border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                                    <input type="date" v-model="ln.date_end" @blur="saveProforma(inv.id)"
+                                        class="w-36 border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                                    <input type="text" v-model="ln.label" @blur="saveProforma(inv.id)" placeholder="Nama/Unit (mis. Avanza)"
+                                        class="w-32 border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                                </template>
+                                <template v-else>
+                                    <input type="text" v-model="ln.label" @blur="saveProforma(inv.id)" placeholder="Label (mis. Dokumen)"
+                                        class="w-32 border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                                    <input type="date" v-model="ln.date" @blur="saveProforma(inv.id)"
+                                        class="w-36 border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                                </template>
                                 <input type="text" v-model="ln.detail" @blur="saveProforma(inv.id)" placeholder="Keterangan"
                                     class="flex-1 min-w-[10rem] border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
                                 <input type="number" v-model="ln.amount" @blur="saveProforma(inv.id)" min="0" placeholder="Nominal"
