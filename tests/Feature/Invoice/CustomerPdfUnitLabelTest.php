@@ -113,8 +113,62 @@ class CustomerPdfUnitLabelTest extends TestCase
 
         $html = $this->renderInvoice($invoice, unitPrice: 2_050_000, pax: 10, lines: self::BARIS_RENTAL);
 
-        $this->assertStringContainsString('2026-07-22', $html);
-        $this->assertStringContainsString('2026-07-25', $html);
+        // Tanggal ISO kini ditulis d/m/Y untuk customer, bukan mentah.
+        $this->assertStringContainsString('22/07/2026', $html);
+        $this->assertStringContainsString('25/07/2026', $html);
+        $this->assertStringNotContainsString('2026-07-22', $html);
+    }
+
+    /** Baris rental dengan periode sewa penuh — kasus yang fitur ini layani. */
+    private const BARIS_RENTAL_BERENTANG = [
+        ['label' => 'Innova Reborn', 'date' => '2026-08-15', 'date_end' => '2026-08-17', 'detail' => 'Dengan Sopir', 'amount' => 1_700_000],
+        ['label' => 'Avanza', 'date' => '2026-08-16', 'date_end' => '2026-08-17', 'detail' => 'sopir', 'amount' => 1_200_000],
+    ];
+
+    public function test_baris_bernominal_mencetak_rentang_tanggal(): void
+    {
+        $invoice = $this->makeInvoice($this->makeTour('rental', ['pax' => 4]), 2_900_000, [
+            'description_lines' => self::BARIS_RENTAL_BERENTANG,
+        ]);
+
+        $html = $this->renderInvoice($invoice, unitPrice: 2_900_000, pax: 4, lines: self::BARIS_RENTAL_BERENTANG);
+
+        $this->assertStringContainsString('15/08/2026 – 17/08/2026', $html);
+        $this->assertStringContainsString('16/08/2026 – 17/08/2026', $html);
+    }
+
+    public function test_tanpa_tanggal_selesai_tidak_ada_tanda_pisah_menggantung(): void
+    {
+        $baris = [
+            ['label' => 'Avanza', 'date' => '2026-08-15', 'detail' => 'sopir', 'amount' => 900_000],
+        ];
+
+        $invoice = $this->makeInvoice($this->makeTour('rental', ['pax' => 4]), 900_000, [
+            'description_lines' => $baris,
+        ]);
+
+        $html = $this->renderInvoice($invoice, unitPrice: 900_000, pax: 4, lines: $baris);
+
+        $this->assertStringContainsString('15/08/2026', $html);
+        $this->assertStringNotContainsString('15/08/2026 –', $html);
+    }
+
+    public function test_tanggal_teks_bebas_pada_invoice_lama_tidak_berubah(): void
+    {
+        // CostRequestController::appendAdditionalCharge() menulis format 'M d, Y'.
+        // Memformat ulang nilai seperti ini akan mengubah tampilan invoice yang
+        // sudah terbit — justru yang paling harus dihindari.
+        $baris = [
+            ['label' => 'Additional', 'date' => 'Aug 15, 2026', 'detail' => 'Biaya tambahan disetujui', 'amount' => 500_000],
+        ];
+
+        $invoice = $this->makeInvoice($this->makeTour('tour', ['pax' => 4]), 1_000_000, [
+            'description_lines' => $baris,
+        ]);
+
+        $html = $this->renderInvoice($invoice, unitPrice: 1_000_000, pax: 4, lines: $baris);
+
+        $this->assertStringContainsString('Aug 15, 2026', $html);
     }
 
     public function test_baris_price_tidak_dicetak_untuk_komposisi_baris_bernominal(): void
