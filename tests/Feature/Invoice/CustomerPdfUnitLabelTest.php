@@ -58,6 +58,13 @@ class CustomerPdfUnitLabelTest extends TestCase
             'fromLineItems' => app(\App\Services\SalesLine\SalesLineRuleRegistry::class)
                 ->for($segar->tour?->type ?? 'tour')
                 ->totalComposition() === 'line_items',
+            // DITURUNKAN juga, dengan alasan yang sama seperti fromLineItems di
+            // atas: tata letak kolom PDF ditentukan aturan jenis, dan test yang
+            // boleh memilih nilainya sendiri akan menyembunyikan ketidakcocokan
+            // dengan InvoiceController::build().
+            'dateFirstLines' => app(\App\Services\SalesLine\SalesLineRuleRegistry::class)
+                ->for($segar->tour?->type ?? 'tour')
+                ->chargeLinesDateFirstInPdf(),
         ], $extra))->render();
     }
 
@@ -189,6 +196,85 @@ class CustomerPdfUnitLabelTest extends TestCase
 
         $this->assertStringContainsString('15/08/2026', $html);
         $this->assertStringNotContainsString('2026-08-15', $html);
+    }
+
+    /** Rincian rental berperiode — kasus yang tata letak kolom baru ini layani. */
+    private const BARIS_RENTAL_KOLOM = [
+        ['label' => 'Innova Reborn', 'date' => '2026-08-15', 'date_end' => '2026-08-16', 'detail' => 'Dengan Sopir', 'amount' => 1_700_000],
+        ['label' => 'Avanza', 'date' => '2026-08-16', 'date_end' => '2026-08-17', 'detail' => 'sopir', 'amount' => 1_200_000],
+    ];
+
+    public function test_pdf_rental_menaruh_rentang_tanggal_di_kolom_kiri(): void
+    {
+        // Urutannya mengikuti form Rincian Tagihan: periode dulu, baru unitnya.
+        $invoice = $this->makeInvoice($this->makeTour('rental', ['pax' => 4]), 2_900_000, [
+            'description_lines' => self::BARIS_RENTAL_KOLOM,
+        ]);
+
+        $html = $this->renderInvoice($invoice, unitPrice: 2_900_000, pax: 4, lines: self::BARIS_RENTAL_KOLOM);
+
+        $this->assertStringContainsString('<td class="k">15/08/2026 – 16/08/2026</td>', $html);
+        $this->assertStringContainsString('<td class="k">16/08/2026 – 17/08/2026</td>', $html);
+        // Nama unit turun ke kolom kanan — tidak lagi menempati kolom label.
+        $this->assertStringNotContainsString('<td class="k">Innova Reborn</td>', $html);
+        $this->assertStringContainsString('Innova Reborn', $html);
+        $this->assertStringContainsString('Dengan Sopir', $html);
+    }
+
+    public function test_pdf_selain_rental_mempertahankan_tata_letak_lama(): void
+    {
+        // Hotel juga punya tanggal mulai & selesai di form, tapi tata letak
+        // PDF-nya TIDAK ikut berubah — hanya rental yang diminta. Pengunci
+        // terpenting fitur ini: satu permintaan tidak boleh diam-diam menyeret
+        // jenis penjualan lain.
+        $baris = [
+            ['label' => 'Deluxe Room', 'date' => '2026-08-15', 'date_end' => '2026-08-17', 'detail' => 'Twin bed', 'amount' => 3_000_000],
+        ];
+
+        $invoice = $this->makeInvoice($this->makeTour('hotel', ['pax' => 2]), 3_000_000, [
+            'description_lines' => $baris,
+        ]);
+
+        $html = $this->renderInvoice($invoice, unitPrice: 3_000_000, pax: 2, lines: $baris);
+
+        $this->assertStringContainsString('<td class="k">Deluxe Room</td>', $html);
+        $this->assertStringNotContainsString('<td class="k">15/08/2026 – 17/08/2026</td>', $html);
+        // Tanggalnya tetap tercetak; yang tidak berubah hanyalah tempatnya.
+        $this->assertStringContainsString('15/08/2026 – 17/08/2026', $html);
+    }
+
+    public function test_baris_rental_tanpa_tanggal_tetap_memakai_nama_sebagai_label(): void
+    {
+        // Kolom kiri tidak boleh pernah kosong. Baris rental tanpa tanggal
+        // (mis. biaya parkir) jatuh kembali ke tata letak lama.
+        $baris = [
+            ['label' => 'Biaya parkir', 'detail' => 'Tol & parkir', 'amount' => 150_000],
+        ];
+
+        $invoice = $this->makeInvoice($this->makeTour('rental', ['pax' => 4]), 150_000, [
+            'description_lines' => $baris,
+        ]);
+
+        $html = $this->renderInvoice($invoice, unitPrice: 150_000, pax: 4, lines: $baris);
+
+        $this->assertStringContainsString('<td class="k">Biaya parkir</td>', $html);
+    }
+
+    public function test_kolom_label_hanya_melebar_pada_pdf_rental(): void
+    {
+        // Rentang tanggal tidak muat di 120px. Kolomnya dilebarkan untuk
+        // SELURUH dokumen rental supaya titik dua blok atas tetap sejajar
+        // dengan baris tagihan; dokumen jenis lain tidak tersentuh.
+        $rental = $this->makeInvoice($this->makeTour('rental', ['pax' => 4]), 2_900_000, [
+            'description_lines' => self::BARIS_RENTAL_KOLOM,
+        ]);
+        $htmlRental = $this->renderInvoice($rental, unitPrice: 2_900_000, pax: 4, lines: self::BARIS_RENTAL_KOLOM);
+
+        $tour     = $this->makeInvoice($this->makeTour('tour', ['pax' => 4]), 1_000_000);
+        $htmlTour = $this->renderInvoice($tour, unitPrice: 1_000_000, pax: 4);
+
+        $this->assertStringContainsString('.kv td.k { width: 160px; }', $htmlRental);
+        $this->assertStringContainsString('.kv td.k { width: 120px; }', $htmlTour);
     }
 
     public function test_baris_price_tidak_dicetak_untuk_komposisi_baris_bernominal(): void

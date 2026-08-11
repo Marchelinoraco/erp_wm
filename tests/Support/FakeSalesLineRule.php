@@ -22,6 +22,7 @@ final class FakeSalesLineRule implements SalesLineInvoiceRule
         private string $totalComposition = 'per_unit',
         private string $costingSource = 'tour_items',
         private bool $chargeLinesUseDateRange = false,
+        private bool $chargeLinesDateFirstInPdf = false,
     ) {
     }
 
@@ -59,5 +60,10 @@ final class FakeSalesLineRule implements SalesLineInvoiceRule
     public function chargeLinesUseDateRange(): bool
     {
         return $this->chargeLinesUseDateRange;
+    }
+
+    public function chargeLinesDateFirstInPdf(): bool
+    {
+        return $this->chargeLinesDateFirstInPdf;
     }
 }

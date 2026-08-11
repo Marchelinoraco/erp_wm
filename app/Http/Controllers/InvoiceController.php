@@ -331,6 +331,13 @@ class InvoiceController extends Controller
             'fromLineItems' => app(SalesLineRuleRegistry::class)
                 ->for($invoice->tour?->type ?? 'tour')
                 ->totalComposition() === 'line_items',
+            // Tata letak kolom baris bernominal. Aturannya yang memutuskan,
+            // bukan percabangan tipe di blade — dan sengaja BUKAN turunan dari
+            // fromLineItems: keduanya kebetulan sama-sama benar untuk rental
+            // hari ini, tapi artinya berbeda dan bisa berpisah kapan saja.
+            'dateFirstLines' => app(SalesLineRuleRegistry::class)
+                ->for($invoice->tour?->type ?? 'tour')
+                ->chargeLinesDateFirstInPdf(),
             // Pax milik INVOICE (bukan tour) — invoice suplemen biaya tambahan
             // pakai pax 1 agar baris "harga × pax" cocok dengan totalnya.
             'pax'          => (int) ($invoice->pax ?? $invoice->tour?->pax ?? 0),
