@@ -312,8 +312,9 @@ class InvoiceController extends Controller
 
         $mpdf->SetTitle('Invoice ' . $invoice->number);
 
-        $paid        = (float) $invoice->payments->sum('amount');
-        $outstanding = (float) $invoice->total - $paid;
+        $data        = $this->invoiceViewData($invoice);
+        $paid        = $data['paid'];
+        $outstanding = $data['outstanding'];
 
         // Watermark berdasarkan status pembayaran
         if ($paid > 0) {
@@ -323,7 +324,28 @@ class InvoiceController extends Controller
             $mpdf->watermarkTextAlpha = 0.07;
         }
 
-        $html = view('invoice', [
+        $html = view('invoice', $data)->render();
+
+        $mpdf->WriteHTML($html);
+
+        return $mpdf;
+    }
+
+    /**
+     * Data view PDF invoice. Publik supaya bisa diuji langsung: menyusun ulang
+     * data ini di dalam test hanya akan menguji blade, sementara penyambungan
+     * aturan di sini — bagian yang paling mudah salah — tak tersentuh.
+     */
+    public function invoiceViewData(Invoice $invoice): array
+    {
+        // Satu aturan untuk seluruh dokumen, diselesaikan lewat invoice supaya
+        // mode hitung hotel ikut terbaca — bukan hanya jenis penjualannya.
+        $aturan = app(SalesLineRuleRegistry::class)->forInvoice($invoice);
+
+        $paid        = (float) $invoice->payments->sum('amount');
+        $outstanding = (float) $invoice->total - $paid;
+
+        return [
             'invoice'      => $invoice,
             'company'      => config('quotation.company'),
             'bank'         => $this->bankAccounts($invoice),
@@ -335,26 +357,14 @@ class InvoiceController extends Controller
             // harga satuan yang bermakna — unit_price lamanya sengaja dibiarkan
             // utuh di database (agar banner panel bisa menampilkannya), jadi
             // nilainya TIDAK bisa dipakai menyimpulkan ini. Aturannya yang tahu.
-            'fromLineItems' => app(SalesLineRuleRegistry::class)
-                ->for($invoice->tour?->type ?? 'tour')
-                ->totalComposition() === 'line_items',
-            // Tata letak kolom baris bernominal. Aturannya yang memutuskan,
-            // bukan percabangan tipe di blade — dan sengaja BUKAN turunan dari
-            // fromLineItems: keduanya kebetulan sama-sama benar untuk rental
-            // hari ini, tapi artinya berbeda dan bisa berpisah kapan saja.
-            'dateFirstLines' => app(SalesLineRuleRegistry::class)
-                ->for($invoice->tour?->type ?? 'tour')
-                ->chargeLinesDateFirstInPdf(),
+            'fromLineItems'  => $aturan->totalComposition() === 'line_items',
+            'dateFirstLines' => $aturan->chargeLinesDateFirstInPdf(),
             // Pax milik INVOICE (bukan tour) — invoice suplemen biaya tambahan
             // pakai pax 1 agar baris "harga × pax" cocok dengan totalnya.
             'pax'          => (int) ($invoice->pax ?? $invoice->tour?->pax ?? 0),
             'paid'         => $paid,
             'outstanding'  => $outstanding,
-        ])->render();
-
-        $mpdf->WriteHTML($html);
-
-        return $mpdf;
+        ];
     }
 
     /**

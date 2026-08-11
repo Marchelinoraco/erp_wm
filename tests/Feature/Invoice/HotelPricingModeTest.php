@@ -227,4 +227,57 @@ class HotelPricingModeTest extends TestCase
         $this->assertCount(1, $segar->description_lines, 'Baris kamar tetap tersimpan');
         $this->assertEquals(2, $segar->description_lines[0]['rooms']);
     }
+
+    /** Data view yang sama persis dengan yang dipakai InvoiceController::build(). */
+    private function renderInvoice(Invoice $invoice): string
+    {
+        $data = app(\App\Http\Controllers\InvoiceController::class)
+            ->invoiceViewData($invoice->fresh());
+
+        return view('invoice', $data)->render();
+    }
+
+    public function test_pdf_mode_kamar_memakai_tata_letak_tanggal_di_kiri(): void
+    {
+        $invoice = $this->makeInvoice($this->makeTour('hotel', ['pax' => 4]), 1_000_000);
+        $invoice->update([
+            'pricing_mode'      => Invoice::PRICING_PER_ROOM_NIGHT,
+            'description_lines' => self::BARIS_KAMAR,
+        ]);
+
+        $html = $this->renderInvoice($invoice);
+
+        $this->assertStringContainsString('<td class="k">15/08/2026 – 17/08/2026</td>', $html);
+        $this->assertStringNotContainsString('<td class="k">Deluxe</td>', $html);
+    }
+
+    public function test_pdf_mode_kamar_tidak_mencetak_harga_per_malam_maupun_jumlah_kamar(): void
+    {
+        // Keduanya hanya dasar perhitungan internal — customer melihat hasilnya.
+        $invoice = $this->makeInvoice($this->makeTour('hotel', ['pax' => 4]), 1_000_000);
+        $invoice->update([
+            'pricing_mode'      => Invoice::PRICING_PER_ROOM_NIGHT,
+            'description_lines' => self::BARIS_KAMAR,
+        ]);
+
+        $html = $this->renderInvoice($invoice);
+
+        $this->assertStringNotContainsString('1.500.000', $html, 'Harga per malam tidak tercetak');
+        $this->assertStringNotContainsString('2 kamar', $html);
+        $this->assertStringNotContainsString('2 malam', $html);
+    }
+
+    public function test_pdf_mode_pax_tidak_berubah(): void
+    {
+        $invoice = $this->makeInvoice($this->makeTour('hotel', ['pax' => 4]), 1_000_000);
+        $invoice->update(['description_lines' => [
+            ['label' => 'Dokumen', 'date' => '2026-08-15', 'detail' => 'Visa', 'amount' => 200_000],
+        ]]);
+        $invoice->fresh()->syncProformaTotal();
+
+        $html = $this->renderInvoice($invoice);
+
+        $this->assertStringContainsString('<td class="k">Dokumen</td>', $html);
+        $this->assertStringContainsString('>Price<', $html);
+    }
 }
