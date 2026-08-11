@@ -103,4 +103,41 @@ class RoomChargeLineTest extends TestCase
         $this->assertSame('Twin bed', $hasil[0]['detail']);
         $this->assertSame('Antar-jemput', $hasil[1]['label']);
     }
+
+    public function test_malam_nol_untuk_tanggal_bertipe_array(): void
+    {
+        // JSON decoded dari description_lines bisa menghasilkan array untuk nilai bersarang
+        // (bug UI atau payload yang dirancang khusus). Tidak boleh melempar TypeError.
+        $this->assertSame(0, RoomChargeLine::nights(['date' => ['a'], 'date_end' => '2026-08-17']));
+        $this->assertSame(0, RoomChargeLine::nights(['date' => '2026-08-15', 'date_end' => ['b']]));
+        $this->assertSame(0, RoomChargeLine::nights(['date' => [1, 2, 3], 'date_end' => []]));
+    }
+
+    public function test_nominal_nol_untuk_rooms_non_skalar(): void
+    {
+        // array tidak boleh dicast menjadi 1 (perilaku PHP default); harus 0
+        $lengkap = ['rooms' => 2, 'unit_price' => 1_500_000, 'date' => '2026-08-15', 'date_end' => '2026-08-17'];
+
+        $this->assertSame(0.0, RoomChargeLine::amount(array_merge($lengkap, ['rooms' => [1, 2, 3]])));
+        $this->assertSame(0.0, RoomChargeLine::amount(array_merge($lengkap, ['rooms' => (object)['val' => 1]])));
+    }
+
+    public function test_nominal_nol_untuk_unit_price_non_skalar(): void
+    {
+        // array tidak boleh dicast; harus 0
+        $lengkap = ['rooms' => 2, 'unit_price' => 1_500_000, 'date' => '2026-08-15', 'date_end' => '2026-08-17'];
+
+        $this->assertSame(0.0, RoomChargeLine::amount(array_merge($lengkap, ['unit_price' => ['x']])));
+        $this->assertSame(0.0, RoomChargeLine::amount(array_merge($lengkap, ['unit_price' => (object)['val' => 1000]])));
+    }
+
+    public function test_recalculate_tidak_melempar_untuk_tanggal_array(): void
+    {
+        // Baris kamar dengan date array tidak boleh melempar; amount menjadi 0
+        $hasil = RoomChargeLine::recalculate([
+            ['label' => 'Deluxe', 'rooms' => 2, 'unit_price' => 1_500_000, 'date' => ['nested'], 'date_end' => '2026-08-17'],
+        ]);
+
+        $this->assertSame(0.0, $hasil[0]['amount']);
+    }
 }

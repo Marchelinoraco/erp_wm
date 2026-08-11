@@ -26,8 +26,8 @@ final class RoomChargeLine
     /** Selisih hari check-in ke check-out. 0 bila tidak membentuk rentang yang sah. */
     public static function nights(array $line): int
     {
-        $mulai   = self::tanggal($line['date'] ?? null);
-        $selesai = self::tanggal($line['date_end'] ?? null);
+        $mulai   = is_string($line['date'] ?? null) ? self::tanggal($line['date']) : null;
+        $selesai = is_string($line['date_end'] ?? null) ? self::tanggal($line['date_end']) : null;
 
         if (! $mulai || ! $selesai || $selesai <= $mulai) {
             return 0;
@@ -39,8 +39,12 @@ final class RoomChargeLine
     /** harga per kamar per malam × jumlah kamar × jumlah malam. */
     public static function amount(array $line): float
     {
-        $harga = (float) ($line['unit_price'] ?? 0);
-        $kamar = (int) ($line['rooms'] ?? 0);
+        $unit_price = $line['unit_price'] ?? 0;
+        $rooms = $line['rooms'] ?? 0;
+
+        // Tolak nilai non-skalar: array, object, resource, dll menjadi 0, bukan 1
+        $harga = is_scalar($unit_price) ? (float) $unit_price : 0;
+        $kamar = is_scalar($rooms) ? (int) $rooms : 0;
 
         return $harga * $kamar * self::nights($line);
     }
