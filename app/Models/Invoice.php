@@ -113,7 +113,9 @@ class Invoice extends Model
     public function syncProformaTotal(): void
     {
         $pax  = max((int) ($this->tour?->pax ?? $this->pax ?? 1), 1);
-        $rule = app(SalesLineRuleRegistry::class)->for($this->tour?->type ?? 'tour');
+        // forInvoice(), bukan for(): hotel punya dua cara hitung dan yang
+        // menentukan adalah mode invoice ini, bukan jenis penjualannya saja.
+        $rule = app(SalesLineRuleRegistry::class)->forInvoice($this);
 
         // D6: rental menyusun total dari baris bernominal saja — unit_price
         // diabaikan. Enam jenis lain tetap unit_price × pengali. Pengali masih
