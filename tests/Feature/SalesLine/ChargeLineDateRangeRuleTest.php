@@ -10,20 +10,46 @@ use Tests\TestCase;
  * (sewa kendaraan, menginap), jadi baris bernominalnya punya tanggal mulai
  * DAN selesai. Jenis lain menagih biaya pada satu titik tanggal.
  *
- * Disapu lewat registry, bukan daftar yang ditulis ulang di test: menambah
- * jenis baru tanpa memutuskan perilakunya akan langsung menggagalkan test ini.
+ * Kunci disapu dari registry (bukan ditulis ulang di test), tapi setiap kunci
+ * WAJIB punya entri eksplisit di peta HARAPAN — dijaga oleh assertArrayHasKey()
+ * di bawah SEBELUM nilainya dibandingkan. Tanpa penjagaan itu, jenis baru yang
+ * lupa di-override akan jatuh diam-diam ke default `false` milik
+ * BaseSalesLineRule, kebetulan cocok dengan ketiadaannya di peta lama, dan
+ * assertSame(false, false) lolos tanpa ada yang benar-benar memutuskan
+ * perilakunya. assertArrayHasKey menggagalkan test dengan lantang — pesannya
+ * menyebut nama jenisnya — begitu registry punya kunci yang belum diputuskan
+ * di sini.
  */
 class ChargeLineDateRangeRuleTest extends TestCase
 {
-    private const MEMAKAI_RENTANG = ['rental', 'hotel'];
+    /**
+     * Keputusan eksplisit per jenis. Menambah jenis ke registry tanpa
+     * menambah barisnya di sini menggagalkan test lewat assertArrayHasKey(),
+     * bukan lolos diam-diam lewat default warisan.
+     */
+    private const HARAPAN = [
+        'rental'    => true,
+        'hotel'     => true,
+        'tour'      => false,
+        'guide'     => false,
+        'mice'      => false,
+        'document'  => false,
+        'ticketing' => false,
+    ];
 
     public function test_hanya_rental_dan_hotel_yang_memakai_rentang_tanggal(): void
     {
         $registry = app(SalesLineRuleRegistry::class);
 
         foreach ($registry->keys() as $key) {
+            $this->assertArrayHasKey(
+                $key,
+                self::HARAPAN,
+                "Jenis {$key} terdaftar di registry tapi belum punya keputusan chargeLinesUseDateRange di peta HARAPAN test ini."
+            );
+
             $this->assertSame(
-                in_array($key, self::MEMAKAI_RENTANG, true),
+                self::HARAPAN[$key],
                 $registry->for($key)->chargeLinesUseDateRange(),
                 "Jenis {$key}"
             );
