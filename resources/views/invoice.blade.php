@@ -56,7 +56,14 @@
     .main .tail td { padding-bottom: 3px; }
     .kv { width: 100%; border-collapse: collapse; }
     .kv td { font-size: 10pt; padding: 1px 0; vertical-align: top; }
-    .kv td.k { width: 120px; }
+    {{-- Rentang tanggal ("15/08/2026 – 16/08/2026") butuh 168,8px pada
+         dejavusans 10pt — diukur dengan Mpdf::GetStringWidth(), bukan dikira.
+         Semua digit font ini berlebar sama, jadi SETIAP rentang dua tanggal
+         berbeda selebar itu; 160px membuat semuanya turun ke baris kedua.
+         180px memberi sisa ±3mm. Dilebarkan untuk SELURUH dokumen, bukan hanya
+         baris tagihannya, agar titik dua blok atas tetap sebaris dengan titik
+         dua baris tagihan. Dijaga test_kolom_label_rental_muat_untuk_rentang_tanggal. --}}
+    .kv td.k { width: {{ ($dateFirstLines ?? false) ? '180px' : '120px' }}; }
     .kv td.s { width: 14px; }
     .gap td { height: 4px; font-size: 0; line-height: 0; }
 
@@ -259,15 +266,32 @@
                 {{-- Baris berjumlah nominal sendiri (mis. "Additional" — biaya tambahan disetujui akuntan) --}}
                 @foreach($lines as $ln)
                 @continue(empty($ln['amount']))
+                @php
+                    // Rentang untuk rental/hotel, satu tanggal untuk sisanya,
+                    // teks bebas dibiarkan utuh — lihat App\Support\ChargeLineDate.
+                    $tgl = \App\Support\ChargeLineDate::format($ln['date'] ?? null, $ln['date_end'] ?? null);
+                    // Rental menaikkan periode ke kolom kiri. Baris tanpa
+                    // tanggal tetap memakai tata letak lama supaya kolom kiri
+                    // tidak pernah kosong (mis. "Biaya parkir" tanpa tanggal).
+                    $tglDulu = ($dateFirstLines ?? false) && $tgl !== '';
+                @endphp
                 <tr>
                     <td class="dcell">
                         <table class="kv">
                             <tr>
+                                @if($tglDulu)
+                                <td class="k">{{ $tgl }}</td>
+                                <td class="s">:</td>
+                                <td>
+                                    {{ trim($ln['label'] ?? '') ?: 'Additional' }}@if(!empty($ln['detail'])) &middot; @endif{{ $ln['detail'] ?? '' }}
+                                </td>
+                                @else
                                 <td class="k">{{ trim($ln['label'] ?? '') ?: 'Additional' }}</td>
                                 <td class="s">:</td>
                                 <td>
-                                    @if(!empty($ln['date'])){{ $ln['date'] }}@if(!empty($ln['detail'])) &middot; @endif @endif{{ $ln['detail'] ?? '' }}
+                                    @if($tgl !== ''){{ $tgl }}@if(!empty($ln['detail'])) &middot; @endif @endif{{ $ln['detail'] ?? '' }}
                                 </td>
+                                @endif
                             </tr>
                         </table>
                     </td>

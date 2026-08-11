@@ -79,11 +79,12 @@ class InvoiceController extends Controller
             'currency'                   => 'required|string|in:' . implode(',', self::CURRENCIES),
             'unit_price'                 => 'required|numeric|min:0',
             'guest_name'                 => 'nullable|string|max:255',
-            'description_lines'          => 'nullable|array',
-            'description_lines.*.label'  => 'nullable|string|max:255',
-            'description_lines.*.date'   => 'nullable|string|max:255',
-            'description_lines.*.detail' => 'nullable|string|max:1000',
-            'description_lines.*.amount' => 'nullable|numeric|min:0',
+            'description_lines'           => 'nullable|array',
+            'description_lines.*.label'   => 'nullable|string|max:255',
+            'description_lines.*.date'    => 'nullable|string|max:255',
+            'description_lines.*.date_end' => 'nullable|string|max:255',
+            'description_lines.*.detail'  => 'nullable|string|max:1000',
+            'description_lines.*.amount'  => 'nullable|numeric|min:0',
             'bank_account_ids'           => 'nullable|array',
             'bank_account_ids.*'         => 'integer|exists:bank_accounts,id',
             'notes'                      => 'nullable|string',
@@ -330,6 +331,13 @@ class InvoiceController extends Controller
             'fromLineItems' => app(SalesLineRuleRegistry::class)
                 ->for($invoice->tour?->type ?? 'tour')
                 ->totalComposition() === 'line_items',
+            // Tata letak kolom baris bernominal. Aturannya yang memutuskan,
+            // bukan percabangan tipe di blade — dan sengaja BUKAN turunan dari
+            // fromLineItems: keduanya kebetulan sama-sama benar untuk rental
+            // hari ini, tapi artinya berbeda dan bisa berpisah kapan saja.
+            'dateFirstLines' => app(SalesLineRuleRegistry::class)
+                ->for($invoice->tour?->type ?? 'tour')
+                ->chargeLinesDateFirstInPdf(),
             // Pax milik INVOICE (bukan tour) — invoice suplemen biaya tambahan
             // pakai pax 1 agar baris "harga × pax" cocok dengan totalnya.
             'pax'          => (int) ($invoice->pax ?? $invoice->tour?->pax ?? 0),
