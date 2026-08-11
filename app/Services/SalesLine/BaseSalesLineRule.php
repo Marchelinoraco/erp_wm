@@ -55,6 +55,12 @@ abstract class BaseSalesLineRule implements SalesLineInvoiceRule
         return false;
     }
 
+    /** Mayoritas jenis hanya punya satu cara hitung. */
+    public function pricingModes(): array
+    {
+        return [];
+    }
+
     /** Ukuran rombongan, minimal 1. Sumber sama dengan rumus lama. */
     protected function paxOf(Invoice $invoice): int
     {

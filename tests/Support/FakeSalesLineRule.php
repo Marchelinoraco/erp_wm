@@ -23,6 +23,7 @@ final class FakeSalesLineRule implements SalesLineInvoiceRule
         private string $costingSource = 'tour_items',
         private bool $chargeLinesUseDateRange = false,
         private bool $chargeLinesDateFirstInPdf = false,
+        private array $pricingModes = [],
     ) {
     }
 
@@ -65,5 +66,10 @@ final class FakeSalesLineRule implements SalesLineInvoiceRule
     public function chargeLinesDateFirstInPdf(): bool
     {
         return $this->chargeLinesDateFirstInPdf;
+    }
+
+    public function pricingModes(): array
+    {
+        return $this->pricingModes;
     }
 }

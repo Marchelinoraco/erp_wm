@@ -17,7 +17,10 @@ final class SalesLineRuleRegistry
     {
         $this->rules = [
             'tour'      => new TourRule(),
-            'hotel'     => new HotelRule(),
+            // Hotel punya dua cara hitung. Yang terdaftar di sini adalah
+            // default-nya (pricing_mode NULL); forInvoice() memilih kelas
+            // satunya saat invoice memintanya.
+            'hotel'     => new HotelPerPaxRule(),
             'guide'     => new GuideRule(),
             // tours.type menyimpan 'rental' untuk penjualan Transport.
             'rental'    => new TransportRule(),
