@@ -56,10 +56,14 @@
     .main .tail td { padding-bottom: 3px; }
     .kv { width: 100%; border-collapse: collapse; }
     .kv td { font-size: 10pt; padding: 1px 0; vertical-align: top; }
-    {{-- Rentang tanggal ("15/08/2026 – 17/08/2026") tidak muat di 120px.
-         Dilebarkan untuk SELURUH dokumen, bukan hanya baris tagihannya, agar
-         titik dua blok atas tetap sebaris dengan titik dua baris tagihan. --}}
-    .kv td.k { width: {{ ($dateFirstLines ?? false) ? '160px' : '120px' }}; }
+    {{-- Rentang tanggal ("15/08/2026 – 16/08/2026") butuh 168,8px pada
+         dejavusans 10pt — diukur dengan Mpdf::GetStringWidth(), bukan dikira.
+         Semua digit font ini berlebar sama, jadi SETIAP rentang dua tanggal
+         berbeda selebar itu; 160px membuat semuanya turun ke baris kedua.
+         180px memberi sisa ±3mm. Dilebarkan untuk SELURUH dokumen, bukan hanya
+         baris tagihannya, agar titik dua blok atas tetap sebaris dengan titik
+         dua baris tagihan. Dijaga test_kolom_label_rental_muat_untuk_rentang_tanggal. --}}
+    .kv td.k { width: {{ ($dateFirstLines ?? false) ? '180px' : '120px' }}; }
     .kv td.s { width: 14px; }
     .gap td { height: 4px; font-size: 0; line-height: 0; }
 

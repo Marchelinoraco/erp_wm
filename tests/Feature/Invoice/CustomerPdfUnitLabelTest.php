@@ -273,8 +273,85 @@ class CustomerPdfUnitLabelTest extends TestCase
         $tour     = $this->makeInvoice($this->makeTour('tour', ['pax' => 4]), 1_000_000);
         $htmlTour = $this->renderInvoice($tour, unitPrice: 1_000_000, pax: 4);
 
-        $this->assertStringContainsString('.kv td.k { width: 160px; }', $htmlRental);
+        $this->assertStringContainsString('.kv td.k { width: 180px; }', $htmlRental);
         $this->assertStringContainsString('.kv td.k { width: 120px; }', $htmlTour);
+    }
+
+    public function test_kolom_label_rental_muat_untuk_rentang_tanggal(): void
+    {
+        // Assertion atas potongan HTML TIDAK BISA melihat pembungkusan baris:
+        // kolom yang terlalu sempit tetap menghasilkan HTML yang sama persis,
+        // dan rentang tanggalnya baru terlihat patah dua baris setelah PDF-nya
+        // dicetak. Versi pertama fitur ini memakai 160px dan setiap rentang
+        // dua tanggal berbeda turun ke baris kedua tanpa satu test pun gagal.
+        //
+        // Karena itu lebar kolomnya diukur di sini dengan mesin dan font yang
+        // sama dengan yang mencetak PDF sungguhan.
+        $invoice = $this->makeInvoice($this->makeTour('rental', ['pax' => 4]), 2_900_000, [
+            'description_lines' => self::BARIS_RENTAL_KOLOM,
+        ]);
+        $html = $this->renderInvoice($invoice, unitPrice: 2_900_000, pax: 4, lines: self::BARIS_RENTAL_KOLOM);
+
+        $this->assertMatchesRegularExpression('/\.kv td\.k \{ width: (\d+)px; \}/', $html);
+        preg_match('/\.kv td\.k \{ width: (\d+)px; \}/', $html, $cocok);
+        $lebarMm = (int) $cocok[1] * 25.4 / 96;
+
+        $mpdf = new \Mpdf\Mpdf(['tempDir' => sys_get_temp_dir(), 'default_font' => 'dejavusans']);
+        $mpdf->SetFont('dejavusans', '', 10);
+
+        // Semua digit dejavusans berlebar sama, jadi rentang mana pun selebar
+        // ini — tanggal beda tahun sekalipun.
+        $butuhMm = $mpdf->GetStringWidth('15/08/2026 – 16/08/2026');
+
+        $this->assertGreaterThan(
+            $butuhMm,
+            $lebarMm,
+            sprintf(
+                'Kolom label %.1fmm tidak muat untuk rentang tanggal %.1fmm — rentangnya akan patah dua baris di PDF customer.',
+                $lebarMm,
+                $butuhMm
+            )
+        );
+    }
+
+    public function test_satu_invoice_rental_boleh_campur_baris_bertanggal_dan_tidak(): void
+    {
+        // Kemunduran ke tata letak lama diputuskan PER BARIS, bukan per
+        // dokumen: satu baris tanpa tanggal tidak boleh menyeret baris lain
+        // yang bertanggal kembali ke tata letak lama.
+        $baris = [
+            ['label' => 'Innova Reborn', 'date' => '2026-08-15', 'date_end' => '2026-08-16', 'detail' => 'Dengan Sopir', 'amount' => 1_700_000],
+            ['label' => 'Biaya parkir', 'detail' => 'Tol & parkir', 'amount' => 150_000],
+        ];
+
+        $invoice = $this->makeInvoice($this->makeTour('rental', ['pax' => 4]), 1_850_000, [
+            'description_lines' => $baris,
+        ]);
+
+        $html = $this->renderInvoice($invoice, unitPrice: 1_850_000, pax: 4, lines: $baris);
+
+        $this->assertStringContainsString('<td class="k">15/08/2026 – 16/08/2026</td>', $html);
+        $this->assertStringContainsString('<td class="k">Biaya parkir</td>', $html);
+    }
+
+    public function test_baris_additional_dari_pengajuan_biaya_ikut_tata_letak_rental(): void
+    {
+        // CostRequestController::appendAdditionalCharge() menulis label
+        // 'Additional' dengan tanggal berformat 'M d, Y' dan tanpa date_end.
+        // Tanggalnya tetap dicetak apa adanya (bukan ISO), tapi tempatnya ikut
+        // aturan dokumen — kolom kiri untuk rental.
+        $baris = [
+            ['label' => 'Additional', 'date' => 'Aug 15, 2026', 'detail' => 'Biaya tambahan disetujui', 'amount' => 500_000],
+        ];
+
+        $invoice = $this->makeInvoice($this->makeTour('rental', ['pax' => 4]), 500_000, [
+            'description_lines' => $baris,
+        ]);
+
+        $html = $this->renderInvoice($invoice, unitPrice: 500_000, pax: 4, lines: $baris);
+
+        $this->assertStringContainsString('<td class="k">Aug 15, 2026</td>', $html);
+        $this->assertStringContainsString('Biaya tambahan disetujui', $html);
     }
 
     public function test_baris_price_tidak_dicetak_untuk_komposisi_baris_bernominal(): void
