@@ -130,6 +130,7 @@ pada baris bernominal:
 | --- | --- |
 | `date` = `2026-08-15`, `date_end` = `2026-08-17` | `15/08/2026 – 17/08/2026` |
 | `date` = `2026-08-15`, `date_end` kosong/absen | `15/08/2026` |
+| `date` dan `date_end` bernilai sama | `15/08/2026` (tidak diulang) |
 | `date` = teks bebas, mis. `Aug 15, 2026` | `Aug 15, 2026` (apa adanya) |
 | `date` kosong | tidak ada tanggal, seperti sekarang |
 
@@ -160,9 +161,11 @@ Tanda pisah adalah en dash dengan spasi di kedua sisi (` – `), dan hanya
 muncul bila kedua tanggal terisi. Tidak boleh ada tanda pisah menggantung
 seperti `15/08/2026 –`.
 
-Di dalam blade, en dash ditulis sebagai entitas `&ndash;` mengikuti baris
-"Down Payment" yang sudah ada — bukan karakter Unicode mentah, agar aman di
-mesin render PDF.
+Tanda pisahnya karakter en dash Unicode (`–`), bukan entitas `&ndash;`,
+mengikuti `$resvDate` di `invoice.blade.php` yang sudah memakainya dan
+tercetak normal di PDF produksi. Entitas HTML tidak dipakai karena nilai
+tanggal dirakit di PHP lalu dicetak lewat `{{ }}` yang meng-escape — `&ndash;`
+akan tercetak sebagai teks mentah, bukan sebagai tanda pisah.
 
 ## 7. Ringkasan invoice yang sudah disetujui
 
