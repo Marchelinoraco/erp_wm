@@ -101,4 +101,130 @@ class HotelPricingModeTest extends TestCase
         $this->assertNull($invoice->fresh()->pricing_mode);
         $this->assertEquals(2_650_000, $invoice->fresh()->total, '350.000 × 7 pax + 200.000');
     }
+
+    public function test_mode_dan_isian_kamar_tersimpan_lewat_proforma(): void
+    {
+        $invoice = $this->makeInvoice($this->makeTour('hotel', ['pax' => 4]), 1_000_000);
+
+        $this->actingAs($this->salesUser())
+            ->patch(route('invoices.proforma', $invoice), [
+                'currency'          => 'IDR',
+                'unit_price'        => 1_000_000,
+                'pricing_mode'      => 'per_room_night',
+                'description_lines' => [
+                    ['label' => 'Deluxe', 'detail' => 'Twin bed', 'date' => '2026-08-15', 'date_end' => '2026-08-17', 'rooms' => 2, 'unit_price' => 1_500_000, 'amount' => 0],
+                ],
+            ])
+            ->assertRedirect();
+
+        $segar = $invoice->fresh();
+        $baris = $segar->description_lines[0];
+
+        $this->assertSame('per_room_night', $segar->pricing_mode);
+        $this->assertEquals(2, $baris['rooms']);
+        $this->assertEquals(1_500_000, $baris['unit_price']);
+    }
+
+    public function test_nominal_baris_kamar_dihitung_server_bukan_dipercaya_dari_browser(): void
+    {
+        // Browser mengirim nominal yang mengada-ada; server harus menimpanya.
+        $invoice = $this->makeInvoice($this->makeTour('hotel', ['pax' => 4]), 1_000_000);
+
+        $this->actingAs($this->salesUser())
+            ->patch(route('invoices.proforma', $invoice), [
+                'currency'          => 'IDR',
+                'unit_price'        => 1_000_000,
+                'pricing_mode'      => 'per_room_night',
+                'description_lines' => [
+                    ['label' => 'Deluxe', 'date' => '2026-08-15', 'date_end' => '2026-08-17', 'rooms' => 2, 'unit_price' => 1_500_000, 'amount' => 1],
+                ],
+            ])
+            ->assertRedirect();
+
+        $segar = $invoice->fresh();
+
+        $this->assertEquals(6_000_000, $segar->description_lines[0]['amount'], '2 kamar × 2 malam × 1.500.000');
+        $this->assertEquals(6_000_000, $segar->total);
+    }
+
+    public function test_biaya_tambahan_mempertahankan_nominal_yang_diketik(): void
+    {
+        $invoice = $this->makeInvoice($this->makeTour('hotel', ['pax' => 4]), 1_000_000);
+
+        $this->actingAs($this->salesUser())
+            ->patch(route('invoices.proforma', $invoice), [
+                'currency'          => 'IDR',
+                'unit_price'        => 1_000_000,
+                'pricing_mode'      => 'per_room_night',
+                'description_lines' => [
+                    ['label' => 'Antar-jemput', 'detail' => 'PP bandara', 'amount' => 750_000],
+                ],
+            ])
+            ->assertRedirect();
+
+        $baris = $invoice->fresh()->description_lines[0];
+
+        $this->assertEquals(750_000, $baris['amount'], 'Tanpa key rooms, nominalnya tidak dihitung ulang');
+        $this->assertArrayNotHasKey('rooms', $baris);
+    }
+
+    public function test_mode_tak_dikenal_ditolak_validasi(): void
+    {
+        $invoice = $this->makeInvoice($this->makeTour('hotel', ['pax' => 4]), 1_000_000);
+
+        $this->actingAs($this->salesUser())
+            ->patch(route('invoices.proforma', $invoice), [
+                'currency'     => 'IDR',
+                'unit_price'   => 1_000_000,
+                'pricing_mode' => 'per_kucing',
+            ])
+            ->assertSessionHasErrors('pricing_mode');
+    }
+
+    public function test_invoice_yang_sudah_disetujui_menolak_ganti_mode(): void
+    {
+        $invoice = $this->makeInvoice($this->makeTour('hotel', ['pax' => 4]), 1_000_000);
+        $disetujui = $this->approveInvoice($invoice);
+
+        $this->actingAs($this->salesUser())
+            ->patch(route('invoices.proforma', $disetujui), [
+                'currency'     => 'IDR',
+                'unit_price'   => 1_000_000,
+                'pricing_mode' => 'per_room_night',
+            ])
+            // ensureNotApproved() melempar ValidationException (redirect + session
+            // errors), bukan respons HTTP 403 — sejalan dengan konvensi pengunci
+            // yang sama di ApprovedInvoiceFrozenTest dan StageGateCharacterizationTest.
+            ->assertSessionHasErrors('invoice');
+
+        $this->assertNull($disetujui->fresh()->pricing_mode);
+    }
+
+    public function test_ganti_mode_bolak_balik_tidak_menghilangkan_data(): void
+    {
+        $invoice = $this->makeInvoice($this->makeTour('hotel', ['pax' => 4]), 1_000_000);
+        $sales   = $this->salesUser();
+
+        $barisKamar = [
+            ['label' => 'Deluxe', 'date' => '2026-08-15', 'date_end' => '2026-08-17', 'rooms' => 2, 'unit_price' => 1_500_000, 'amount' => 0],
+        ];
+
+        $this->actingAs($sales)->patch(route('invoices.proforma', $invoice), [
+            'currency' => 'IDR', 'unit_price' => 1_000_000,
+            'pricing_mode' => 'per_room_night', 'description_lines' => $barisKamar,
+        ])->assertRedirect();
+
+        // Kembali ke mode pax — baris kamar TIDAK dihapus.
+        $this->actingAs($sales)->patch(route('invoices.proforma', $invoice), [
+            'currency' => 'IDR', 'unit_price' => 1_000_000,
+            'pricing_mode' => 'per_pax', 'description_lines' => $barisKamar,
+        ])->assertRedirect();
+
+        $segar = $invoice->fresh();
+
+        $this->assertSame('per_pax', $segar->pricing_mode);
+        $this->assertEquals(1_000_000, $segar->unit_price, 'Harga/pax tetap utuh');
+        $this->assertCount(1, $segar->description_lines, 'Baris kamar tetap tersimpan');
+        $this->assertEquals(2, $segar->description_lines[0]['rooms']);
+    }
 }
