@@ -41,12 +41,24 @@ final class ChargeLineDate
     {
         $nilai = trim((string) $nilai);
 
-        // hasFormat() menolak "Aug 15, 2026" DAN "2026-13-45" sekaligus, jadi
-        // teks bebas dan tanggal mustahil sama-sama lolos tanpa exception.
+        // hasFormat() hanya memeriksa rentang angka per token (m: 01-12, d: 01-31),
+        // bukan validitas kalender. Nilai seperti "2026-02-30" lolos hasFormat()
+        // lalu digulung Carbon menjadi tanggal lain. Round-trip menangkapnya tanpa
+        // exception: jika hasil format ulang tidak cocok input, berarti tanggal
+        // kalender-mustahil, dikembalikan apa adanya.
         if ($nilai === '' || ! Carbon::hasFormat($nilai, 'Y-m-d')) {
             return $nilai;
         }
 
-        return Carbon::createFromFormat('Y-m-d', $nilai)->format('d/m/Y');
+        $tanggal = Carbon::createFromFormat('Y-m-d', $nilai);
+
+        // hasFormat() hanya memeriksa rentang angka, bukan kalender:
+        // 2026-02-30 lolos lalu digulung jadi 2 Maret. Round-trip
+        // menangkapnya tanpa melempar exception.
+        if ($tanggal->format('Y-m-d') !== $nilai) {
+            return $nilai;
+        }
+
+        return $tanggal->format('d/m/Y');
     }
 }

@@ -55,6 +55,17 @@ class ChargeLineDateTest extends TestCase
         $this->assertSame('2026-13-45', ChargeLineDate::format('2026-13-45'));
     }
 
+    public function test_tanggal_kalender_mustahil_angka_di_rentang(): void
+    {
+        // hasFormat() hanya memeriksa rentang angka (m: 01-12, d: 01-31), bukan
+        // validitas kalender. Kasus seperti ini lolos hasFormat() lalu digulung
+        // Carbon. Round-trip menangkapnya tanpa exception.
+        $this->assertSame('2026-02-30', ChargeLineDate::format('2026-02-30'));
+        $this->assertSame('2026-04-31', ChargeLineDate::format('2026-04-31'));
+        $this->assertSame('2025-02-29', ChargeLineDate::format('2025-02-29'));
+        $this->assertSame('2026-06-31', ChargeLineDate::format('2026-06-31'));
+    }
+
     public function test_tanpa_tanggal_menghasilkan_string_kosong(): void
     {
         $this->assertSame('', ChargeLineDate::format(null, null));
