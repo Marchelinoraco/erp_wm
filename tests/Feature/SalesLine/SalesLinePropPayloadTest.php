@@ -65,6 +65,35 @@ class SalesLinePropPayloadTest extends TestCase
         }
     }
 
+    public function test_payload_memuat_penanda_rentang_tanggal_baris_tagihan(): void
+    {
+        // Vue tidak boleh menyimpulkan sendiri jenis mana yang memakai dua
+        // kotak tanggal — aturannya datang dari backend, seperti
+        // profitFromRevenue dan totalComposition.
+        $harapan = [
+            'rental'    => true,
+            'hotel'     => true,
+            'tour'      => false,
+            'guide'     => false,
+            'mice'      => false,
+            'document'  => false,
+            'ticketing' => false,
+        ];
+
+        foreach ($harapan as $type => $expected) {
+            $tour = $this->makeTour($type);
+
+            // assertInertia() hanya menerima closure — tidak ada parameter
+            // pesan. Jenisnya ikut diperiksa lewat salesLine.key supaya
+            // kegagalan menunjuk jenis yang salah, bukan sekadar nilai boolean.
+            $this->actingAs($this->salesUser())
+                ->get(route('tours.edit', $tour->id))
+                ->assertInertia(fn ($page) => $page
+                    ->where('salesLine.key', $type)
+                    ->where('salesLine.chargeLinesUseDateRange', $expected));
+        }
+    }
+
     /** Halaman Keuangan dibatasi middleware role:admin,accountant. */
     private function financeUser(): User
     {

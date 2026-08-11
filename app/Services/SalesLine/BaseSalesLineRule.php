@@ -43,6 +43,12 @@ abstract class BaseSalesLineRule implements SalesLineInvoiceRule
         return 'tour_items';
     }
 
+    /** Mayoritas jenis menagih pada satu titik tanggal. */
+    public function chargeLinesUseDateRange(): bool
+    {
+        return false;
+    }
+
     /** Ukuran rombongan, minimal 1. Sumber sama dengan rumus lama. */
     protected function paxOf(Invoice $invoice): int
     {

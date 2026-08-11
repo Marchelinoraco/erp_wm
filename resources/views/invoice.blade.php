@@ -259,6 +259,11 @@
                 {{-- Baris berjumlah nominal sendiri (mis. "Additional" — biaya tambahan disetujui akuntan) --}}
                 @foreach($lines as $ln)
                 @continue(empty($ln['amount']))
+                @php
+                    // Rentang untuk rental/hotel, satu tanggal untuk sisanya,
+                    // teks bebas dibiarkan utuh — lihat App\Support\ChargeLineDate.
+                    $tgl = \App\Support\ChargeLineDate::format($ln['date'] ?? null, $ln['date_end'] ?? null);
+                @endphp
                 <tr>
                     <td class="dcell">
                         <table class="kv">
@@ -266,7 +271,7 @@
                                 <td class="k">{{ trim($ln['label'] ?? '') ?: 'Additional' }}</td>
                                 <td class="s">:</td>
                                 <td>
-                                    @if(!empty($ln['date'])){{ $ln['date'] }}@if(!empty($ln['detail'])) &middot; @endif @endif{{ $ln['detail'] ?? '' }}
+                                    @if($tgl !== ''){{ $tgl }}@if(!empty($ln['detail'])) &middot; @endif @endif{{ $ln['detail'] ?? '' }}
                                 </td>
                             </tr>
                         </table>

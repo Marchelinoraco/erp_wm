@@ -21,6 +21,7 @@ final class FakeSalesLineRule implements SalesLineInvoiceRule
         private bool $profitFromRevenue = false,
         private string $totalComposition = 'per_unit',
         private string $costingSource = 'tour_items',
+        private bool $chargeLinesUseDateRange = false,
     ) {
     }
 
@@ -53,5 +54,10 @@ final class FakeSalesLineRule implements SalesLineInvoiceRule
     public function costingSource(): string
     {
         return $this->costingSource;
+    }
+
+    public function chargeLinesUseDateRange(): bool
+    {
+        return $this->chargeLinesUseDateRange;
     }
 }

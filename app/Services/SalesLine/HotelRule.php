@@ -19,4 +19,10 @@ final class HotelRule extends BaseSalesLineRule
             new Multiplier('nights', 'Malam', $this->nightsOf($invoice)),
         ];
     }
+
+    /** Menginap berjalan dari tanggal check-in sampai check-out. */
+    public function chargeLinesUseDateRange(): bool
+    {
+        return true;
+    }
 }
