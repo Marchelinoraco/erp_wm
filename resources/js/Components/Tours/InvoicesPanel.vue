@@ -131,6 +131,25 @@ const isLineItems = computed(() => props.salesLine.totalComposition === 'line_it
 // tipe di sini — lihat spec §4.
 const useDateRange = computed(() => props.salesLine.chargeLinesUseDateRange)
 
+// Cerminan App\Support\ChargeLineDate. Aturannya harus sama persis dengan
+// yang tercetak di PDF, supaya ringkasan di layar tidak berbeda dari dokumen
+// yang diterima customer. Hanya nilai berpola YYYY-MM-DD yang diformat;
+// teks bebas (mis. "Aug 15, 2026" dari pengajuan biaya) dibiarkan utuh.
+const POLA_ISO = /^\d{4}-\d{2}-\d{2}$/
+function fmtLineDate(v) {
+    const s = String(v ?? '').trim()
+    if (!POLA_ISO.test(s)) return s
+    const [y, m, d] = s.split('-')
+    return `${d}/${m}/${y}`
+}
+function chargeLineDate(ln) {
+    const awal  = fmtLineDate(ln.date)
+    const akhir = fmtLineDate(ln.date_end)
+    if (!awal) return akhir
+    if (!akhir || akhir === awal) return awal
+    return `${awal} – ${akhir}`
+}
+
 // R1/§5c: invoice rental lama yang nilainya masih di unit_price. Totalnya
 // akan terbaca Rp0 sampai sales memasukkan rinciannya sebagai baris.
 function warnLegacyUnitPrice(inv) {
@@ -774,6 +793,7 @@ function addProduct(product, extra = {}) {
                         <div v-for="(ln, idx) in (inv.description_lines ?? []).filter(l => l.amount)" :key="'add-' + idx"
                             class="flex items-center justify-between gap-2 px-3 py-1.5">
                             <span>
+                                <span v-if="chargeLineDate(ln)" class="font-mono text-xs text-muted-foreground">{{ chargeLineDate(ln) }} · </span>
                                 <span class="font-medium">{{ ln.label || 'Additional' }}</span>
                                 <span class="text-muted-foreground"> · {{ ln.detail }}</span>
                             </span>
