@@ -60,4 +60,12 @@ interface SalesLineInvoiceRule
      * Ringkasan Biaya harus membacanya dari sana.
      */
     public function costingSource(): string;
+
+    /**
+     * true = baris bernominal invoice punya tanggal mulai DAN tanggal selesai.
+     *
+     * Sewa kendaraan dan menginap berjalan sepanjang rentang tanggal, sedangkan
+     * biaya dokumen atau izin terjadi pada satu titik tanggal.
+     */
+    public function chargeLinesUseDateRange(): bool;
 }

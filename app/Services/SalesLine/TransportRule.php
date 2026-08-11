@@ -39,4 +39,10 @@ final class TransportRule extends BaseSalesLineRule
     {
         return 'invoice_items';
     }
+
+    /** Sewa kendaraan/kapal berjalan dari tanggal mulai sampai tanggal selesai. */
+    public function chargeLinesUseDateRange(): bool
+    {
+        return true;
+    }
 }
