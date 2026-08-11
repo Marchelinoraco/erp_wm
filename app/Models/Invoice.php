@@ -12,6 +12,11 @@ class Invoice extends Model
 {
     use SoftDeletes;
 
+    /** Cara hitung total invoice. NULL di database diperlakukan sebagai PRICING_PER_PAX. */
+    public const PRICING_PER_PAX        = 'per_pax';
+    public const PRICING_PER_ROOM_NIGHT = 'per_room_night';
+    public const PRICING_MODES          = [self::PRICING_PER_PAX, self::PRICING_PER_ROOM_NIGHT];
+
     protected $guarded = [];
     protected $casts   = [
         'date'              => 'date',
