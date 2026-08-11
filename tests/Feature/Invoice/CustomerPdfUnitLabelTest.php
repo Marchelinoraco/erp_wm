@@ -171,6 +171,26 @@ class CustomerPdfUnitLabelTest extends TestCase
         $this->assertStringContainsString('Aug 15, 2026', $html);
     }
 
+    public function test_tanggal_iso_diformat_untuk_jenis_selain_rental_dan_hotel(): void
+    {
+        // Spec §6.1: pemformatan tanggal berpatokan BENTUK NILAI, bukan jenis
+        // penjualan. Tanpa test ini, seseorang bisa menambahkan gerbang per
+        // jenis di blade dan seluruh suite tetap hijau — padahal itu membuat
+        // satu dokumen memuat dua gaya tanggal sekaligus.
+        $baris = [
+            ['label' => 'Dokumen', 'date' => '2026-08-15', 'detail' => 'Visa', 'amount' => 500_000],
+        ];
+
+        $invoice = $this->makeInvoice($this->makeTour('tour', ['pax' => 4]), 1_000_000, [
+            'description_lines' => $baris,
+        ]);
+
+        $html = $this->renderInvoice($invoice, unitPrice: 1_000_000, pax: 4, lines: $baris);
+
+        $this->assertStringContainsString('15/08/2026', $html);
+        $this->assertStringNotContainsString('2026-08-15', $html);
+    }
+
     public function test_baris_price_tidak_dicetak_untuk_komposisi_baris_bernominal(): void
     {
         // unit_price rental SENGAJA dibiarkan utuh di database (banner panel
