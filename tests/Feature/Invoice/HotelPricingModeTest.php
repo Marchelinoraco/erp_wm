@@ -228,6 +228,22 @@ class HotelPricingModeTest extends TestCase
         $this->assertEquals(2, $segar->description_lines[0]['rooms']);
     }
 
+    public function test_jenis_tanpa_pilihan_mode_tetap_null_setelah_disimpan(): void
+    {
+        // Backend tidak boleh bergantung pada frontend untuk ini: permintaan
+        // tanpa pricing_mode wajib membiarkan kolomnya apa adanya.
+        $invoice = $this->makeInvoice($this->makeTour('tour', ['pax' => 4]), 1_000_000);
+
+        $this->actingAs($this->salesUser())
+            ->patch(route('invoices.proforma', $invoice), [
+                'currency'   => 'IDR',
+                'unit_price' => 1_000_000,
+            ])
+            ->assertRedirect();
+
+        $this->assertNull($invoice->fresh()->pricing_mode);
+    }
+
     /** Data view yang sama persis dengan yang dipakai InvoiceController::build(). */
     private function renderInvoice(Invoice $invoice): string
     {

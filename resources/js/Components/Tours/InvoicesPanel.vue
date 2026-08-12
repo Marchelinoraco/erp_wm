@@ -60,6 +60,7 @@ watch(
                 currency:          inv.currency || 'IDR',
                 unit_price:        Number(inv.unit_price) || 0,
                 guest_name:        inv.guest_name || '',
+                pricing_mode:      inv.rules?.pricingMode ?? 'per_pax',
                 // Dibedakan lewat KEHADIRAN key amount, bukan truthy-nya — baris
                 // "Biaya Tambahan" yang baru diketik labelnya tapi nominalnya
                 // masih 0 tetap harus dikenali sebagai baris biaya (bukan
@@ -130,6 +131,23 @@ const isLineItems = computed(() => props.salesLine.totalComposition === 'line_it
 // Aturannya datang dari backend (SalesLineRuleRegistry), BUKAN percabangan
 // tipe di sini — lihat spec §4.
 const useDateRange = computed(() => props.salesLine.chargeLinesUseDateRange)
+
+// Label mode dipetakan di sini, tapi DAFTAR mode-nya datang dari backend —
+// komponen tidak pernah bertanya "apakah jenisnya hotel?".
+const LABEL_MODE = {
+    per_pax:        'Harga / pax',
+    per_room_night: 'Harga / kamar / malam',
+}
+function modeOptions(inv) {
+    return (inv.rules?.pricingModes ?? []).map(m => ({ value: m, label: LABEL_MODE[m] ?? m }))
+}
+function pricingMode(inv) {
+    return proformaForms[inv.id]?.pricing_mode ?? 'per_pax'
+}
+function setPricingMode(invId, mode) {
+    proformaForms[invId].pricing_mode = mode
+    saveProforma(invId)
+}
 
 // Cerminan App\Support\ChargeLineDate. Aturannya harus sama persis dengan
 // yang tercetak di PDF, supaya ringkasan di layar tidak berbeda dari dokumen
@@ -321,6 +339,10 @@ function saveProforma(invId) {
         ],
     }
     delete payload.additional_lines
+    // Jenis tanpa pilihan mode tidak boleh ikut menulis kolom ini — biarkan
+    // NULL, yang artinya memang "tidak memilih apa pun".
+    const inv = (props.tour.invoices ?? []).find(i => i.id === invId)
+    if ((inv?.rules?.pricingModes ?? []).length < 2) delete payload.pricing_mode
     router.patch(route('invoices.proforma', invId), payload, reload)
 }
 function selectedBankNames(inv) {
@@ -619,6 +641,21 @@ function addProduct(product, extra = {}) {
                         <input type="text" v-model="proformaForms[inv.id].guest_name" @blur="saveProforma(inv.id)"
                             :placeholder="guestName"
                             class="block w-full max-w-sm border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+
+                    <!-- Pemilih cara hitung — hanya muncul untuk jenis yang
+                         memang punya lebih dari satu, menurut backend. -->
+                    <div v-if="modeOptions(inv).length > 1" class="flex flex-wrap items-center gap-3">
+                        <span class="text-xs font-medium text-muted-foreground">Cara Hitung</span>
+                        <label v-for="opt in modeOptions(inv)" :key="opt.value"
+                            class="flex items-center gap-1.5 text-sm border rounded px-2.5 py-1.5 cursor-pointer hover:bg-muted/30"
+                            :class="pricingMode(inv) === opt.value ? 'border-primary bg-primary/5 font-medium' : ''">
+                            <input type="radio" :name="'mode-' + inv.id" :value="opt.value"
+                                :checked="pricingMode(inv) === opt.value"
+                                @change="setPricingMode(inv.id, opt.value)"
+                                class="h-4 w-4 border-input" />
+                            {{ opt.label }}
+                        </label>
                     </div>
 
                     <!-- Mata uang + kurs -->
