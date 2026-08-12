@@ -4,7 +4,7 @@ namespace Tests\Unit\SalesLine;
 
 use App\Services\SalesLine\DocumentRule;
 use App\Services\SalesLine\GuideRule;
-use App\Services\SalesLine\HotelRule;
+use App\Services\SalesLine\HotelPerPaxRule;
 use App\Services\SalesLine\MiceRule;
 use App\Services\SalesLine\SalesLineRuleRegistry;
 use App\Services\SalesLine\TicketingRule;
@@ -19,7 +19,7 @@ class SalesLineRuleRegistryTest extends TestCase
         $r = new SalesLineRuleRegistry();
 
         $this->assertInstanceOf(TourRule::class, $r->for('tour'));
-        $this->assertInstanceOf(HotelRule::class, $r->for('hotel'));
+        $this->assertInstanceOf(HotelPerPaxRule::class, $r->for('hotel'));
         $this->assertInstanceOf(GuideRule::class, $r->for('guide'));
         $this->assertInstanceOf(MiceRule::class, $r->for('mice'));
         $this->assertInstanceOf(DocumentRule::class, $r->for('document'));

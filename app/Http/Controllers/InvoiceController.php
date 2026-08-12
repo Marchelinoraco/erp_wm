@@ -8,6 +8,7 @@ use App\Models\Invoice;
 use App\Models\Tour;
 use App\Services\SalesLine\SalesLineRuleRegistry;
 use App\Support\Pdf;
+use App\Support\RoomChargeLine;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -76,25 +77,31 @@ class InvoiceController extends Controller
         $this->ensureNotApproved($invoice);
 
         $data = $request->validate([
-            'currency'                   => 'required|string|in:' . implode(',', self::CURRENCIES),
-            'unit_price'                 => 'required|numeric|min:0',
-            'guest_name'                 => 'nullable|string|max:255',
-            'description_lines'           => 'nullable|array',
-            'description_lines.*.label'   => 'nullable|string|max:255',
-            'description_lines.*.date'    => 'nullable|string|max:255',
-            'description_lines.*.date_end' => 'nullable|string|max:255',
-            'description_lines.*.detail'  => 'nullable|string|max:1000',
-            'description_lines.*.amount'  => 'nullable|numeric|min:0',
-            'bank_account_ids'           => 'nullable|array',
-            'bank_account_ids.*'         => 'integer|exists:bank_accounts,id',
-            'notes'                      => 'nullable|string',
+            'currency'                       => 'required|string|in:' . implode(',', self::CURRENCIES),
+            'unit_price'                     => 'required|numeric|min:0',
+            'pricing_mode'                   => 'nullable|string|in:' . implode(',', Invoice::PRICING_MODES),
+            'guest_name'                     => 'nullable|string|max:255',
+            'description_lines'              => 'nullable|array',
+            'description_lines.*.label'      => 'nullable|string|max:255',
+            'description_lines.*.date'       => 'nullable|string|max:255',
+            'description_lines.*.date_end'   => 'nullable|string|max:255',
+            'description_lines.*.rooms'      => 'nullable|integer|min:0',
+            'description_lines.*.unit_price' => 'nullable|numeric|min:0',
+            'description_lines.*.detail'     => 'nullable|string|max:1000',
+            'description_lines.*.amount'     => 'nullable|numeric|min:0',
+            'bank_account_ids'               => 'nullable|array',
+            'bank_account_ids.*'             => 'integer|exists:bank_accounts,id',
+            'notes'                          => 'nullable|string',
         ]);
 
         $invoice->fill([
             'currency'          => $data['currency'],
             'unit_price'        => $data['unit_price'],
             'guest_name'        => $data['guest_name'] ?? null,
-            'description_lines' => array_values($data['description_lines'] ?? []),
+            // Nominal baris kamar SELALU dihitung server — nilai yang dikirim
+            // browser hanya untuk ditampilkan dan tidak pernah dipercaya.
+            'description_lines' => RoomChargeLine::recalculate(array_values($data['description_lines'] ?? [])),
+            'pricing_mode'      => $data['pricing_mode'] ?? $invoice->pricing_mode,
             // Kosong = tampilkan semua rekening aktif (lihat bankAccounts())
             'bank_account_ids'  => ! empty($data['bank_account_ids']) ? array_values($data['bank_account_ids']) : null,
             'notes'             => $data['notes'] ?? $invoice->notes,
@@ -305,8 +312,9 @@ class InvoiceController extends Controller
 
         $mpdf->SetTitle('Invoice ' . $invoice->number);
 
-        $paid        = (float) $invoice->payments->sum('amount');
-        $outstanding = (float) $invoice->total - $paid;
+        $data        = $this->invoiceViewData($invoice);
+        $paid        = $data['paid'];
+        $outstanding = $data['outstanding'];
 
         // Watermark berdasarkan status pembayaran
         if ($paid > 0) {
@@ -316,38 +324,60 @@ class InvoiceController extends Controller
             $mpdf->watermarkTextAlpha = 0.07;
         }
 
-        $html = view('invoice', [
+        $html = view('invoice', $data)->render();
+
+        $mpdf->WriteHTML($html);
+
+        return $mpdf;
+    }
+
+    /**
+     * Data view PDF invoice. Publik supaya bisa diuji langsung: menyusun ulang
+     * data ini di dalam test hanya akan menguji blade, sementara penyambungan
+     * aturan di sini — bagian yang paling mudah salah — tak tersentuh.
+     */
+    public function invoiceViewData(Invoice $invoice): array
+    {
+        // Satu aturan untuk seluruh dokumen, diselesaikan lewat invoice supaya
+        // mode hitung hotel ikut terbaca — bukan hanya jenis penjualannya.
+        $aturan = app(SalesLineRuleRegistry::class)->forInvoice($invoice);
+
+        $paid        = (float) $invoice->payments->sum('amount');
+        $outstanding = (float) $invoice->total - $paid;
+
+        // Baris yang benar-benar ikut TOTAL mode aktif — aturan sama persis
+        // dengan Invoice::syncProformaTotal(): baris kamar (RoomChargeLine::
+        // isRoomLine()) hanya ikut ketika totalComposition() === 'line_items'.
+        // Dihitung sekali di sini (bukan di Blade) supaya baris "Price" dan
+        // daftar baris bernominal di PDF selalu sepakat dengan total-nya —
+        // tidak pernah mengurangkan/menampilkan baris kamar yang tersimpan
+        // tapi mode aktifnya sudah bukan mode kamar.
+        $chargeLines = collect($invoice->description_lines ?? [])
+            ->reject(fn ($l) => $aturan->totalComposition() !== 'line_items' && RoomChargeLine::isRoomLine($l))
+            ->values()
+            ->all();
+
+        return [
             'invoice'      => $invoice,
             'company'      => config('quotation.company'),
             'bank'         => $this->bankAccounts($invoice),
             'paymentTerms' => config('quotation.payment_terms', ''),
             'logo'         => $this->logoDataUri(),
             'lines'        => $invoice->description_lines ?? [],
+            'chargeLines'  => $chargeLines,
             'unitPrice'    => (float) $invoice->unit_price,
             // Jenis yang totalnya tersusun dari baris bernominal tidak punya
             // harga satuan yang bermakna — unit_price lamanya sengaja dibiarkan
             // utuh di database (agar banner panel bisa menampilkannya), jadi
             // nilainya TIDAK bisa dipakai menyimpulkan ini. Aturannya yang tahu.
-            'fromLineItems' => app(SalesLineRuleRegistry::class)
-                ->for($invoice->tour?->type ?? 'tour')
-                ->totalComposition() === 'line_items',
-            // Tata letak kolom baris bernominal. Aturannya yang memutuskan,
-            // bukan percabangan tipe di blade — dan sengaja BUKAN turunan dari
-            // fromLineItems: keduanya kebetulan sama-sama benar untuk rental
-            // hari ini, tapi artinya berbeda dan bisa berpisah kapan saja.
-            'dateFirstLines' => app(SalesLineRuleRegistry::class)
-                ->for($invoice->tour?->type ?? 'tour')
-                ->chargeLinesDateFirstInPdf(),
+            'fromLineItems'  => $aturan->totalComposition() === 'line_items',
+            'dateFirstLines' => $aturan->chargeLinesDateFirstInPdf(),
             // Pax milik INVOICE (bukan tour) — invoice suplemen biaya tambahan
             // pakai pax 1 agar baris "harga × pax" cocok dengan totalnya.
             'pax'          => (int) ($invoice->pax ?? $invoice->tour?->pax ?? 0),
             'paid'         => $paid,
             'outstanding'  => $outstanding,
-        ])->render();
-
-        $mpdf->WriteHTML($html);
-
-        return $mpdf;
+        ];
     }
 
     /**

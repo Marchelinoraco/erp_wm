@@ -138,7 +138,10 @@ class TourController extends Controller
     {
         abort_unless($tour->isAccessibleBy(auth()->user()), 403);
 
-        $tour->load(['customer', 'items.product', 'quotationItems.product', 'assignments', 'itineraryDays', 'itineraryHours', 'histories', 'invoices.items.product', 'invoices.payments.cashAccount:id,name', 'costRequests.requestedBy:id,name', 'costRequests.invoice:id,number,finance_number']);
+        // 'invoices.tour' wajib: atribut turunan `rules` pada setiap invoice
+        // membaca jenis penjualan lewat relasi tour, jadi tanpa ini setiap
+        // invoice memicu query tours-nya sendiri saat diserialisasi.
+        $tour->load(['customer', 'items.product', 'quotationItems.product', 'assignments', 'itineraryDays', 'itineraryHours', 'histories', 'invoices.tour:id,type', 'invoices.items.product', 'invoices.payments.cashAccount:id,name', 'costRequests.requestedBy:id,name', 'costRequests.invoice:id,number,finance_number']);
         $tour->append(['total_cost', 'total_sell', 'profit', 'margin', 'itinerary_pdf_url']);
 
         return Inertia::render('Tours/Edit', [

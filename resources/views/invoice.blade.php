@@ -259,12 +259,16 @@
                             </tr>
                         </table>
                     </td>
-                    <td class="acell">{{ $fmt($invoice->total - collect($lines)->sum('amount')) }}</td>
+                    <td class="acell">{{ $fmt($invoice->total - collect($chargeLines)->sum('amount')) }}</td>
                 </tr>
                 @endif
 
-                {{-- Baris berjumlah nominal sendiri (mis. "Additional" — biaya tambahan disetujui akuntan) --}}
-                @foreach($lines as $ln)
+                {{-- Baris berjumlah nominal sendiri (mis. "Additional" — biaya tambahan disetujui akuntan).
+                     $chargeLines, bukan $lines: baris kamar yang tersimpan tapi mode
+                     aktifnya sudah bukan mode kamar sudah dibuang di InvoiceController::
+                     invoiceViewData(), sehingga tidak pernah tercetak sebagai tagihan
+                     yang sebenarnya tidak masuk $invoice->total. --}}
+                @foreach($chargeLines as $ln)
                 @continue(empty($ln['amount']))
                 @php
                     // Rentang untuk rental/hotel, satu tanggal untuk sisanya,

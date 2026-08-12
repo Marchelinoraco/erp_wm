@@ -4,7 +4,7 @@ namespace Tests\Feature\SalesLine;
 
 use App\Services\SalesLine\DocumentRule;
 use App\Services\SalesLine\GuideRule;
-use App\Services\SalesLine\HotelRule;
+use App\Services\SalesLine\HotelPerRoomNightRule;
 use App\Services\SalesLine\MiceRule;
 use App\Services\SalesLine\TicketingRule;
 use App\Services\SalesLine\TourRule;
@@ -26,7 +26,7 @@ class RuleLabelsAndMultipliersTest extends TestCase
         $this->assertSame('Harga / tiket', (new TicketingRule())->unitPriceLabel());
         $this->assertSame('Harga / hari', (new GuideRule())->unitPriceLabel());
         $this->assertSame('Harga / hari', (new TransportRule())->unitPriceLabel());
-        $this->assertSame('Harga / kamar / malam', (new HotelRule())->unitPriceLabel());
+        $this->assertSame('Harga / kamar / malam', (new HotelPerRoomNightRule())->unitPriceLabel());
     }
 
     public function test_jenis_berbasis_pax_mengembalikan_satu_pengali_pax(): void
@@ -72,7 +72,7 @@ class RuleLabelsAndMultipliersTest extends TestCase
         // 2026-08-01 sampai 2026-08-05 = 4 malam; kamar mulai dari 1.
         $invoice = $this->makeInvoice($this->makeTour('hotel'), 500_000);
 
-        $m = (new HotelRule())->defaultMultipliers($invoice);
+        $m = (new HotelPerRoomNightRule())->defaultMultipliers($invoice);
 
         $this->assertCount(2, $m);
         $this->assertSame('rooms', $m[0]->key);
@@ -89,6 +89,6 @@ class RuleLabelsAndMultipliersTest extends TestCase
         );
 
         $this->assertSame(1, (new GuideRule())->defaultMultipliers($invoice)[0]->value);
-        $this->assertSame(1, (new HotelRule())->defaultMultipliers($invoice)[1]->value);
+        $this->assertSame(1, (new HotelPerRoomNightRule())->defaultMultipliers($invoice)[1]->value);
     }
 }

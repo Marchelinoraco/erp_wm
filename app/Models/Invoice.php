@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Services\SalesLine\Multiplier;
 use App\Services\SalesLine\SalesLineRuleRegistry;
+use App\Support\RoomChargeLine;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -11,6 +12,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Invoice extends Model
 {
     use SoftDeletes;
+
+    /** Cara hitung total invoice. NULL di database diperlakukan sebagai PRICING_PER_PAX. */
+    public const PRICING_PER_PAX        = 'per_pax';
+    public const PRICING_PER_ROOM_NIGHT = 'per_room_night';
+    public const PRICING_MODES          = [self::PRICING_PER_PAX, self::PRICING_PER_ROOM_NIGHT];
 
     protected $guarded = [];
     protected $casts   = [
@@ -23,6 +29,23 @@ class Invoice extends Model
         'unit_price'        => 'decimal:2',
         'total_idr'         => 'decimal:2',
     ];
+
+    /**
+     * Aturan jenis penjualan MILIK INVOICE INI, ikut setiap kali invoice
+     * diserialisasi ke frontend.
+     *
+     * Dilekatkan pada model, bukan ditambahkan di TourController dan
+     * FinanceController satu per satu, supaya halaman berikutnya yang
+     * menampilkan invoice tidak bisa lupa mengirimkannya — dan supaya mode
+     * yang berbeda antar-invoice pada satu tour tidak tertimpa satu prop
+     * tingkat tour.
+     */
+    protected $appends = ['rules'];
+
+    public function getRulesAttribute(): array
+    {
+        return app(SalesLineRuleRegistry::class)->payloadForInvoice($this);
+    }
 
     public function tour()
     {
@@ -108,7 +131,9 @@ class Invoice extends Model
     public function syncProformaTotal(): void
     {
         $pax  = max((int) ($this->tour?->pax ?? $this->pax ?? 1), 1);
-        $rule = app(SalesLineRuleRegistry::class)->for($this->tour?->type ?? 'tour');
+        // forInvoice(), bukan for(): hotel punya dua cara hitung dan yang
+        // menentukan adalah mode invoice ini, bukan jenis penjualannya saja.
+        $rule = app(SalesLineRuleRegistry::class)->forInvoice($this);
 
         // D6: rental menyusun total dari baris bernominal saja — unit_price
         // diabaikan. Enam jenis lain tetap unit_price × pengali. Pengali masih
@@ -124,7 +149,19 @@ class Invoice extends Model
         // proforma — baris description_lines yang punya `amount` — ikut masuk
         // total, di luar harga/pax. Baris deskripsi biasa (Hotel/Transport
         // tanpa amount) tidak ikut menambah, hanya tampilan.
-        $total += collect($this->description_lines ?? [])->sum(fn ($l) => (float) ($l['amount'] ?? 0));
+        //
+        // §9: hanya MODE YANG SEDANG AKTIF yang menentukan total. Baris kamar
+        // (RoomChargeLine::isRoomLine()) tetap tersimpan utuh saat sales
+        // berpindah ke mode pax — itu disengaja — tapi nominalnya tidak boleh
+        // ikut menambah total di luar mode kamar, atau dobel hitung dengan
+        // harga/pax. Diturunkan dari totalComposition() (registry), bukan
+        // pengecekan mode langsung di sini: 'line_items' berarti baris ikut
+        // (hotel mode kamar maupun rental), 'per_unit' berarti baris kamar
+        // dibuang dari penjumlahan. Baris biaya tambahan (bukan baris kamar)
+        // tetap ikut di kedua kasus, seperti sebelumnya.
+        $total += collect($this->description_lines ?? [])
+            ->reject(fn ($l) => $rule->totalComposition() !== 'line_items' && RoomChargeLine::isRoomLine($l))
+            ->sum(fn ($l) => (float) ($l['amount'] ?? 0));
 
         // Simpan pax yang dipakai menghitung total — PDF menampilkan pax invoice,
         // jadi keduanya harus selalu berasal dari angka yang sama.
