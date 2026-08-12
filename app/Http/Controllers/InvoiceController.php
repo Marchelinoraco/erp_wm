@@ -7,6 +7,8 @@ use App\Models\Bill;
 use App\Models\Invoice;
 use App\Models\Tour;
 use App\Services\SalesLine\SalesLineRuleRegistry;
+use App\Support\CompactDateRange;
+use App\Support\HotelRoomLabel;
 use App\Support\Pdf;
 use App\Support\RoomChargeLine;
 use Illuminate\Http\Request;
@@ -357,6 +359,28 @@ class InvoiceController extends Controller
             ->values()
             ->all();
 
+        // Baris kamar yang dicetak berpasangan dengan "Price"-nya. Kosong bila
+        // tata letaknya bukan hotel_room, sehingga Blade tidak perlu bertanya.
+        $roomLines = $aturan->chargeLineLayout() === 'hotel_room'
+            ? collect($chargeLines)->filter(fn ($l) => RoomChargeLine::isRoomLine($l))->values()->all()
+            : [];
+
+        // Spec §2.4: satu baris kamar menaikkan "Hotel / Room" ke blok info;
+        // dua atau lebih menurunkannya berpasangan ke area bernominal. Mode
+        // pax selalu memakai blok info, karena hanya punya satu keterangan.
+        $hotelRoomInfo = match (true) {
+            count($roomLines) === 1        => HotelRoomLabel::forRoomLine($roomLines[0]),
+            $aturan->chargeLineLayout() === 'hotel_room' => '',
+            default                        => trim((string) $invoice->hotel_room),
+        };
+
+        $resvDate = $aturan->usesCompactDateInPdf()
+            ? CompactDateRange::format($invoice->tour?->start_date, $invoice->tour?->end_date)
+            : ($invoice->tour?->start_date
+                ? $invoice->tour->start_date->format('d F Y')
+                    . ($invoice->tour->end_date ? ' – ' . $invoice->tour->end_date->format('d F Y') : '')
+                : '');
+
         return [
             'invoice'      => $invoice,
             'company'      => config('quotation.company'),
@@ -371,7 +395,13 @@ class InvoiceController extends Controller
             // utuh di database (agar banner panel bisa menampilkannya), jadi
             // nilainya TIDAK bisa dipakai menyimpulkan ini. Aturannya yang tahu.
             'fromLineItems'  => $aturan->totalComposition() === 'line_items',
-            'dateFirstLines' => $aturan->chargeLinesDateFirstInPdf(),
+            'chargeLineLayout' => $aturan->chargeLineLayout(),
+            'showsTotalPax'    => $aturan->showsTotalPaxInPdf(),
+            'hotelRoomInfo'    => $hotelRoomInfo,
+            'roomLines'        => $roomLines,
+            'resvDate'         => $resvDate,
+            // Dicabut di Task 6, saat Blade berhenti memakainya.
+            'dateFirstLines'   => $aturan->chargeLineLayout() === 'date_first',
             // Pax milik INVOICE (bukan tour) — invoice suplemen biaya tambahan
             // pakai pax 1 agar baris "harga × pax" cocok dengan totalnya.
             'pax'          => (int) ($invoice->pax ?? $invoice->tour?->pax ?? 0),
