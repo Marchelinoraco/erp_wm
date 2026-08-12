@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Services\SalesLine\Multiplier;
 use App\Services\SalesLine\SalesLineRuleRegistry;
+use App\Support\RoomChargeLine;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -148,7 +149,19 @@ class Invoice extends Model
         // proforma — baris description_lines yang punya `amount` — ikut masuk
         // total, di luar harga/pax. Baris deskripsi biasa (Hotel/Transport
         // tanpa amount) tidak ikut menambah, hanya tampilan.
-        $total += collect($this->description_lines ?? [])->sum(fn ($l) => (float) ($l['amount'] ?? 0));
+        //
+        // §9: hanya MODE YANG SEDANG AKTIF yang menentukan total. Baris kamar
+        // (RoomChargeLine::isRoomLine()) tetap tersimpan utuh saat sales
+        // berpindah ke mode pax — itu disengaja — tapi nominalnya tidak boleh
+        // ikut menambah total di luar mode kamar, atau dobel hitung dengan
+        // harga/pax. Diturunkan dari totalComposition() (registry), bukan
+        // pengecekan mode langsung di sini: 'line_items' berarti baris ikut
+        // (hotel mode kamar maupun rental), 'per_unit' berarti baris kamar
+        // dibuang dari penjumlahan. Baris biaya tambahan (bukan baris kamar)
+        // tetap ikut di kedua kasus, seperti sebelumnya.
+        $total += collect($this->description_lines ?? [])
+            ->reject(fn ($l) => $rule->totalComposition() !== 'line_items' && RoomChargeLine::isRoomLine($l))
+            ->sum(fn ($l) => (float) ($l['amount'] ?? 0));
 
         // Simpan pax yang dipakai menghitung total — PDF menampilkan pax invoice,
         // jadi keduanya harus selalu berasal dari angka yang sama.

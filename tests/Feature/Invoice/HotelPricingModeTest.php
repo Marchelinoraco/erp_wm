@@ -86,6 +86,45 @@ class HotelPricingModeTest extends TestCase
         $this->assertEquals(9_250_000, $invoice->fresh()->total, '8.500.000 kamar + 750.000 biaya tambahan');
     }
 
+    /**
+     * §9: hanya mode yang sedang AKTIF yang menentukan total. Baris kamar
+     * boleh tersimpan (mis. sales sempat coba mode kamar lalu berpindah
+     * pikiran), tapi selama mode aktifnya pax, nominal baris kamar tidak
+     * boleh ikut menambah total di luar harga/pax — kalau ikut, ini dobel
+     * hitung dan salah masuk ke Keuangan.
+     */
+    public function test_mode_pax_mengabaikan_baris_kamar_yang_tersimpan(): void
+    {
+        $tour    = $this->makeTour('hotel', ['pax' => 4]);
+        $invoice = $this->makeInvoice($tour, 1_000_000);
+
+        $invoice->update([
+            'pricing_mode'      => Invoice::PRICING_PER_PAX,
+            'description_lines' => self::BARIS_KAMAR,
+        ]);
+        $invoice->fresh()->syncProformaTotal();
+
+        // 8.500.000 (jumlah baris kamar) SENGAJA tidak muncul di mana pun.
+        $this->assertEquals(4_000_000, $invoice->fresh()->total, '1.000.000 x 4 pax; baris kamar tersimpan tapi tidak ikut menghitung di mode pax');
+    }
+
+    /** Pasangan test di atas: biaya tambahan (bukan baris kamar) tetap ikut menghitung di KEDUA mode. */
+    public function test_mode_pax_tetap_menghitung_biaya_tambahan_meski_ada_baris_kamar(): void
+    {
+        $tour    = $this->makeTour('hotel', ['pax' => 4]);
+        $invoice = $this->makeInvoice($tour, 1_000_000);
+
+        $invoice->update([
+            'pricing_mode'      => Invoice::PRICING_PER_PAX,
+            'description_lines' => array_merge(self::BARIS_KAMAR, [
+                ['label' => 'Antar-jemput', 'detail' => 'PP bandara', 'amount' => 750_000],
+            ]),
+        ]);
+        $invoice->fresh()->syncProformaTotal();
+
+        $this->assertEquals(4_750_000, $invoice->fresh()->total, '1.000.000 x 4 pax + 750.000 biaya tambahan; baris kamar (8.500.000) tetap diabaikan');
+    }
+
     public function test_mode_null_pada_hotel_identik_dengan_sebelum_fitur_ini(): void
     {
         // Pengunci terpenting: seluruh invoice hotel yang sudah ada bernilai
@@ -226,6 +265,36 @@ class HotelPricingModeTest extends TestCase
         $this->assertEquals(1_000_000, $segar->unit_price, 'Harga/pax tetap utuh');
         $this->assertCount(1, $segar->description_lines, 'Baris kamar tetap tersimpan');
         $this->assertEquals(2, $segar->description_lines[0]['rooms']);
+        $this->assertEquals(4_000_000, $segar->total, 'Hanya 1.000.000 x 4 pax — baris kamar tersimpan tapi TIDAK ikut menghitung di mode pax, tidak dobel hitung');
+    }
+
+    /**
+     * Berkali-kali bolak-balik tidak boleh membuat totalnya menumpuk —
+     * setiap kali berpindah mode, total harus kembali ke angka mode itu
+     * persis, tidak pernah bertambah dari putaran sebelumnya.
+     */
+    public function test_total_kembali_ke_angka_semula_setiap_bolak_balik_mode(): void
+    {
+        $invoice = $this->makeInvoice($this->makeTour('hotel', ['pax' => 4]), 1_000_000);
+        $sales   = $this->salesUser();
+
+        $barisKamar = [
+            ['label' => 'Deluxe', 'date' => '2026-08-15', 'date_end' => '2026-08-17', 'rooms' => 2, 'unit_price' => 1_500_000, 'amount' => 0],
+        ];
+
+        foreach ([1, 2, 3] as $putaran) {
+            $this->actingAs($sales)->patch(route('invoices.proforma', $invoice), [
+                'currency' => 'IDR', 'unit_price' => 1_000_000,
+                'pricing_mode' => 'per_room_night', 'description_lines' => $barisKamar,
+            ])->assertRedirect();
+            $this->assertEquals(6_000_000, $invoice->fresh()->total, "Putaran {$putaran}: mode kamar = 2 kamar x 2 malam x 1.500.000");
+
+            $this->actingAs($sales)->patch(route('invoices.proforma', $invoice), [
+                'currency' => 'IDR', 'unit_price' => 1_000_000,
+                'pricing_mode' => 'per_pax', 'description_lines' => $barisKamar,
+            ])->assertRedirect();
+            $this->assertEquals(4_000_000, $invoice->fresh()->total, "Putaran {$putaran}: mode pax = 1.000.000 x 4 pax, baris kamar diabaikan");
+        }
     }
 
     public function test_jenis_tanpa_pilihan_mode_tetap_null_setelah_disimpan(): void
