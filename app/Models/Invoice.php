@@ -29,6 +29,23 @@ class Invoice extends Model
         'total_idr'         => 'decimal:2',
     ];
 
+    /**
+     * Aturan jenis penjualan MILIK INVOICE INI, ikut setiap kali invoice
+     * diserialisasi ke frontend.
+     *
+     * Dilekatkan pada model, bukan ditambahkan di TourController dan
+     * FinanceController satu per satu, supaya halaman berikutnya yang
+     * menampilkan invoice tidak bisa lupa mengirimkannya — dan supaya mode
+     * yang berbeda antar-invoice pada satu tour tidak tertimpa satu prop
+     * tingkat tour.
+     */
+    protected $appends = ['rules'];
+
+    public function getRulesAttribute(): array
+    {
+        return app(SalesLineRuleRegistry::class)->payloadForInvoice($this);
+    }
+
     public function tour()
     {
         return $this->belongsTo(Tour::class);

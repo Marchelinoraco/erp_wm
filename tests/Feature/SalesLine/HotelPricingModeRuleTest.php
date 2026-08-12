@@ -151,4 +151,44 @@ class HotelPricingModeRuleTest extends TestCase
         $this->assertSame('per_pax', $payload['pricingMode'], 'NULL dilaporkan sebagai per_pax, bukan null');
         $this->assertSame('per_unit', $payload['totalComposition']);
     }
+
+    public function test_setiap_invoice_membawa_aturannya_sendiri_ke_frontend(): void
+    {
+        $tour = $this->makeTour('hotel', ['pax' => 4]);
+
+        $paxInvoice   = $this->makeInvoice($tour, 1_000_000);
+        $kamarInvoice = $this->makeInvoice($tour, 1_000_000);
+        $kamarInvoice->update(['pricing_mode' => 'per_room_night']);
+
+        $this->actingAs($this->salesUser())
+            ->get(route('tours.edit', $tour->id))
+            ->assertInertia(function ($page) use ($paxInvoice, $kamarInvoice) {
+                $invoices = collect($page->toArray()['props']['tour']['invoices']);
+
+                $pax   = $invoices->firstWhere('id', $paxInvoice->id);
+                $kamar = $invoices->firstWhere('id', $kamarInvoice->id);
+
+                // Dua invoice pada tour yang SAMA membawa aturan berbeda —
+                // inilah yang tidak bisa diwakili prop salesLine tingkat tour.
+                $this->assertSame('per_unit', $pax['rules']['totalComposition']);
+                $this->assertSame('per_pax', $pax['rules']['pricingMode']);
+                $this->assertSame('line_items', $kamar['rules']['totalComposition']);
+                $this->assertSame('per_room_night', $kamar['rules']['pricingMode']);
+                $this->assertSame(['per_pax', 'per_room_night'], $kamar['rules']['pricingModes']);
+            });
+    }
+
+    public function test_invoice_jenis_lain_membawa_daftar_mode_kosong(): void
+    {
+        $tour    = $this->makeTour('tour', ['pax' => 4]);
+        $invoice = $this->makeInvoice($tour, 1_000_000);
+
+        $this->actingAs($this->salesUser())
+            ->get(route('tours.edit', $tour->id))
+            ->assertInertia(function ($page) use ($invoice) {
+                $baris = collect($page->toArray()['props']['tour']['invoices'])->firstWhere('id', $invoice->id);
+
+                $this->assertSame([], $baris['rules']['pricingModes'], 'Tanpa pilihan mode, pemilihnya tidak muncul');
+            });
+    }
 }
