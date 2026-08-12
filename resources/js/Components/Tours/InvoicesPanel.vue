@@ -140,7 +140,25 @@ const profitFromRevenue = computed(() => props.salesLine.profitFromRevenue)
 
 // D6: rental menyusun total dari baris bernominal, jadi blok "Harga / pax"
 // tidak berlaku dan baris bernominal naik jadi bagian utama.
+//
+// isLineItems (tingkat TOUR) hanya cocok untuk hal yang benar-benar berlaku
+// untuk seluruh tour, bukan untuk satu invoice. Untuk hotel, aturan yang
+// terdaftar di sini adalah HotelPerPaxRule ('per_unit') — jadi isLineItems
+// SELALU false untuk hotel, padahal satu invoice hotel bisa saja sedang
+// bermode kamar ('line_items'). Tempat yang bergantung pada MODE INVOICE
+// INI wajib memakai invIsLineItems(inv) di bawah, bukan isLineItems.
 const isLineItems = computed(() => props.salesLine.totalComposition === 'line_items')
+
+/**
+ * Per-invoice equivalen isLineItems — baca dari inv.rules milik invoice ini
+ * (SalesLineRuleRegistry::payloadForInvoice(), ikut serialisasi Invoice
+ * lewat getRulesAttribute()), bukan dari props.salesLine tingkat tour.
+ * Fallback ke props.salesLine hanya untuk invoice yang entah kenapa belum
+ * membawa rules (mis. data lama/lupa dimuat) — perilaku sebelum fix ini.
+ */
+function invIsLineItems(inv) {
+    return (inv.rules?.totalComposition ?? props.salesLine.totalComposition) === 'line_items'
+}
 
 // Rental & hotel menagih layanan yang berjalan sepanjang rentang tanggal.
 // Aturannya datang dari backend (SalesLineRuleRegistry), BUKAN percabangan
@@ -673,7 +691,7 @@ function addProduct(product, extra = {}) {
                     <div><span class="text-muted-foreground">Date:</span> <span class="font-medium">{{ dateLabel }}</span></div>
                     <!-- Disembunyikan untuk komposisi line_items: PDF pun tidak
                          mencetaknya, dan blok ini pratinjau header PDF. -->
-                    <div v-if="!isLineItems"><span class="text-muted-foreground">Total Pax:</span> <span class="font-medium">{{ tourPax || '—' }} pax</span></div>
+                    <div v-if="!invIsLineItems(inv)"><span class="text-muted-foreground">Total Pax:</span> <span class="font-medium">{{ tourPax || '—' }} pax</span></div>
                 </div>
 
                 <!-- ── EDITOR PROFORMA (belum disetujui) ── -->
@@ -799,11 +817,11 @@ function addProduct(product, extra = {}) {
                     <!-- Baris bernominal: rincian utama untuk rental, biaya tambahan untuk jenis lain -->
                     <div class="rounded-md border">
                         <div class="flex items-center justify-between px-3 py-2 border-b bg-blue-50/30">
-                            <span class="text-xs font-semibold uppercase text-muted-foreground">{{ isLineItems ? 'Rincian Tagihan' : 'Biaya Tambahan (di luar harga/pax)' }}</span>
+                            <span class="text-xs font-semibold uppercase text-muted-foreground">{{ invIsLineItems(inv) ? 'Rincian Tagihan' : 'Biaya Tambahan (di luar harga/pax)' }}</span>
                             <Button size="sm" variant="outline" @click="addAdditionalLine(inv.id)">+ Biaya</Button>
                         </div>
                         <div v-if="proformaForms[inv.id].additional_lines.length === 0" class="px-3 py-4 text-center text-xs text-muted-foreground">
-                            {{ isLineItems
+                            {{ invIsLineItems(inv)
                                 ? 'Belum ada rincian. Klik "+ Biaya" untuk menambah tiap unit beserta tanggal dan nominalnya.'
                                 : 'Belum ada biaya tambahan. Klik "+ Biaya" untuk menambah (mis. biaya dokumen, izin khusus).' }}
                         </div>
@@ -898,7 +916,7 @@ function addProduct(product, extra = {}) {
                         </template>
                     </div>
                     <div class="text-sm">
-                        <template v-if="!isLineItems">
+                        <template v-if="!invIsLineItems(inv)">
                             Price:
                             <span class="font-mono">{{ fmtCur(inv.unit_price, inv.currency) }}</span>
                             × {{ tourPax || 1 }} pax

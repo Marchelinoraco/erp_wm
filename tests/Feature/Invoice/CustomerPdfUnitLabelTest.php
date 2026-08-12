@@ -37,6 +37,14 @@ class CustomerPdfUnitLabelTest extends TestCase
         array $extra = [],
     ): string {
         $segar = $invoice->fresh();
+        // Satu aturan, dipakai untuk fromLineItems, dateFirstLines, DAN
+        // chargeLines di bawah — sama seperti InvoiceController::
+        // invoiceViewData() menyelesaikannya sekali lewat forInvoice(). Test
+        // di berkas ini tidak pernah mengirim baris kamar (`rooms`), jadi
+        // reject()-nya selalu no-op di sini — filter §9 tidak mengubah
+        // perilaku test unit label ini sama sekali.
+        $rule = app(\App\Services\SalesLine\SalesLineRuleRegistry::class)
+            ->for($segar->tour?->type ?? 'tour');
 
         return view('invoice', array_replace([
             'invoice'      => $segar,
@@ -45,6 +53,11 @@ class CustomerPdfUnitLabelTest extends TestCase
             'paymentTerms' => '',
             'logo'         => '',
             'lines'        => $lines,
+            // DITURUNKAN seperti InvoiceController::invoiceViewData() —
+            // lihat App\Support\RoomChargeLine::isRoomLine().
+            'chargeLines'  => collect($lines)
+                ->reject(fn ($l) => $rule->totalComposition() !== 'line_items' && \App\Support\RoomChargeLine::isRoomLine($l))
+                ->values()->all(),
             'unitPrice'    => $unitPrice,
             'pax'          => $pax,
             'paid'         => 0.0,
@@ -55,16 +68,12 @@ class CustomerPdfUnitLabelTest extends TestCase
             // unitPrice 0 untuk rental padahal produksi mengirim harga lamanya
             // yang utuh, sehingga baris "Price :" bernominal 0 tetap tercetak
             // di PDF sungguhan meski test hijau.
-            'fromLineItems' => app(\App\Services\SalesLine\SalesLineRuleRegistry::class)
-                ->for($segar->tour?->type ?? 'tour')
-                ->totalComposition() === 'line_items',
+            'fromLineItems' => $rule->totalComposition() === 'line_items',
             // DITURUNKAN juga, dengan alasan yang sama seperti fromLineItems di
             // atas: tata letak kolom PDF ditentukan aturan jenis, dan test yang
             // boleh memilih nilainya sendiri akan menyembunyikan ketidakcocokan
             // dengan InvoiceController::build().
-            'dateFirstLines' => app(\App\Services\SalesLine\SalesLineRuleRegistry::class)
-                ->for($segar->tour?->type ?? 'tour')
-                ->chargeLinesDateFirstInPdf(),
+            'dateFirstLines' => $rule->chargeLinesDateFirstInPdf(),
         ], $extra))->render();
     }
 

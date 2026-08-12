@@ -345,6 +345,18 @@ class InvoiceController extends Controller
         $paid        = (float) $invoice->payments->sum('amount');
         $outstanding = (float) $invoice->total - $paid;
 
+        // Baris yang benar-benar ikut TOTAL mode aktif — aturan sama persis
+        // dengan Invoice::syncProformaTotal(): baris kamar (RoomChargeLine::
+        // isRoomLine()) hanya ikut ketika totalComposition() === 'line_items'.
+        // Dihitung sekali di sini (bukan di Blade) supaya baris "Price" dan
+        // daftar baris bernominal di PDF selalu sepakat dengan total-nya —
+        // tidak pernah mengurangkan/menampilkan baris kamar yang tersimpan
+        // tapi mode aktifnya sudah bukan mode kamar.
+        $chargeLines = collect($invoice->description_lines ?? [])
+            ->reject(fn ($l) => $aturan->totalComposition() !== 'line_items' && RoomChargeLine::isRoomLine($l))
+            ->values()
+            ->all();
+
         return [
             'invoice'      => $invoice,
             'company'      => config('quotation.company'),
@@ -352,6 +364,7 @@ class InvoiceController extends Controller
             'paymentTerms' => config('quotation.payment_terms', ''),
             'logo'         => $this->logoDataUri(),
             'lines'        => $invoice->description_lines ?? [],
+            'chargeLines'  => $chargeLines,
             'unitPrice'    => (float) $invoice->unit_price,
             // Jenis yang totalnya tersusun dari baris bernominal tidak punya
             // harga satuan yang bermakna — unit_price lamanya sengaja dibiarkan

@@ -365,4 +365,84 @@ class HotelPricingModeTest extends TestCase
         $this->assertStringContainsString('<td class="k">Dokumen</td>', $html);
         $this->assertStringContainsString('>Price<', $html);
     }
+
+    /**
+     * §9 lewat PDF: baris kamar yang tersimpan (sales sempat coba mode kamar
+     * lalu kembali ke pax) tidak boleh ikut mengurangi baris "Price" di
+     * dokumen yang dilihat customer — itu sebabnya baris "Price" harus tetap
+     * unit_price × pax, positif, sama persis dengan $invoice->total.
+     */
+    public function test_pdf_mode_pax_dengan_baris_kamar_tersimpan_mencetak_harga_positif(): void
+    {
+        $tour    = $this->makeTour('hotel', ['pax' => 4]);
+        $invoice = $this->makeInvoice($tour, 1_000_000);
+
+        $invoice->update([
+            'pricing_mode'      => Invoice::PRICING_PER_PAX,
+            'description_lines' => self::BARIS_KAMAR,
+        ]);
+        $invoice->fresh()->syncProformaTotal();
+
+        // Sebelum fix: baris kamar tersimpan (8.500.000) ikut dikurangkan
+        // dari total (4.000.000), menghasilkan baris Price -4.500.000.
+        $this->assertEquals(4_000_000, $invoice->fresh()->total);
+
+        $html = $this->renderInvoice($invoice);
+
+        $this->assertStringNotContainsString('IDR -', $html, 'Baris Price tidak boleh pernah tercetak negatif');
+        $this->assertStringContainsString('IDR 4.000.000', $html, 'Baris Price = unit_price × pax, tidak dikurangi baris kamar tersimpan');
+    }
+
+    /**
+     * Pasangan test di atas: baris kamar yang tersimpan tapi mode aktifnya
+     * sudah bukan mode kamar tidak boleh tercetak sebagai tagihan tersendiri
+     * — itu tagihan hantu, customer tidak sedang ditagih nominal itu.
+     */
+    public function test_pdf_mode_pax_dengan_baris_kamar_tersimpan_tidak_mencetak_baris_kamar_sebagai_tagihan(): void
+    {
+        $tour    = $this->makeTour('hotel', ['pax' => 4]);
+        $invoice = $this->makeInvoice($tour, 1_000_000);
+
+        $invoice->update([
+            'pricing_mode'      => Invoice::PRICING_PER_PAX,
+            'description_lines' => self::BARIS_KAMAR,
+        ]);
+        $invoice->fresh()->syncProformaTotal();
+
+        $html = $this->renderInvoice($invoice);
+
+        $this->assertStringNotContainsString('Deluxe', $html, 'Baris kamar tersimpan tidak boleh tercetak sebagai tagihan saat mode aktifnya pax');
+        $this->assertStringNotContainsString('Suite', $html);
+        $this->assertStringNotContainsString('6.000.000', $html, 'Nominal baris kamar tidak boleh tercetak sebagai tagihan');
+        $this->assertStringNotContainsString('2.500.000', $html);
+    }
+
+    /**
+     * Rental tidak pernah punya baris berkey `rooms`, jadi filter §9 di
+     * InvoiceController::invoiceViewData() tidak boleh membuang satu pun
+     * baris bernominalnya — pengunci "byte-for-byte tetap sama" untuk jenis
+     * yang sama sekali tidak tersentuh oleh fitur mode hitung hotel.
+     */
+    public function test_pdf_rental_tetap_mencetak_seluruh_baris_bernominal(): void
+    {
+        $tour    = $this->makeTour('rental', ['pax' => 10]);
+        $invoice = $this->makeInvoice($tour, 2_050_000, [
+            'description_lines' => [
+                ['label' => 'Avanza', 'date' => '2026-07-22', 'detail' => 'Sewa harian', 'amount' => 800_000],
+                ['label' => 'Innova Reborn', 'date' => '2026-07-25', 'detail' => 'Sewa harian', 'amount' => 1_050_000],
+                ['label' => 'Luar kota', 'date' => '2026-07-25', 'detail' => 'Tambahan', 'amount' => 200_000],
+            ],
+        ]);
+
+        $this->assertEquals(2_050_000, $invoice->total);
+
+        $html = $this->renderInvoice($invoice);
+
+        $this->assertStringContainsString('Avanza', $html);
+        $this->assertStringContainsString('Innova Reborn', $html);
+        $this->assertStringContainsString('Luar kota', $html);
+        $this->assertStringContainsString('800.000', $html);
+        $this->assertStringContainsString('1.050.000', $html);
+        $this->assertStringContainsString('200.000', $html);
+    }
 }
