@@ -26,21 +26,21 @@ class HotelPricingModeRuleTest extends TestCase
         );
     }
 
-    public function test_mode_pax_memakai_komposisi_per_unit_dan_tata_letak_pdf_lama(): void
+    public function test_mode_pax_memakai_komposisi_per_unit_dan_tata_letak_default(): void
     {
         $aturan = new HotelPerPaxRule();
 
         $this->assertSame('per_unit', $aturan->totalComposition());
-        $this->assertFalse($aturan->chargeLinesDateFirstInPdf());
+        $this->assertSame('default', $aturan->chargeLineLayout());
         $this->assertSame('Harga / pax', $aturan->unitPriceLabel());
     }
 
-    public function test_mode_kamar_menyusun_total_dari_baris_dan_pakai_tata_letak_rental(): void
+    public function test_mode_kamar_menyusun_total_dari_baris_dan_pakai_tata_letak_hotel_room(): void
     {
         $aturan = new HotelPerRoomNightRule();
 
         $this->assertSame('line_items', $aturan->totalComposition());
-        $this->assertTrue($aturan->chargeLinesDateFirstInPdf());
+        $this->assertSame('hotel_room', $aturan->chargeLineLayout());
         $this->assertSame('Harga / kamar / malam', $aturan->unitPriceLabel());
     }
 

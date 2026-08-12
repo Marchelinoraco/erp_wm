@@ -27,6 +27,11 @@ final class HotelPerPaxRule extends BaseSalesLineRule
         return true;
     }
 
+    public function usesCompactDateInPdf(): bool
+    {
+        return true;
+    }
+
     public function pricingModes(): array
     {
         return Invoice::PRICING_MODES;

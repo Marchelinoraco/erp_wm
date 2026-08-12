@@ -73,7 +73,7 @@ class CustomerPdfUnitLabelTest extends TestCase
             // atas: tata letak kolom PDF ditentukan aturan jenis, dan test yang
             // boleh memilih nilainya sendiri akan menyembunyikan ketidakcocokan
             // dengan InvoiceController::build().
-            'dateFirstLines' => $rule->chargeLinesDateFirstInPdf(),
+            'dateFirstLines' => $rule->chargeLineLayout() === 'date_first',
         ], $extra))->render();
     }
 

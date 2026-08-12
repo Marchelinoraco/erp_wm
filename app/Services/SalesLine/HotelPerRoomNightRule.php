@@ -30,8 +30,13 @@ final class HotelPerRoomNightRule extends BaseSalesLineRule
         return 'line_items';
     }
 
-    /** Yang pertama dicari customer adalah periode menginapnya, baru tipe kamarnya. */
-    public function chargeLinesDateFirstInPdf(): bool
+    /** Dokumen acuan hotel: pasangan "Hotel / Room" dan "Price". */
+    public function chargeLineLayout(): string
+    {
+        return 'hotel_room';
+    }
+
+    public function usesCompactDateInPdf(): bool
     {
         return true;
     }
