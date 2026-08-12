@@ -78,7 +78,10 @@ class FinanceController extends Controller
             'items',
             // Hanya invoice yang sudah disetujui sales yang dikelola di Keuangan.
             // Items = rincian profit internal, tampil read-only untuk akuntan.
-            'invoices' => fn ($q) => $q->approved()->with(['payments.cashAccount:id,name', 'items.product.supplier']),
+            // 'tour:id,type' wajib: atribut turunan `rules` pada setiap invoice
+            // membaca jenis penjualan lewat relasi tour, jadi tanpa ini setiap
+            // invoice memicu query tours-nya sendiri saat diserialisasi.
+            'invoices' => fn ($q) => $q->approved()->with(['tour:id,type', 'payments.cashAccount:id,name', 'items.product.supplier']),
             'bills.payments.cashAccount:id,name',
             'bills.supplier:id,name',
             // Asal bill (bila dibuat otomatis dari item Rincian Profit bersupplier)

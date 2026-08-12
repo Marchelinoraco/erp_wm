@@ -78,4 +78,15 @@ interface SalesLineInvoiceRule
      * keduanya berarti mengubah dokumen hotel tanpa ada yang memintanya.
      */
     public function chargeLinesDateFirstInPdf(): bool;
+
+    /**
+     * Mode hitung yang boleh dipilih sales untuk jenis ini, urut tampil.
+     *
+     * Kosong = jenis ini hanya punya satu cara hitung, tidak ada yang perlu
+     * dipilih. Frontend menampilkan pemilih mode dari daftar ini, sehingga
+     * komponen tidak perlu bertanya "apakah jenisnya hotel?".
+     *
+     * @return string[] nilai dari Invoice::PRICING_MODES
+     */
+    public function pricingModes(): array;
 }
