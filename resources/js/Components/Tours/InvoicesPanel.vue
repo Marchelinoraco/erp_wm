@@ -72,9 +72,19 @@ watch(
                 description_lines: Array.isArray(inv.description_lines)
                     ? inv.description_lines.filter(l => l.amount === undefined || l.amount === null).map(l => ({ label: l.label ?? '', date: l.date ?? '', detail: l.detail ?? '' }))
                     : [],
+                // Penanda baris kamar adalah KEHADIRAN key rooms, bukan
+                // nilainya — sama seperti `amount` memisahkan baris bernominal
+                // dari baris deskripsi. Baris kamar yang kamarnya masih kosong
+                // tetap baris kamar.
+                room_lines: Array.isArray(inv.description_lines)
+                    ? inv.description_lines.filter(l => l.rooms !== undefined).map(l => ({
+                        label: l.label ?? '', date: l.date ?? '', date_end: l.date_end ?? '',
+                        detail: l.detail ?? '', rooms: l.rooms ?? '', unit_price: l.unit_price ?? '',
+                    }))
+                    : [],
                 // Baris dengan amount = "Biaya Tambahan" — ikut menambah total di luar harga/pax.
                 additional_lines: Array.isArray(inv.description_lines)
-                    ? inv.description_lines.filter(l => l.amount !== undefined && l.amount !== null).map(l => ({ label: l.label ?? '', date: l.date ?? '', date_end: l.date_end ?? '', detail: l.detail ?? '', amount: Number(l.amount) || 0 }))
+                    ? inv.description_lines.filter(l => l.amount !== undefined && l.amount !== null && l.rooms === undefined).map(l => ({ label: l.label ?? '', date: l.date ?? '', date_end: l.date_end ?? '', detail: l.detail ?? '', amount: Number(l.amount) || 0 }))
                     : [],
                 // Kosong di server = tampilkan semua rekening aktif → checkbox mulai tercentang semua
                 bank_account_ids: Array.isArray(inv.bank_account_ids) && inv.bank_account_ids.length
@@ -112,12 +122,17 @@ const STAGE_BADGE = {
 }
 
 // Total proforma (mata uang invoice) = harga/pax × pax + biaya tambahan
+function pricingModeIsRoom(invId) {
+    return (proformaForms[invId]?.pricing_mode ?? 'per_pax') === 'per_room_night'
+}
 function proformaTotal(invId) {
     const f = proformaForms[invId]
     if (!f) return 0
-    const base = isLineItems.value ? 0 : (Number(f.unit_price) || 0) * Math.max(tourPax.value, 1)
+    const perKamar = pricingModeIsRoom(invId)
+    const base = (isLineItems.value || perKamar) ? 0 : (Number(f.unit_price) || 0) * Math.max(tourPax.value, 1)
+    const kamar = perKamar ? (f.room_lines ?? []).reduce((s, l) => s + roomAmount(l), 0) : 0
     const additional = (f.additional_lines ?? []).reduce((s, l) => s + (Number(l.amount) || 0), 0)
-    return base + additional
+    return base + kamar + additional
 }
 // Aturan profit datang dari backend (SalesLineRuleRegistry), bukan dari
 // percabangan tipe di sini — lihat spec D3.
@@ -166,6 +181,19 @@ function chargeLineDate(ln) {
     if (!awal) return akhir
     if (!akhir || akhir === awal) return awal
     return `${awal} – ${akhir}`
+}
+
+// Cerminan App\Support\RoomChargeLine, HANYA untuk ditampilkan sementara sales
+// mengetik. Nominal yang tersimpan selalu hasil hitungan server.
+function roomNights(ln) {
+    const a = String(ln.date ?? '').trim()
+    const b = String(ln.date_end ?? '').trim()
+    if (!POLA_ISO.test(a) || !POLA_ISO.test(b)) return 0
+    const selisih = (new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000
+    return selisih > 0 ? Math.round(selisih) : 0
+}
+function roomAmount(ln) {
+    return (Number(ln.unit_price) || 0) * (Number(ln.rooms) || 0) * roomNights(ln)
 }
 
 // R1/§5c: invoice rental lama yang nilainya masih di unit_price. Totalnya
@@ -335,10 +363,18 @@ function saveProforma(invId) {
         ...f,
         description_lines: [
             ...f.description_lines,
+            ...f.room_lines.map(l => ({
+                label: l.label, date: l.date ?? '', date_end: l.date_end ?? '', detail: l.detail,
+                rooms: Number(l.rooms) || 0, unit_price: Number(l.unit_price) || 0,
+                // Nominal disertakan agar bentuk barisnya utuh; server
+                // menimpanya lewat RoomChargeLine::recalculate().
+                amount: roomAmount(l),
+            })),
             ...f.additional_lines.map(l => ({ label: l.label, date: l.date ?? '', date_end: l.date_end ?? '', detail: l.detail, amount: Number(l.amount) || 0 })),
         ],
     }
     delete payload.additional_lines
+    delete payload.room_lines
     // Jenis tanpa pilihan mode tidak boleh ikut menulis kolom ini — biarkan
     // NULL, yang artinya memang "tidak memilih apa pun".
     const inv = (props.tour.invoices ?? []).find(i => i.id === invId)
@@ -370,6 +406,13 @@ function addAdditionalLine(invId) {
 }
 function removeAdditionalLine(invId, idx) {
     proformaForms[invId].additional_lines.splice(idx, 1)
+    saveProforma(invId)
+}
+function addRoomLine(invId) {
+    proformaForms[invId].room_lines.push({ label: '', date: '', date_end: '', detail: '', rooms: '', unit_price: '' })
+}
+function removeRoomLine(invId, idx) {
+    proformaForms[invId].room_lines.splice(idx, 1)
     saveProforma(invId)
 }
 function lockBaseline(inv) {
@@ -709,6 +752,50 @@ function addProduct(product, extra = {}) {
                         Selama belum diisi, total akan terbaca Rp 0.
                     </div>
 
+                    <!-- Rincian Kamar — hanya pada mode per kamar per malam.
+                         MALAM dan NOMINAL adalah hasil hitungan, bukan isian. -->
+                    <div v-if="pricingModeIsRoom(inv.id)" class="rounded-md border">
+                        <div class="flex items-center justify-between px-3 py-2 border-b bg-blue-50/30">
+                            <span class="text-xs font-semibold uppercase text-muted-foreground">Rincian Kamar</span>
+                            <Button size="sm" variant="outline" @click="addRoomLine(inv.id)">+ Kamar</Button>
+                        </div>
+                        <div v-if="proformaForms[inv.id].room_lines.length === 0" class="px-3 py-4 text-center text-xs text-muted-foreground">
+                            Belum ada kamar. Klik "+ Kamar" untuk menambah tipe kamar beserta periode menginap, harga per malam, dan jumlah kamarnya.
+                        </div>
+                        <div v-else class="divide-y">
+                            <div class="flex flex-wrap items-center gap-2 px-3 py-1.5 bg-muted/20 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                                <span class="w-36">Mulai</span>
+                                <span class="w-36">Selesai</span>
+                                <span class="w-32">Tipe Kamar</span>
+                                <span class="flex-1 min-w-[8rem]">Keterangan</span>
+                                <span class="w-32 text-right">Harga/Malam</span>
+                                <span class="w-16 text-right">Kamar</span>
+                                <span class="w-14 text-right">Malam</span>
+                                <span class="w-32 text-right">Nominal</span>
+                                <span class="w-4"></span>
+                            </div>
+                            <div v-for="(ln, idx) in proformaForms[inv.id].room_lines" :key="idx"
+                                class="flex flex-wrap items-center gap-2 px-3 py-2">
+                                <input type="date" v-model="ln.date" @blur="saveProforma(inv.id)"
+                                    class="w-36 border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                                <input type="date" v-model="ln.date_end" @blur="saveProforma(inv.id)"
+                                    class="w-36 border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                                <input type="text" v-model="ln.label" @blur="saveProforma(inv.id)" placeholder="Tipe Kamar (mis. Deluxe)"
+                                    class="w-32 border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                                <input type="text" v-model="ln.detail" @blur="saveProforma(inv.id)" placeholder="Keterangan"
+                                    class="flex-1 min-w-[8rem] border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                                <input type="number" v-model="ln.unit_price" @blur="saveProforma(inv.id)" min="0" placeholder="Harga/malam"
+                                    class="w-32 border rounded px-2 py-1 text-right text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary" />
+                                <input type="number" v-model="ln.rooms" @blur="saveProforma(inv.id)" min="0" placeholder="Kamar"
+                                    class="w-16 border rounded px-2 py-1 text-right text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary" />
+                                <span class="w-14 text-right text-sm font-mono text-muted-foreground">{{ roomNights(ln) }}</span>
+                                <span class="w-32 text-right text-sm font-mono font-medium">{{ fmtCur(roomAmount(ln), proformaForms[inv.id].currency) }}</span>
+                                <button type="button" @click="removeRoomLine(inv.id, idx)"
+                                    class="text-muted-foreground hover:text-destructive transition-colors" title="Hapus baris">✕</button>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Baris bernominal: rincian utama untuk rental, biaya tambahan untuk jenis lain -->
                     <div class="rounded-md border">
                         <div class="flex items-center justify-between px-3 py-2 border-b bg-blue-50/30">
@@ -758,8 +845,8 @@ function addProduct(product, extra = {}) {
                         </div>
                     </div>
 
-                    <!-- Harga per pax — tidak berlaku untuk komposisi line_items -->
-                    <div v-if="!isLineItems" class="flex flex-wrap items-end gap-3 rounded-md bg-muted/20 px-4 py-3">
+                    <!-- Harga per pax — tidak berlaku untuk komposisi line_items maupun mode per kamar -->
+                    <div v-if="!isLineItems && !pricingModeIsRoom(inv.id)" class="flex flex-wrap items-end gap-3 rounded-md bg-muted/20 px-4 py-3">
                         <div class="space-y-1">
                             <label class="text-xs font-medium text-muted-foreground">Harga / pax ({{ proformaForms[inv.id].currency }})</label>
                             <input type="number" v-model="proformaForms[inv.id].unit_price" @change="saveProforma(inv.id)" min="0"
