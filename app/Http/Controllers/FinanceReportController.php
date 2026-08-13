@@ -509,7 +509,10 @@ class FinanceReportController extends Controller
 
     private function incomeStatementData(int $year): array
     {
-        $invoices = Invoice::with('tour')->whereYear('date', $year)->get();
+        // approved(): proforma yang masih draft bukan penjualan. Konvensi yang
+        // sama sudah dipakai FinanceController; enam pemanggilan di laporan
+        // inilah yang dulu menyimpang darinya.
+        $invoices = Invoice::approved()->with('tour')->whereYear('date', $year)->get();
         $bills    = Bill::with('tour')->whereYear('date', $year)->get();
 
         $lines = [];
