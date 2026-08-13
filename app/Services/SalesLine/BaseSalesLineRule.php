@@ -49,8 +49,20 @@ abstract class BaseSalesLineRule implements SalesLineInvoiceRule
         return false;
     }
 
-    /** Mayoritas jenis memakai tata letak lama: label di kiri, tanggal menyatu dengan keterangan. */
-    public function chargeLinesDateFirstInPdf(): bool
+    /** Mayoritas jenis memakai bentuk baris bawaan. */
+    public function chargeLineLayout(): string
+    {
+        return 'default';
+    }
+
+    /** Mayoritas jenis ditagih per orang, jadi jumlah peserta bermakna. */
+    public function showsTotalPaxInPdf(): bool
+    {
+        return true;
+    }
+
+    /** Format tanggal ringkas khusus dokumen hotel. */
+    public function usesCompactDateInPdf(): bool
     {
         return false;
     }

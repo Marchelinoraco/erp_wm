@@ -46,13 +46,15 @@ final class TransportRule extends BaseSalesLineRule
         return true;
     }
 
-    /**
-     * Satu invoice rental kerap memuat beberapa unit dengan periode berbeda,
-     * jadi yang pertama dicari customer adalah PERIODE-nya — bukan nama unit.
-     * Rentang tanggal naik ke kolom kiri, nama unit turun ke kanan.
-     */
-    public function chargeLinesDateFirstInPdf(): bool
+    /** Yang pertama dicari customer adalah periode sewanya, baru unitnya. */
+    public function chargeLineLayout(): string
     {
-        return true;
+        return 'date_first';
+    }
+
+    /** Rental menyewakan unit, bukan menagih per orang — §8.7 spek lama. */
+    public function showsTotalPaxInPdf(): bool
+    {
+        return false;
     }
 }

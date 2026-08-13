@@ -61,6 +61,7 @@ watch(
                 unit_price:        Number(inv.unit_price) || 0,
                 guest_name:        inv.guest_name || '',
                 pricing_mode:      inv.rules?.pricingMode ?? 'per_pax',
+                hotel_room:        inv.hotel_room ?? '',
                 // Dibedakan lewat KEHADIRAN key amount, bukan truthy-nya — baris
                 // "Biaya Tambahan" yang baru diketik labelnya tapi nominalnya
                 // masih 0 tetap harus dikenali sebagai baris biaya (bukan
@@ -80,6 +81,7 @@ watch(
                     ? inv.description_lines.filter(l => l.rooms !== undefined).map(l => ({
                         label: l.label ?? '', date: l.date ?? '', date_end: l.date_end ?? '',
                         detail: l.detail ?? '', rooms: l.rooms ?? '', unit_price: l.unit_price ?? '',
+                        hotel: l.hotel ?? '',
                     }))
                     : [],
                 // Baris dengan amount = "Biaya Tambahan" — ikut menambah total di luar harga/pax.
@@ -384,6 +386,7 @@ function saveProforma(invId) {
             ...f.room_lines.map(l => ({
                 label: l.label, date: l.date ?? '', date_end: l.date_end ?? '', detail: l.detail,
                 rooms: Number(l.rooms) || 0, unit_price: Number(l.unit_price) || 0,
+                hotel: l.hotel ?? '',
                 // Nominal disertakan agar bentuk barisnya utuh; server
                 // menimpanya lewat RoomChargeLine::recalculate().
                 amount: roomAmount(l),
@@ -393,10 +396,15 @@ function saveProforma(invId) {
     }
     delete payload.additional_lines
     delete payload.room_lines
-    // Jenis tanpa pilihan mode tidak boleh ikut menulis kolom ini — biarkan
-    // NULL, yang artinya memang "tidak memilih apa pun".
+    // Jenis tanpa pilihan mode tidak boleh ikut menulis kolom-kolom ini —
+    // biarkan NULL, yang artinya memang "tidak memilih apa pun". hotel_room
+    // ikut dibuang di sini karena kolom itu juga cuma berlaku saat jenisnya
+    // punya lebih dari satu mode (lihat gerbang input-nya di template).
     const inv = (props.tour.invoices ?? []).find(i => i.id === invId)
-    if ((inv?.rules?.pricingModes ?? []).length < 2) delete payload.pricing_mode
+    if ((inv?.rules?.pricingModes ?? []).length < 2) {
+        delete payload.pricing_mode
+        delete payload.hotel_room
+    }
     router.patch(route('invoices.proforma', invId), payload, reload)
 }
 function selectedBankNames(inv) {
@@ -427,7 +435,7 @@ function removeAdditionalLine(invId, idx) {
     saveProforma(invId)
 }
 function addRoomLine(invId) {
-    proformaForms[invId].room_lines.push({ label: '', date: '', date_end: '', detail: '', rooms: '', unit_price: '' })
+    proformaForms[invId].room_lines.push({ label: '', date: '', date_end: '', detail: '', rooms: '', unit_price: '', hotel: '' })
 }
 function removeRoomLine(invId, idx) {
     proformaForms[invId].room_lines.splice(idx, 1)
@@ -782,6 +790,7 @@ function addProduct(product, extra = {}) {
                         </div>
                         <div v-else class="divide-y">
                             <div class="flex flex-wrap items-center gap-2 px-3 py-1.5 bg-muted/20 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                                <span class="w-40">Nama Hotel</span>
                                 <span class="w-36">Mulai</span>
                                 <span class="w-36">Selesai</span>
                                 <span class="w-32">Tipe Kamar</span>
@@ -794,6 +803,8 @@ function addProduct(product, extra = {}) {
                             </div>
                             <div v-for="(ln, idx) in proformaForms[inv.id].room_lines" :key="idx"
                                 class="flex flex-wrap items-center gap-2 px-3 py-2">
+                                <input type="text" v-model="ln.hotel" @blur="saveProforma(inv.id)" placeholder="Nama Hotel"
+                                    class="w-40 border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
                                 <input type="date" v-model="ln.date" @blur="saveProforma(inv.id)"
                                     class="w-36 border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
                                 <input type="date" v-model="ln.date_end" @blur="saveProforma(inv.id)"
@@ -861,6 +872,15 @@ function addProduct(product, extra = {}) {
                                     class="text-muted-foreground hover:text-destructive transition-colors" title="Hapus baris">✕</button>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Keterangan Hotel / Room mode pax — mode kamar memakai
+                         nama hotel per baris rincian, bukan kolom ini. -->
+                    <div v-if="!pricingModeIsRoom(inv.id) && (inv.rules?.pricingModes ?? []).length > 1" class="space-y-1">
+                        <label class="text-xs font-medium text-muted-foreground">Hotel / Room (tampil di PDF)</label>
+                        <input type="text" v-model="proformaForms[inv.id].hotel_room" @blur="saveProforma(inv.id)"
+                            placeholder="mis. Paradise Hotel Golf &amp; Resort – Deluxe Room Garden View"
+                            class="block w-full border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
                     </div>
 
                     <!-- Harga per pax — tidak berlaku untuk komposisi line_items maupun mode per kamar -->
