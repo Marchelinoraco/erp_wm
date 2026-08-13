@@ -27,11 +27,18 @@ class BalanceSheetTest extends TestCase
         $tour = Tour::create(['pax' => 2, 'type' => 'tour']);
 
         $invoice = Invoice::create([
-            'tour_id'   => $tour->id,
-            'number'    => 'INV-2026-11-0001',
-            'date'      => '2026-03-01',
-            'total'     => 5000000,
-            'total_idr' => 5000000,
+            'tour_id'     => $tour->id,
+            'number'      => 'INV-2026-11-0001',
+            'date'        => '2026-03-01',
+            'total'       => 5000000,
+            'total_idr'   => 5000000,
+            // Neraca sekarang hanya menghitung invoice yang sudah disetujui
+            // (lihat LaporanHanyaInvoiceDisetujuiTest). Test ini menguji
+            // matematika neraca, bukan alur approval, jadi cukup tandai
+            // approved_at langsung — memakai HTTP approve() sungguhan akan
+            // memicu syncProformaTotal() dan menimpa total di atas ke 0
+            // (fixture ini tidak punya unit_price/invoice item).
+            'approved_at' => '2026-03-01',
         ]);
         InvoicePayment::create([
             'invoice_id' => $invoice->id,
