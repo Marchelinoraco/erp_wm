@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Finance;
 
-use App\Models\Invoice;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\CreatesSalesFixtures;
 use Tests\TestCase;
@@ -214,9 +213,29 @@ class LaporanHanyaInvoiceDisetujuiTest extends TestCase
             ->get(route('finance.account-balances'))
             ->assertInertia(fn ($page) => $page->where('ar', fn ($v) => (float) $v === $harapan));
 
+        // KESENJANGAN YANG DIKETAHUI, sengaja dikunci di sini.
+        //
+        // Pembayaran atas invoice draft menciptakan FinTransaction nyata lewat
+        // InvoicePaymentObserver -> LedgerSync, jadi kasnya bertambah. Tapi
+        // piutang dan laba ditahan invoice itu kini (dengan benar) tidak
+        // dihitung — sehingga kas tersebut kehilangan pasangannya dan Neraca
+        // menjadi TIDAK seimbang.
+        //
+        // Ini bukan cacat yang diperkenalkan perbaikan ini, melainkan celah
+        // jalur tulis yang tersingkap olehnya: InvoicePaymentController::store()
+        // tidak pernah memeriksa apakah invoice-nya sudah disetujui. Diverifikasi
+        // di production 2026-08-12: 0 pembayaran semacam itu — belum pernah
+        // terjadi, tapi tidak dijaga.
+        //
+        // Assertion ini mengunci kenyataannya apa adanya. Kalau kelak jalur
+        // tulisnya dijaga atau kas semacam itu dicatat sebagai uang muka,
+        // test ini akan gagal dan memaksa keputusannya ditinjau ulang —
+        // bukan lolos diam-diam.
         $this->actingAs($this->financeUser())
             ->get(route('finance.balance-sheet', ['year' => $this->tahun()]))
-            ->assertInertia(fn ($page) => $page->where('aset.ar', fn ($v) => (float) $v === $harapan));
+            ->assertInertia(fn ($page) => $page
+                ->where('aset.ar', fn ($v) => (float) $v === $harapan)
+                ->where('balanced', false));
 
         $this->actingAs($this->adminUser())
             ->get(route('dashboard'))
