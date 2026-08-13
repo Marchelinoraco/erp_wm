@@ -82,6 +82,7 @@ class InvoiceController extends Controller
             'currency'                       => 'required|string|in:' . implode(',', self::CURRENCIES),
             'unit_price'                     => 'required|numeric|min:0',
             'pricing_mode'                   => 'nullable|string|in:' . implode(',', Invoice::PRICING_MODES),
+            'hotel_room'                     => 'nullable|string|max:255',
             'guest_name'                     => 'nullable|string|max:255',
             'description_lines'              => 'nullable|array',
             'description_lines.*.label'      => 'nullable|string|max:255',
@@ -89,6 +90,7 @@ class InvoiceController extends Controller
             'description_lines.*.date_end'   => 'nullable|string|max:255',
             'description_lines.*.rooms'      => 'nullable|integer|min:0',
             'description_lines.*.unit_price' => 'nullable|numeric|min:0',
+            'description_lines.*.hotel'      => 'nullable|string|max:255',
             'description_lines.*.detail'     => 'nullable|string|max:1000',
             'description_lines.*.amount'     => 'nullable|numeric|min:0',
             'bank_account_ids'               => 'nullable|array',
@@ -104,6 +106,7 @@ class InvoiceController extends Controller
             // browser hanya untuk ditampilkan dan tidak pernah dipercaya.
             'description_lines' => RoomChargeLine::recalculate(array_values($data['description_lines'] ?? [])),
             'pricing_mode'      => $data['pricing_mode'] ?? $invoice->pricing_mode,
+            'hotel_room'        => $data['hotel_room'] ?? $invoice->hotel_room,
             // Kosong = tampilkan semua rekening aktif (lihat bankAccounts())
             'bank_account_ids'  => ! empty($data['bank_account_ids']) ? array_values($data['bank_account_ids']) : null,
             'notes'             => $data['notes'] ?? $invoice->notes,

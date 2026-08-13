@@ -219,4 +219,43 @@ class HotelPdfLayoutTest extends TestCase
         $this->assertStringContainsString('Innova', $html);
         $this->assertStringNotContainsString('Hotel / Room', $html);
     }
+
+    public function test_nama_hotel_per_baris_dan_keterangan_mode_pax_tersimpan(): void
+    {
+        $invoice = $this->makeInvoice($this->makeTour('hotel', ['pax' => 2]), 705_000);
+
+        $this->actingAs($this->salesUser())
+            ->patch(route('invoices.proforma', $invoice), [
+                'currency'          => 'IDR',
+                'unit_price'        => 705_000,
+                'pricing_mode'      => 'per_room_night',
+                'hotel_room'        => 'Paradise Hotel – Deluxe Room Garden View',
+                'description_lines' => [
+                    ['hotel' => 'Paradise Hotel Golf & Resort', 'label' => 'Deluxe Room Garden View',
+                     'date' => '2026-08-01', 'date_end' => '2026-08-02',
+                     'rooms' => 1, 'unit_price' => 705_000, 'amount' => 0],
+                ],
+            ])
+            ->assertRedirect();
+
+        $segar = $invoice->fresh();
+
+        $this->assertSame('Paradise Hotel Golf & Resort', $segar->description_lines[0]['hotel']);
+        $this->assertSame('Paradise Hotel – Deluxe Room Garden View', $segar->hotel_room);
+        $this->assertEquals(705_000, $segar->description_lines[0]['amount'], 'Server tetap yang menghitung nominalnya');
+    }
+
+    public function test_permintaan_tanpa_hotel_room_tidak_menghapus_yang_tersimpan(): void
+    {
+        $invoice = $this->makeInvoice($this->makeTour('hotel', ['pax' => 2]), 705_000);
+        $invoice->update(['hotel_room' => 'Paradise Hotel – Deluxe Room']);
+
+        $this->actingAs($this->salesUser())
+            ->patch(route('invoices.proforma', $invoice), [
+                'currency' => 'IDR', 'unit_price' => 705_000,
+            ])
+            ->assertRedirect();
+
+        $this->assertSame('Paradise Hotel – Deluxe Room', $invoice->fresh()->hotel_room);
+    }
 }
