@@ -106,4 +106,34 @@ class LaporanHanyaInvoiceDisetujuiTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->where('totalRevenue', fn ($value) => (float) $value === (float) $disetujui->total_idr + (float) $draft->fresh()->total_idr));
     }
+
+    public function test_neraca_piutang_hanya_dari_invoice_disetujui(): void
+    {
+        [$disetujui, ] = $this->duaInvoice();
+
+        // Prop Neraca bersarang: aset.ar, bukan ar. Closure, bukan literal
+        // float: totalnya bulat, json_encode membuang ".0" dan Inertia
+        // membacanya balik sebagai int — assertSame literal akan gagal
+        // walau nilainya sama (lihat catatan di test laba rugi di atas).
+        $this->actingAs($this->financeUser())
+            ->get(route('finance.balance-sheet', ['year' => $this->tahun()]))
+            ->assertInertia(fn ($page) => $page
+                ->where('aset.ar', fn ($v) => (float) $v === (float) $disetujui->total_idr));
+    }
+
+    public function test_neraca_tetap_seimbang_dengan_data_campuran(): void
+    {
+        // Penjaga terpenting di pekerjaan ini. Piutang dan laba ditahan
+        // membesar bersamaan oleh nilai draft yang sama, di sisi berlawanan
+        // persamaan neraca — sehingga Neraca SEIMBANG meski keduanya salah.
+        // Memperbaiki satu sisi saja akan membuatnya benar-benar timpang.
+        //
+        // balanceSheetData() sudah menghitung sendiri prop `balanced`:
+        // abs($asetTotal - ($kewajibanTotal + $ekuitasTotal)) < 1
+        $this->duaInvoice();
+
+        $this->actingAs($this->financeUser())
+            ->get(route('finance.balance-sheet', ['year' => $this->tahun()]))
+            ->assertInertia(fn ($page) => $page->where('balanced', true));
+    }
 }

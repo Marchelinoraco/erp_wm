@@ -359,8 +359,12 @@ class FinanceReportController extends Controller
         $cashTotal = (float) $cashAccounts->sum('balance');
 
         // Piutang (AR) & Hutang (AP) — outstanding s/d akhir tahun
-        $ar = (float) Invoice::where('date', '<=', $endDate)->sum('total_idr')
-            - (float) InvoicePayment::where('date', '<=', $endDate)->sum('amount_idr');
+        // Kedua sisi disaring. Menyaring sisi invoice saja akan mengurangkan
+        // pembayaran milik invoice yang tidak ikut dihitung, sehingga piutang
+        // jadi terlalu kecil.
+        $ar = (float) Invoice::approved()->where('date', '<=', $endDate)->sum('total_idr')
+            - (float) InvoicePayment::whereHas('invoice', fn ($q) => $q->approved())
+                ->where('date', '<=', $endDate)->sum('amount_idr');
         $ap = (float) Bill::where('date', '<=', $endDate)->sum('amount')
             - (float) BillPayment::where('date', '<=', $endDate)->sum('amount');
 
@@ -430,7 +434,7 @@ class FinanceReportController extends Controller
 
         // EKUITAS — modal disetor (setting) + laba ditahan (akrual, s/d akhir tahun)
         $modal         = FinanceSetting::get('modal_disetor');
-        $invoicedRev   = (float) Invoice::where('date', '<=', $endDate)->sum('total_idr');
+        $invoicedRev   = (float) Invoice::approved()->where('date', '<=', $endDate)->sum('total_idr');
         $billedCost    = (float) Bill::where('date', '<=', $endDate)->sum('amount');
         // Spek §3.4 no. 2 & 3: 'manual' diganti "bukan invoice/bill" supaya nilai
         // source baru (advance, payroll) ikut terhitung — tanpa ini beban gaji
