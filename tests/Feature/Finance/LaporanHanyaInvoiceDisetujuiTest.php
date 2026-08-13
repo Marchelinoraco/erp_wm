@@ -136,4 +136,99 @@ class LaporanHanyaInvoiceDisetujuiTest extends TestCase
             ->get(route('finance.balance-sheet', ['year' => $this->tahun()]))
             ->assertInertia(fn ($page) => $page->where('balanced', true));
     }
+
+    public function test_saldo_akun_piutang_hanya_dari_invoice_disetujui(): void
+    {
+        [$disetujui, ] = $this->duaInvoice();
+
+        $this->actingAs($this->financeUser())
+            ->get(route('finance.account-balances'))
+            ->assertInertia(fn ($page) => $page->where('ar', fn ($v) => (float) $v === (float) $disetujui->total_idr));
+    }
+
+    /**
+     * Dashboard menuntut peran yang lolos DUA gerbang sekaligus, dan hanya
+     * admin yang memenuhinya:
+     *   - route('dashboard') dijaga middleware role:admin,sales
+     *   - blok keuangannya dijaga isAdmin() || isAccountant()
+     * Sales lolos rute tapi tidak pernah menerima prop arOutstanding;
+     * accountant punya haknya tapi ditolak rute.
+     */
+    private function adminUser(): \App\Models\User
+    {
+        return \App\Models\User::create([
+            'name'     => 'Admin Uji',
+            'email'    => 'admin' . uniqid() . '@test.local',
+            'password' => bcrypt('password'),
+            'role'     => 'admin',
+        ]);
+    }
+
+    public function test_dashboard_piutang_hanya_dari_invoice_disetujui(): void
+    {
+        [$disetujui, ] = $this->duaInvoice();
+
+        $this->actingAs($this->adminUser())
+            ->get(route('dashboard'))
+            ->assertInertia(fn ($page) => $page->where('arOutstanding', fn ($v) => (float) $v === (float) $disetujui->total_idr));
+    }
+
+    public function test_pembayaran_pada_invoice_draft_tidak_mengurangi_piutang(): void
+    {
+        // Piutang = SUM(invoices) - SUM(invoice_payments). Menyaring sisi
+        // invoice saja akan tetap mengurangkan pembayaran milik invoice yang
+        // TIDAK ikut dihitung, sehingga piutang jadi terlalu kecil.
+        //
+        // Tanpa test ini separuh perbaikan tidak teruji: fixture duaInvoice()
+        // tidak membuat pembayaran sama sekali, jadi SUM(invoice_payments)
+        // bernilai 0 dengan atau tanpa penyaring.
+        [$disetujui, $draft] = $this->duaInvoice();
+
+        \App\Models\InvoicePayment::create([
+            'invoice_id' => $draft->id,
+            'date'       => now()->toDateString(),
+            'amount'     => 1_000_000,
+            'amount_idr' => 1_000_000,
+            'method'     => 'transfer',
+        ]);
+
+        $harapan = (float) $disetujui->total_idr;
+
+        $this->actingAs($this->financeUser())
+            ->get(route('finance.account-balances'))
+            ->assertInertia(fn ($page) => $page->where('ar', fn ($v) => (float) $v === $harapan));
+
+        $this->actingAs($this->financeUser())
+            ->get(route('finance.balance-sheet', ['year' => $this->tahun()]))
+            ->assertInertia(fn ($page) => $page->where('aset.ar', fn ($v) => (float) $v === $harapan));
+
+        $this->actingAs($this->adminUser())
+            ->get(route('dashboard'))
+            ->assertInertia(fn ($page) => $page->where('arOutstanding', fn ($v) => (float) $v === $harapan));
+    }
+
+    public function test_piutang_sama_di_neraca_saldo_akun_dan_dashboard(): void
+    {
+        // Tiga halaman menghitung piutang dengan rumus terpisah. Kalau salah
+        // satu terlewat disaring, angkanya akan berbeda — dan pengguna yang
+        // membandingkan dua halaman akan melihat sistem berselisih dengan
+        // dirinya sendiri. Ketiganya dibandingkan terhadap satu angka harapan
+        // yang sama, sehingga kegagalannya menunjuk halaman mana yang salah.
+        [$disetujui, ] = $this->duaInvoice();
+        $harapan = (float) $disetujui->total_idr;
+        $cocok   = fn ($v) => (float) $v === $harapan;
+
+        // Neraca menyimpannya bersarang di aset.ar; dua lainnya datar.
+        $this->actingAs($this->financeUser())
+            ->get(route('finance.balance-sheet', ['year' => $this->tahun()]))
+            ->assertInertia(fn ($page) => $page->where('aset.ar', $cocok));
+
+        $this->actingAs($this->financeUser())
+            ->get(route('finance.account-balances'))
+            ->assertInertia(fn ($page) => $page->where('ar', $cocok));
+
+        $this->actingAs($this->adminUser())
+            ->get(route('dashboard'))
+            ->assertInertia(fn ($page) => $page->where('arOutstanding', $cocok));
+    }
 }

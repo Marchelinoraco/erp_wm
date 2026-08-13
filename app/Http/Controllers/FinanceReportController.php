@@ -326,7 +326,11 @@ class FinanceReportController extends Controller
         return [
             'accounts'  => $accounts,
             'cashTotal' => (float) $accounts->sum('saldo'),
-            'ar'        => (float) Invoice::sum('total_idr') - (float) InvoicePayment::sum('amount_idr'),
+            // Kedua sisi disaring — lihat balanceSheetData() untuk alasannya:
+            // menyaring sisi invoice saja tetap mengurangkan pembayaran milik
+            // invoice yang tidak ikut dihitung, sehingga piutang terlalu kecil.
+            'ar'        => (float) Invoice::approved()->sum('total_idr')
+                - (float) InvoicePayment::whereHas('invoice', fn ($q) => $q->approved())->sum('amount_idr'),
             'ap'        => (float) Bill::sum('amount') - (float) BillPayment::sum('amount'),
         ];
     }
