@@ -258,4 +258,24 @@ class HotelPdfLayoutTest extends TestCase
 
         $this->assertSame('Paradise Hotel – Deluxe Room', $invoice->fresh()->hotel_room);
     }
+
+    /**
+     * Jenis SELAIN hotel tidak boleh punya isi hotel_room sama sekali —
+     * bahkan string kosong. Frontend membuang key ini dari payload untuk
+     * jenis yang pricingModes-nya kurang dari dua (lihat saveProforma() di
+     * InvoicesPanel.vue), tapi backend tidak boleh bergantung pada itu:
+     * request tanpa field hotel_room harus tetap membiarkan kolomnya NULL.
+     */
+    public function test_invoice_tour_disimpan_tanpa_hotel_room_kolomnya_tetap_null(): void
+    {
+        $invoice = $this->makeInvoice($this->makeTour('tour', ['pax' => 4]), 1_000_000);
+
+        $this->actingAs($this->salesUser())
+            ->patch(route('invoices.proforma', $invoice), [
+                'currency' => 'IDR', 'unit_price' => 1_000_000,
+            ])
+            ->assertRedirect();
+
+        $this->assertNull($invoice->fresh()->hotel_room);
+    }
 }

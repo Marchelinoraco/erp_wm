@@ -396,10 +396,15 @@ function saveProforma(invId) {
     }
     delete payload.additional_lines
     delete payload.room_lines
-    // Jenis tanpa pilihan mode tidak boleh ikut menulis kolom ini — biarkan
-    // NULL, yang artinya memang "tidak memilih apa pun".
+    // Jenis tanpa pilihan mode tidak boleh ikut menulis kolom-kolom ini —
+    // biarkan NULL, yang artinya memang "tidak memilih apa pun". hotel_room
+    // ikut dibuang di sini karena kolom itu juga cuma berlaku saat jenisnya
+    // punya lebih dari satu mode (lihat gerbang input-nya di template).
     const inv = (props.tour.invoices ?? []).find(i => i.id === invId)
-    if ((inv?.rules?.pricingModes ?? []).length < 2) delete payload.pricing_mode
+    if ((inv?.rules?.pricingModes ?? []).length < 2) {
+        delete payload.pricing_mode
+        delete payload.hotel_room
+    }
     router.patch(route('invoices.proforma', invId), payload, reload)
 }
 function selectedBankNames(inv) {
