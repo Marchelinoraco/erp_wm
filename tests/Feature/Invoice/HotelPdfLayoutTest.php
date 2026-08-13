@@ -278,4 +278,60 @@ class HotelPdfLayoutTest extends TestCase
 
         $this->assertNull($invoice->fresh()->hotel_room);
     }
+
+    public function test_invoice_tour_tidak_render_hotel_room_meski_kolom_berisi_nilai(): void
+    {
+        $tour = $this->makeTour('tour', ['pax' => 4, 'start_date' => '2026-08-01', 'end_date' => '2026-08-02']);
+        $invoice = $this->makeInvoice($tour, 1_000_000);
+        // Bypass frontend guard dengan langsung update kolom
+        $invoice->update(['hotel_room' => 'Paradise Hotel – Deluxe Room']);
+
+        $data = $this->dataView($invoice);
+
+        $this->assertSame('', $data['hotelRoomInfo'], 'Invoice tour tidak boleh render Hotel/Room meski kolom ada nilai');
+    }
+
+    public function test_invoice_tour_tidak_mencetak_hotel_room_meski_kolom_berisi_nilai(): void
+    {
+        $tour = $this->makeTour('tour', ['pax' => 4, 'start_date' => '2026-08-01', 'end_date' => '2026-08-02']);
+        $invoice = $this->makeInvoice($tour, 1_000_000);
+        // Bypass frontend guard dengan langsung update kolom
+        $invoice->update(['hotel_room' => 'Paradise Hotel – Deluxe Room Garden View']);
+
+        $html = $this->render($invoice);
+
+        $this->assertStringNotContainsString('Hotel / Room', $html, 'PDF tour tidak boleh mencetak baris Hotel/Room meski kolom ada nilai');
+    }
+
+    public function test_invoice_rental_tidak_render_hotel_room_meski_kolom_berisi_nilai(): void
+    {
+        $tour = $this->makeTour('rental', ['pax' => 4, 'start_date' => '2026-08-01', 'end_date' => '2026-08-02']);
+        $invoice = $this->makeInvoice($tour, 900_000);
+        $invoice->update(['description_lines' => [
+            ['label' => 'Avanza', 'date' => '2026-08-01', 'date_end' => '2026-08-02', 'detail' => 'sopir', 'amount' => 900_000],
+        ]]);
+        $invoice->fresh()->syncProformaTotal();
+        // Bypass frontend guard dengan langsung update kolom
+        $invoice->update(['hotel_room' => 'Paradise Hotel – Deluxe Room']);
+
+        $data = $this->dataView($invoice);
+
+        $this->assertSame('', $data['hotelRoomInfo'], 'Invoice rental tidak boleh render Hotel/Room meski kolom ada nilai');
+    }
+
+    public function test_invoice_rental_tidak_mencetak_hotel_room_meski_kolom_berisi_nilai(): void
+    {
+        $tour = $this->makeTour('rental', ['pax' => 4, 'start_date' => '2026-08-01', 'end_date' => '2026-08-02']);
+        $invoice = $this->makeInvoice($tour, 900_000);
+        $invoice->update(['description_lines' => [
+            ['label' => 'Avanza', 'date' => '2026-08-01', 'date_end' => '2026-08-02', 'detail' => 'sopir', 'amount' => 900_000],
+        ]]);
+        $invoice->fresh()->syncProformaTotal();
+        // Bypass frontend guard dengan langsung update kolom
+        $invoice->update(['hotel_room' => 'Paradise Hotel – Deluxe Room Garden View']);
+
+        $html = $this->render($invoice);
+
+        $this->assertStringNotContainsString('Hotel / Room', $html, 'PDF rental tidak boleh mencetak baris Hotel/Room meski kolom ada nilai');
+    }
 }

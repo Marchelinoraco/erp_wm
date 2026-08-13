@@ -6,6 +6,7 @@ use App\Models\BankAccount;
 use App\Models\Bill;
 use App\Models\Invoice;
 use App\Models\Tour;
+use App\Services\SalesLine\HotelPerPaxRule;
 use App\Services\SalesLine\SalesLineRuleRegistry;
 use App\Support\CompactDateRange;
 use App\Support\HotelRoomLabel;
@@ -374,7 +375,7 @@ class InvoiceController extends Controller
         $hotelRoomInfo = match (true) {
             count($roomLines) === 1        => HotelRoomLabel::forRoomLine($roomLines[0]),
             $aturan->chargeLineLayout() === 'hotel_room' => '',
-            default                        => trim((string) $invoice->hotel_room),
+            default                        => $aturan instanceof HotelPerPaxRule ? trim((string) $invoice->hotel_room) : '',
         };
 
         $resvDate = $aturan->usesCompactDateInPdf()
