@@ -37,7 +37,7 @@ class CustomerPdfUnitLabelTest extends TestCase
         array $extra = [],
     ): string {
         $segar = $invoice->fresh();
-        // Satu aturan, dipakai untuk fromLineItems, dateFirstLines, DAN
+        // Satu aturan, dipakai untuk fromLineItems, chargeLineLayout, DAN
         // chargeLines di bawah — sama seperti InvoiceController::
         // invoiceViewData() menyelesaikannya sekali lewat forInvoice(). Test
         // di berkas ini tidak pernah mengirim baris kamar (`rooms`), jadi
@@ -45,6 +45,19 @@ class CustomerPdfUnitLabelTest extends TestCase
         // perilaku test unit label ini sama sekali.
         $rule = app(\App\Services\SalesLine\SalesLineRuleRegistry::class)
             ->for($segar->tour?->type ?? 'tour');
+
+        // Sama seperti InvoiceController::invoiceViewData() — Blade sejak
+        // Task 6 tidak lagi menghitung `$resvDate` sendiri, dan blok "Date"
+        // memakainya lewat `@if($resvDate)` TANPA fallback `??`. Tanpa baris
+        // ini, setiap test di berkas ini gagal dengan "Undefined variable
+        // $resvDate" (dibuktikan langsung: 18/18 test error saat baris ini
+        // sempat dihapus) — bukan diam-diam jatuh ke nilai lama.
+        $resvDate = $rule->usesCompactDateInPdf()
+            ? \App\Support\CompactDateRange::format($segar->tour?->start_date, $segar->tour?->end_date)
+            : ($segar->tour?->start_date
+                ? $segar->tour->start_date->format('d F Y')
+                    . ($segar->tour->end_date ? ' – ' . $segar->tour->end_date->format('d F Y') : '')
+                : '');
 
         return view('invoice', array_replace([
             'invoice'      => $segar,
@@ -73,7 +86,9 @@ class CustomerPdfUnitLabelTest extends TestCase
             // atas: tata letak kolom PDF ditentukan aturan jenis, dan test yang
             // boleh memilih nilainya sendiri akan menyembunyikan ketidakcocokan
             // dengan InvoiceController::build().
-            'dateFirstLines' => $rule->chargeLineLayout() === 'date_first',
+            'chargeLineLayout' => $rule->chargeLineLayout(),
+            'showsTotalPax'    => $rule->showsTotalPaxInPdf(),
+            'resvDate'         => $resvDate,
         ], $extra))->render();
     }
 

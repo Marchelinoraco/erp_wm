@@ -400,8 +400,6 @@ class InvoiceController extends Controller
             'hotelRoomInfo'    => $hotelRoomInfo,
             'roomLines'        => $roomLines,
             'resvDate'         => $resvDate,
-            // Dicabut di Task 6, saat Blade berhenti memakainya.
-            'dateFirstLines'   => $aturan->chargeLineLayout() === 'date_first',
             // Pax milik INVOICE (bukan tour) — invoice suplemen biaya tambahan
             // pakai pax 1 agar baris "harga × pax" cocok dengan totalnya.
             'pax'          => (int) ($invoice->pax ?? $invoice->tour?->pax ?? 0),

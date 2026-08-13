@@ -112,4 +112,75 @@ class HotelPdfLayoutTest extends TestCase
         $this->assertTrue($this->dataView($hotel)['showsTotalPax']);
         $this->assertFalse($this->dataView($rental)['showsTotalPax']);
     }
+
+    private function render(\App\Models\Invoice $invoice): string
+    {
+        return view('invoice', $this->dataView($invoice))->render();
+    }
+
+    public function test_blok_info_hotel_memuat_tanggal_ringkas_pax_dan_hotel_room(): void
+    {
+        $html = $this->render($this->invoiceKamar(self::SATU_KAMAR));
+
+        $this->assertStringContainsString('1-2 Aug 2026', $html);
+        $this->assertStringContainsString('Total Pax', $html);
+        $this->assertStringContainsString('2 pax', $html);
+        $this->assertStringContainsString('Hotel / Room', $html);
+        $this->assertStringContainsString('Paradise Hotel Golf &amp; Resort – 1 Deluxe Room Garden View', $html);
+    }
+
+    public function test_dua_kamar_tidak_memuat_hotel_room_di_blok_info(): void
+    {
+        $html = $this->render($this->invoiceKamar(self::DUA_KAMAR));
+
+        // Baris Hotel / Room tetap ada (di area bernominal, Task 7) tapi TIDAK
+        // di blok info — dibuktikan dengan urutannya relatif terhadap Total Pax.
+        $posPax   = strpos($html, 'Total Pax');
+        $posHotel = strpos($html, 'Hotel / Room');
+
+        $this->assertNotFalse($posPax);
+        $this->assertNotFalse($posHotel);
+        $this->assertGreaterThan($posPax + 400, $posHotel, 'Hotel / Room harus jauh di bawah blok info, bukan menempel di bawah Total Pax');
+    }
+
+    public function test_rental_tidak_mencetak_total_pax(): void
+    {
+        $tour    = $this->makeTour('rental', ['pax' => 4, 'start_date' => '2026-08-01', 'end_date' => '2026-08-02']);
+        $invoice = $this->makeInvoice($tour, 900_000);
+        $invoice->update(['description_lines' => [
+            ['label' => 'Avanza', 'date' => '2026-08-01', 'date_end' => '2026-08-02', 'detail' => 'sopir', 'amount' => 900_000],
+        ]]);
+        $invoice->fresh()->syncProformaTotal();
+
+        $html = $this->render($invoice);
+
+        $this->assertStringNotContainsString('Total Pax', $html);
+        $this->assertStringContainsString('01/08/2026 – 02/08/2026', $html, 'Rental tetap memakai tata letak tanggal-di-kiri');
+    }
+
+    public function test_jenis_lain_tetap_memakai_tanggal_panjang(): void
+    {
+        $tour    = $this->makeTour('tour', ['pax' => 4, 'start_date' => '2026-08-01', 'end_date' => '2026-08-02']);
+        $invoice = $this->makeInvoice($tour, 1_000_000);
+
+        $html = $this->render($invoice);
+
+        $this->assertStringContainsString('01 August 2026 – 02 August 2026', $html);
+        $this->assertStringContainsString('Total Pax', $html);
+    }
+
+    public function test_invoice_hotel_lama_tanpa_keterangan_tetap_tercetak(): void
+    {
+        // Seluruh invoice hotel yang sudah ada tidak punya `hotel` maupun
+        // `hotel_room`. Dokumennya harus tetap terbentuk, hanya tanpa baris
+        // Hotel / Room — bukan error, bukan baris kosong berlabel.
+        $tour    = $this->makeTour('hotel', ['pax' => 2, 'start_date' => '2026-08-01', 'end_date' => '2026-08-02']);
+        $invoice = $this->makeInvoice($tour, 705_000);
+
+        $html = $this->render($invoice);
+
+        $this->assertStringNotContainsString('Hotel / Room', $html);
+        $this->assertStringContainsString('Total Pax', $html);
+        $this->assertStringContainsString('1-2 Aug 2026', $html);
+    }
 }
