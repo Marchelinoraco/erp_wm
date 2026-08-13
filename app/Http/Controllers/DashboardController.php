@@ -67,8 +67,11 @@ class DashboardController extends Controller
             $realProfit = $confirmedSell - $actualCost;
 
             // ── Arus kas & outstanding (untuk sales, hanya tour miliknya) ──
-            $arOutstanding = (float) Invoice::when($user->isSales(), fn ($q) => $q->whereHas('tour', fn ($t) => $this->tourOwnershipFilter($t, $user)))->sum('total_idr')
-                - (float) InvoicePayment::when($user->isSales(), fn ($q) => $q->whereHas('invoice.tour', fn ($t) => $this->tourOwnershipFilter($t, $user)))->sum('amount_idr');
+            // approved() di kedua sisi — proforma draft bukan piutang, dan
+            // pembayarannya tidak boleh ikut mengurangi. Penyaring kepemilikan
+            // tour untuk sales tetap utuh di sampingnya.
+            $arOutstanding = (float) Invoice::approved()->when($user->isSales(), fn ($q) => $q->whereHas('tour', fn ($t) => $this->tourOwnershipFilter($t, $user)))->sum('total_idr')
+                - (float) InvoicePayment::whereHas('invoice', fn ($q) => $q->approved())->when($user->isSales(), fn ($q) => $q->whereHas('invoice.tour', fn ($t) => $this->tourOwnershipFilter($t, $user)))->sum('amount_idr');
             $apOutstanding = (float) Bill::when($user->isSales(), fn ($q) => $q->whereHas('tour', fn ($t) => $this->tourOwnershipFilter($t, $user)))->sum('amount')
                 - (float) BillPayment::when($user->isSales(), fn ($q) => $q->whereHas('bill.tour', fn ($t) => $this->tourOwnershipFilter($t, $user)))->sum('amount');
 
