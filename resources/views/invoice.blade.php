@@ -259,6 +259,41 @@
                 </tr>
                 @endif
 
+                {{-- Tata letak dokumen hotel: tiap baris kamar mencetak
+                     "Hotel / Room" lalu "Price" berpengali kamar × malam.
+                     Baris Hotel/Room dilewati bila hanya ada satu kamar — di
+                     kasus itu ia sudah naik ke blok info (spec §2.4). --}}
+                @foreach(($roomLines ?? []) as $rl)
+                @php
+                    $rlNights = \App\Support\RoomChargeLine::nights($rl);
+                    $rlRooms  = is_scalar($rl['rooms'] ?? null) ? (int) $rl['rooms'] : 0;
+                    $rlHarga  = is_scalar($rl['unit_price'] ?? null) ? (float) $rl['unit_price'] : 0;
+                    $rlLabel  = \App\Support\HotelRoomLabel::forRoomLine($rl);
+                @endphp
+                @if(count($roomLines) > 1 && $rlLabel !== '')
+                <tr>
+                    <td class="dcell">
+                        <table class="kv">
+                            <tr><td class="k">Hotel / Room</td><td class="s">:</td><td>{{ $rlLabel }}</td></tr>
+                        </table>
+                    </td>
+                    <td class="acell"></td>
+                </tr>
+                @endif
+                <tr>
+                    <td class="dcell">
+                        <table class="kv">
+                            <tr>
+                                <td class="k">Price</td>
+                                <td class="s">:</td>
+                                <td>{{ $fmt($rlHarga) }} x {{ $rlRooms }} room x {{ $rlNights }} night</td>
+                            </tr>
+                        </table>
+                    </td>
+                    <td class="acell">{{ $fmt($rl['amount'] ?? 0) }}</td>
+                </tr>
+                @endforeach
+
                 {{-- Baris berjumlah nominal sendiri (mis. "Additional" — biaya tambahan disetujui akuntan).
                      $chargeLines, bukan $lines: baris kamar yang tersimpan tapi mode
                      aktifnya sudah bukan mode kamar sudah dibuang di InvoiceController::
@@ -266,6 +301,7 @@
                      yang sebenarnya tidak masuk $invoice->total. --}}
                 @foreach($chargeLines as $ln)
                 @continue(empty($ln['amount']))
+                @continue(($chargeLineLayout ?? 'default') === 'hotel_room' && \App\Support\RoomChargeLine::isRoomLine($ln))
                 @php
                     // Rentang untuk rental/hotel, satu tanggal untuk sisanya,
                     // teks bebas dibiarkan utuh — lihat App\Support\ChargeLineDate.

@@ -169,4 +169,54 @@ class HotelPdfLayoutTest extends TestCase
         $this->assertStringContainsString('Total Pax', $html);
         $this->assertStringContainsString('1-2 Aug 2026', $html);
     }
+
+    public function test_satu_kamar_mencetak_baris_price_berpengali_room_dan_night(): void
+    {
+        $html = $this->render($this->invoiceKamar(self::SATU_KAMAR));
+
+        $this->assertStringContainsString('IDR 705.000 x 1 room x 1 night', $html);
+        $this->assertStringContainsString('>Price<', $html);
+    }
+
+    public function test_dua_kamar_mencetak_dua_pasang_hotel_room_dan_price(): void
+    {
+        $html = $this->render($this->invoiceKamar(self::DUA_KAMAR));
+
+        $this->assertSame(2, substr_count($html, 'Hotel / Room'));
+        $this->assertStringContainsString('Paradise Hotel – 1 Deluxe Room Garden View', $html);
+        $this->assertStringContainsString('Ibis Manado – 1 Superior Room', $html);
+        $this->assertStringContainsString('IDR 705.000 x 1 room x 2 night', $html);
+        $this->assertStringContainsString('IDR 950.000 x 1 room x 1 night', $html);
+    }
+
+    public function test_mode_pax_mencetak_price_berpengali_pax(): void
+    {
+        $tour    = $this->makeTour('hotel', ['pax' => 2, 'start_date' => '2026-08-01', 'end_date' => '2026-08-02']);
+        $invoice = $this->makeInvoice($tour, 705_000);
+        $invoice->update(['hotel_room' => 'Paradise Hotel – Deluxe Room Garden View']);
+
+        $html = $this->render($invoice);
+
+        $this->assertStringContainsString('&times; 2 pax', $html);
+        $this->assertStringNotContainsString('room x', $html);
+    }
+
+    public function test_rental_tetap_mencetak_seluruh_baris_bernominalnya(): void
+    {
+        $baris = [
+            ['label' => 'Avanza', 'date' => '2026-08-01', 'date_end' => '2026-08-02', 'detail' => 'sopir', 'amount' => 900_000],
+            ['label' => 'Innova', 'date' => '2026-08-02', 'date_end' => '2026-08-03', 'detail' => 'sopir', 'amount' => 1_100_000],
+        ];
+
+        $tour    = $this->makeTour('rental', ['pax' => 4, 'start_date' => '2026-08-01', 'end_date' => '2026-08-03']);
+        $invoice = $this->makeInvoice($tour, 2_000_000);
+        $invoice->update(['description_lines' => $baris]);
+        $invoice->fresh()->syncProformaTotal();
+
+        $html = $this->render($invoice);
+
+        $this->assertStringContainsString('Avanza', $html);
+        $this->assertStringContainsString('Innova', $html);
+        $this->assertStringNotContainsString('Hotel / Room', $html);
+    }
 }
