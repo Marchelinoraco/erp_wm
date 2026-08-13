@@ -173,6 +173,22 @@ class LaporanHanyaInvoiceDisetujuiTest extends TestCase
             ->assertInertia(fn ($page) => $page->where('arOutstanding', fn ($v) => (float) $v === (float) $disetujui->total_idr));
     }
 
+    public function test_fiskal_peredaran_bruto_hanya_dari_invoice_disetujui(): void
+    {
+        // Peredaran bruto adalah dasar hitung pajak — FiscalController memakai
+        // $totalRevenue langsung sebagai $taxBase. Proforma draft yang ikut
+        // terhitung berarti pajak dihitung dari penjualan yang belum ada.
+        //
+        // Fiskal memakai kolom `total`, BUKAN `total_idr` seperti lima tempat
+        // lain. Perbedaan itu soal mata uang, bukan persetujuan, dan sengaja
+        // tidak disentuh di sini.
+        [$disetujui, ] = $this->duaInvoice();
+
+        $this->actingAs($this->financeUser())
+            ->get(route('finance.fiscal', ['year' => $this->tahun()]))
+            ->assertInertia(fn ($page) => $page->where('totalRevenue', fn ($v) => (float) $v === (float) $disetujui->total));
+    }
+
     public function test_pembayaran_pada_invoice_draft_tidak_mengurangi_piutang(): void
     {
         // Piutang = SUM(invoices) - SUM(invoice_payments). Menyaring sisi
