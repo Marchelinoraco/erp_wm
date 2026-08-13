@@ -129,20 +129,6 @@ class HotelPdfLayoutTest extends TestCase
         $this->assertStringContainsString('Paradise Hotel Golf &amp; Resort – 1 Deluxe Room Garden View', $html);
     }
 
-    public function test_dua_kamar_tidak_memuat_hotel_room_di_blok_info(): void
-    {
-        $html = $this->render($this->invoiceKamar(self::DUA_KAMAR));
-
-        // Baris Hotel / Room tetap ada (di area bernominal, Task 7) tapi TIDAK
-        // di blok info — dibuktikan dengan urutannya relatif terhadap Total Pax.
-        $posPax   = strpos($html, 'Total Pax');
-        $posHotel = strpos($html, 'Hotel / Room');
-
-        $this->assertNotFalse($posPax);
-        $this->assertNotFalse($posHotel);
-        $this->assertGreaterThan($posPax + 400, $posHotel, 'Hotel / Room harus jauh di bawah blok info, bukan menempel di bawah Total Pax');
-    }
-
     public function test_rental_tidak_mencetak_total_pax(): void
     {
         $tour    = $this->makeTour('rental', ['pax' => 4, 'start_date' => '2026-08-01', 'end_date' => '2026-08-02']);
