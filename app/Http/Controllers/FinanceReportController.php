@@ -326,7 +326,11 @@ class FinanceReportController extends Controller
         return [
             'accounts'  => $accounts,
             'cashTotal' => (float) $accounts->sum('saldo'),
-            'ar'        => (float) Invoice::sum('total_idr') - (float) InvoicePayment::sum('amount_idr'),
+            // Kedua sisi disaring — lihat balanceSheetData() untuk alasannya:
+            // menyaring sisi invoice saja tetap mengurangkan pembayaran milik
+            // invoice yang tidak ikut dihitung, sehingga piutang terlalu kecil.
+            'ar'        => (float) Invoice::approved()->sum('total_idr')
+                - (float) InvoicePayment::whereHas('invoice', fn ($q) => $q->approved())->sum('amount_idr'),
             'ap'        => (float) Bill::sum('amount') - (float) BillPayment::sum('amount'),
         ];
     }
@@ -359,8 +363,12 @@ class FinanceReportController extends Controller
         $cashTotal = (float) $cashAccounts->sum('balance');
 
         // Piutang (AR) & Hutang (AP) — outstanding s/d akhir tahun
-        $ar = (float) Invoice::where('date', '<=', $endDate)->sum('total_idr')
-            - (float) InvoicePayment::where('date', '<=', $endDate)->sum('amount_idr');
+        // Kedua sisi disaring. Menyaring sisi invoice saja akan mengurangkan
+        // pembayaran milik invoice yang tidak ikut dihitung, sehingga piutang
+        // jadi terlalu kecil.
+        $ar = (float) Invoice::approved()->where('date', '<=', $endDate)->sum('total_idr')
+            - (float) InvoicePayment::whereHas('invoice', fn ($q) => $q->approved())
+                ->where('date', '<=', $endDate)->sum('amount_idr');
         $ap = (float) Bill::where('date', '<=', $endDate)->sum('amount')
             - (float) BillPayment::where('date', '<=', $endDate)->sum('amount');
 
@@ -430,7 +438,7 @@ class FinanceReportController extends Controller
 
         // EKUITAS — modal disetor (setting) + laba ditahan (akrual, s/d akhir tahun)
         $modal         = FinanceSetting::get('modal_disetor');
-        $invoicedRev   = (float) Invoice::where('date', '<=', $endDate)->sum('total_idr');
+        $invoicedRev   = (float) Invoice::approved()->where('date', '<=', $endDate)->sum('total_idr');
         $billedCost    = (float) Bill::where('date', '<=', $endDate)->sum('amount');
         // Spek §3.4 no. 2 & 3: 'manual' diganti "bukan invoice/bill" supaya nilai
         // source baru (advance, payroll) ikut terhitung — tanpa ini beban gaji
@@ -509,7 +517,10 @@ class FinanceReportController extends Controller
 
     private function incomeStatementData(int $year): array
     {
-        $invoices = Invoice::with('tour')->whereYear('date', $year)->get();
+        // approved(): proforma yang masih draft bukan penjualan. Konvensi yang
+        // sama sudah dipakai FinanceController; enam pemanggilan di laporan
+        // inilah yang dulu menyimpang darinya.
+        $invoices = Invoice::approved()->with('tour')->whereYear('date', $year)->get();
         $bills    = Bill::with('tour')->whereYear('date', $year)->get();
 
         $lines = [];

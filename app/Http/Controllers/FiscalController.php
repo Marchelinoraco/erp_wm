@@ -34,7 +34,12 @@ class FiscalController extends Controller
         $regime = $request->input('regime', 'badan_22'); // badan_22 | pp23
 
         // ── Laba Komersial ───────────────────────────────────────────────────
-        $totalRevenue = (float) Invoice::whereYear('date', $year)->sum('total');
+        // approved(): pajak tidak dihitung dari proforma yang belum diakui
+        // sebagai penjualan. $totalRevenue dipakai langsung sebagai $taxBase
+        // di bawah, jadi angka ini benar-benar menentukan pajaknya.
+        // Kolomnya tetap `total`, bukan `total_idr` seperti lima laporan lain
+        // — perbedaan itu soal mata uang dan sengaja tidak disentuh di sini.
+        $totalRevenue = (float) Invoice::approved()->whereYear('date', $year)->sum('total');
         $totalCogs    = (float) Bill::whereYear('date', $year)->sum('amount');
         $grossProfit  = $totalRevenue - $totalCogs;
 
