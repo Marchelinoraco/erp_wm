@@ -70,14 +70,25 @@ interface SalesLineInvoiceRule
     public function chargeLinesUseDateRange(): bool;
 
     /**
-     * true = di PDF customer, baris bernominal menaruh rentang tanggal di kolom
-     * kiri (tempat label) dan menurunkan nama/unit ke kolom kanan.
+     * Bentuk baris bernominal di PDF:
+     *   'default'    — label di kiri, tanggal menyatu dengan keterangan
+     *   'date_first' — rentang tanggal naik ke kolom kiri (rental)
+     *   'hotel_room' — pasangan "Hotel / Room" + "Price" (hotel mode kamar)
      *
-     * SENGAJA terpisah dari chargeLinesUseDateRange(): hotel juga punya tanggal
-     * mulai & selesai, tapi tata letak PDF-nya tidak ikut berubah. Melebur
-     * keduanya berarti mengubah dokumen hotel tanpa ada yang memintanya.
+     * Tiga keadaan, bukan dua boolean: kombinasi tak sah jadi mustahil.
      */
-    public function chargeLinesDateFirstInPdf(): bool;
+    public function chargeLineLayout(): string;
+
+    /**
+     * true = jumlah peserta bermakna untuk jenis ini dan dicetak di PDF.
+     *
+     * Rental tidak mengenal peserta. Hotel mencetaknya sebagai keterangan
+     * meski pada mode kamar pax tidak ikut mengalikan apa pun.
+     */
+    public function showsTotalPaxInPdf(): bool;
+
+    /** true = baris Date memakai format ringkas gaya voucher hotel. */
+    public function usesCompactDateInPdf(): bool;
 
     /**
      * Mode hitung yang boleh dipilih sales untuk jenis ini, urut tampil.

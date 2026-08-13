@@ -63,7 +63,7 @@
          180px memberi sisa ±3mm. Dilebarkan untuk SELURUH dokumen, bukan hanya
          baris tagihannya, agar titik dua blok atas tetap sebaris dengan titik
          dua baris tagihan. Dijaga test_kolom_label_rental_muat_untuk_rentang_tanggal. --}}
-    .kv td.k { width: {{ ($dateFirstLines ?? false) ? '180px' : '120px' }}; }
+    .kv td.k { width: {{ ($chargeLineLayout ?? 'default') === 'default' ? '120px' : '180px' }}; }
     .kv td.s { width: 14px; }
     .gap td { height: 4px; font-size: 0; line-height: 0; }
 
@@ -106,11 +106,6 @@
     $party    = trim((string) $invoice->guest_name) !== ''
         ? $invoice->guest_name
         : (($tour?->pax ?? 0) > 1 ? $custName . ' & Party' : $custName);
-
-    $resvDate = $tour?->start_date
-        ? \Carbon\Carbon::parse($tour->start_date)->format('d F Y')
-          . ($tour->end_date ? ' – ' . \Carbon\Carbon::parse($tour->end_date)->format('d F Y') : '')
-        : null;
 
     $invNote = config('quotation.invoice_note');
 
@@ -194,14 +189,15 @@
                             @if($resvDate)
                             <tr><td class="k">Date</td><td class="s">:</td><td>{{ $resvDate }}</td></tr>
                             @endif
-                            {{-- Baris pax dilewati untuk jenis yang total-nya tersusun
-                                 dari baris bernominal: di sana pax tidak ikut menghitung
-                                 apa pun (base 0, lihat Invoice::syncProformaTotal), jadi
-                                 mencetaknya cuma menyatakan angka yang tidak menjelaskan
-                                 dokumen ini. Patokannya aturan jenis, BUKAN tour.pax —
-                                 kolom itu tetap terisi untuk semua jenis. --}}
-                            @if($tour?->pax && !($fromLineItems ?? false))
+                            {{-- Jumlah peserta dicetak bila jenisnya mengenalinya.
+                                 Rental menyewakan unit, bukan menagih per orang.
+                                 Untuk hotel mode kamar angkanya keterangan saja —
+                                 pax tidak ikut mengalikan apa pun di sana. --}}
+                            @if($tour?->pax && ($showsTotalPax ?? true))
                             <tr><td class="k">Total Pax</td><td class="s">:</td><td>{{ $tour->pax }} pax</td></tr>
+                            @endif
+                            @if(($hotelRoomInfo ?? '') !== '')
+                            <tr><td class="k">Hotel / Room</td><td class="s">:</td><td>{{ $hotelRoomInfo }}</td></tr>
                             @endif
 
                             @php $prevLbl = null; @endphp
@@ -263,6 +259,41 @@
                 </tr>
                 @endif
 
+                {{-- Tata letak dokumen hotel: tiap baris kamar mencetak
+                     "Hotel / Room" lalu "Price" berpengali kamar × malam.
+                     Baris Hotel/Room dilewati bila hanya ada satu kamar — di
+                     kasus itu ia sudah naik ke blok info (spec §2.4). --}}
+                @foreach(($roomLines ?? []) as $rl)
+                @php
+                    $rlNights = \App\Support\RoomChargeLine::nights($rl);
+                    $rlRooms  = is_scalar($rl['rooms'] ?? null) ? (int) $rl['rooms'] : 0;
+                    $rlHarga  = is_scalar($rl['unit_price'] ?? null) ? (float) $rl['unit_price'] : 0;
+                    $rlLabel  = \App\Support\HotelRoomLabel::forRoomLine($rl);
+                @endphp
+                @if(count($roomLines) > 1 && $rlLabel !== '')
+                <tr>
+                    <td class="dcell">
+                        <table class="kv">
+                            <tr><td class="k">Hotel / Room</td><td class="s">:</td><td>{{ $rlLabel }}</td></tr>
+                        </table>
+                    </td>
+                    <td class="acell"></td>
+                </tr>
+                @endif
+                <tr>
+                    <td class="dcell">
+                        <table class="kv">
+                            <tr>
+                                <td class="k">Price</td>
+                                <td class="s">:</td>
+                                <td>{{ $fmt($rlHarga) }} x {{ $rlRooms }} room x {{ $rlNights }} night</td>
+                            </tr>
+                        </table>
+                    </td>
+                    <td class="acell">{{ $fmt($rl['amount'] ?? 0) }}</td>
+                </tr>
+                @endforeach
+
                 {{-- Baris berjumlah nominal sendiri (mis. "Additional" — biaya tambahan disetujui akuntan).
                      $chargeLines, bukan $lines: baris kamar yang tersimpan tapi mode
                      aktifnya sudah bukan mode kamar sudah dibuang di InvoiceController::
@@ -270,6 +301,7 @@
                      yang sebenarnya tidak masuk $invoice->total. --}}
                 @foreach($chargeLines as $ln)
                 @continue(empty($ln['amount']))
+                @continue(($chargeLineLayout ?? 'default') === 'hotel_room' && \App\Support\RoomChargeLine::isRoomLine($ln))
                 @php
                     // Rentang untuk rental/hotel, satu tanggal untuk sisanya,
                     // teks bebas dibiarkan utuh — lihat App\Support\ChargeLineDate.
@@ -277,7 +309,7 @@
                     // Rental menaikkan periode ke kolom kiri. Baris tanpa
                     // tanggal tetap memakai tata letak lama supaya kolom kiri
                     // tidak pernah kosong (mis. "Biaya parkir" tanpa tanggal).
-                    $tglDulu = ($dateFirstLines ?? false) && $tgl !== '';
+                    $tglDulu = ($chargeLineLayout ?? 'default') === 'date_first' && $tgl !== '';
                 @endphp
                 <tr>
                     <td class="dcell">

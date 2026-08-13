@@ -6,7 +6,10 @@ use App\Models\BankAccount;
 use App\Models\Bill;
 use App\Models\Invoice;
 use App\Models\Tour;
+use App\Services\SalesLine\HotelPerPaxRule;
 use App\Services\SalesLine\SalesLineRuleRegistry;
+use App\Support\CompactDateRange;
+use App\Support\HotelRoomLabel;
 use App\Support\Pdf;
 use App\Support\RoomChargeLine;
 use Illuminate\Http\Request;
@@ -80,6 +83,7 @@ class InvoiceController extends Controller
             'currency'                       => 'required|string|in:' . implode(',', self::CURRENCIES),
             'unit_price'                     => 'required|numeric|min:0',
             'pricing_mode'                   => 'nullable|string|in:' . implode(',', Invoice::PRICING_MODES),
+            'hotel_room'                     => 'nullable|string|max:255',
             'guest_name'                     => 'nullable|string|max:255',
             'description_lines'              => 'nullable|array',
             'description_lines.*.label'      => 'nullable|string|max:255',
@@ -87,6 +91,7 @@ class InvoiceController extends Controller
             'description_lines.*.date_end'   => 'nullable|string|max:255',
             'description_lines.*.rooms'      => 'nullable|integer|min:0',
             'description_lines.*.unit_price' => 'nullable|numeric|min:0',
+            'description_lines.*.hotel'      => 'nullable|string|max:255',
             'description_lines.*.detail'     => 'nullable|string|max:1000',
             'description_lines.*.amount'     => 'nullable|numeric|min:0',
             'bank_account_ids'               => 'nullable|array',
@@ -102,6 +107,7 @@ class InvoiceController extends Controller
             // browser hanya untuk ditampilkan dan tidak pernah dipercaya.
             'description_lines' => RoomChargeLine::recalculate(array_values($data['description_lines'] ?? [])),
             'pricing_mode'      => $data['pricing_mode'] ?? $invoice->pricing_mode,
+            'hotel_room'        => $data['hotel_room'] ?? $invoice->hotel_room,
             // Kosong = tampilkan semua rekening aktif (lihat bankAccounts())
             'bank_account_ids'  => ! empty($data['bank_account_ids']) ? array_values($data['bank_account_ids']) : null,
             'notes'             => $data['notes'] ?? $invoice->notes,
@@ -357,6 +363,28 @@ class InvoiceController extends Controller
             ->values()
             ->all();
 
+        // Baris kamar yang dicetak berpasangan dengan "Price"-nya. Kosong bila
+        // tata letaknya bukan hotel_room, sehingga Blade tidak perlu bertanya.
+        $roomLines = $aturan->chargeLineLayout() === 'hotel_room'
+            ? collect($chargeLines)->filter(fn ($l) => RoomChargeLine::isRoomLine($l))->values()->all()
+            : [];
+
+        // Spec §2.4: satu baris kamar menaikkan "Hotel / Room" ke blok info;
+        // dua atau lebih menurunkannya berpasangan ke area bernominal. Mode
+        // pax selalu memakai blok info, karena hanya punya satu keterangan.
+        $hotelRoomInfo = match (true) {
+            count($roomLines) === 1        => HotelRoomLabel::forRoomLine($roomLines[0]),
+            $aturan->chargeLineLayout() === 'hotel_room' => '',
+            default                        => $aturan instanceof HotelPerPaxRule ? trim((string) $invoice->hotel_room) : '',
+        };
+
+        $resvDate = $aturan->usesCompactDateInPdf()
+            ? CompactDateRange::format($invoice->tour?->start_date, $invoice->tour?->end_date)
+            : ($invoice->tour?->start_date
+                ? $invoice->tour->start_date->format('d F Y')
+                    . ($invoice->tour->end_date ? ' – ' . $invoice->tour->end_date->format('d F Y') : '')
+                : '');
+
         return [
             'invoice'      => $invoice,
             'company'      => config('quotation.company'),
@@ -371,7 +399,11 @@ class InvoiceController extends Controller
             // utuh di database (agar banner panel bisa menampilkannya), jadi
             // nilainya TIDAK bisa dipakai menyimpulkan ini. Aturannya yang tahu.
             'fromLineItems'  => $aturan->totalComposition() === 'line_items',
-            'dateFirstLines' => $aturan->chargeLinesDateFirstInPdf(),
+            'chargeLineLayout' => $aturan->chargeLineLayout(),
+            'showsTotalPax'    => $aturan->showsTotalPaxInPdf(),
+            'hotelRoomInfo'    => $hotelRoomInfo,
+            'roomLines'        => $roomLines,
+            'resvDate'         => $resvDate,
             // Pax milik INVOICE (bukan tour) — invoice suplemen biaya tambahan
             // pakai pax 1 agar baris "harga × pax" cocok dengan totalnya.
             'pax'          => (int) ($invoice->pax ?? $invoice->tour?->pax ?? 0),
