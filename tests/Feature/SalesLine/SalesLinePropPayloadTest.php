@@ -21,7 +21,7 @@ class SalesLinePropPayloadTest extends TestCase
     public function test_payload_memuat_profit_from_revenue_yang_benar_per_jenis(): void
     {
         $harapan = [
-            'tour' => true, 'hotel' => false, 'guide' => false, 'rental' => false,
+            'tour' => true, 'hotel' => true, 'guide' => false, 'rental' => false,
             'mice' => false, 'document' => false, 'ticketing' => false,
         ];
 

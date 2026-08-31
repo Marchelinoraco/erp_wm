@@ -44,16 +44,20 @@ class HotelPricingModeRuleTest extends TestCase
         $this->assertSame('Harga / kamar / malam', $aturan->unitPriceLabel());
     }
 
-    public function test_kedua_mode_tetap_memakai_rentang_tanggal_dan_costing_tour_items(): void
+    public function test_kedua_mode_pakai_rentang_tanggal_dan_profit_dari_tagihan(): void
     {
         // Kotak tanggal mulai & selesai pada baris bernominal hotel sudah ada
-        // sebelum fitur ini dan tidak dicabut. costingSource sengaja TIDAK
-        // diubah jadi invoice_items seperti rental — paket hotel tetap disusun
-        // di muka.
+        // sebelum fitur ini dan tidak dicabut.
+        //
+        // profitFromRevenue = true di kedua mode (seperti tipe `tour`): hotel
+        // dijual gelondongan, Rincian Profit invoice hanya mencatat modal.
+        // costingSource dibiarkan 'tour_items' — nilai default yang sudah tidak
+        // terpakai untuk hotel karena Tour::usesInvoiceProfit() mengarahkan
+        // modal ke invoice_items begitu profitFromRevenue true.
         foreach ([new HotelPerPaxRule(), new HotelPerRoomNightRule()] as $aturan) {
             $this->assertTrue($aturan->chargeLinesUseDateRange(), get_class($aturan));
             $this->assertSame('tour_items', $aturan->costingSource(), get_class($aturan));
-            $this->assertFalse($aturan->profitFromRevenue(), get_class($aturan));
+            $this->assertTrue($aturan->profitFromRevenue(), get_class($aturan));
         }
     }
 

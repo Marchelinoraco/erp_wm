@@ -23,7 +23,7 @@ Bila Anda mencari "aturan khusus invoice untuk rental" atau "invoice MICE beda a
 | Rental (mobil/kapal) | `13` | Σ (sell − cost) | — |
 | Guide | `14` | Σ (sell − cost) | — |
 | MICE / Event | `15` | Σ (sell − cost) | MICE Template |
-| Hotel | `16` | Σ (sell − cost) | — |
+| Hotel | `16` | tagihan IDR − Σ cost | — |
 | Document (visa/paspor) | `17` | Σ (sell − cost) | — |
 | Ticketing | `18` | Σ (sell − cost) | — |
 
@@ -51,6 +51,8 @@ Fungsi yang sama dipakai untuk kode tour (`WM-<tahun>-<kode>-NNNN`), sehingga ko
 ## 8.3 Rumus profit — satu sumber, `SalesLineRuleRegistry`
 
 > **Diperbarui 30 Jul 2026.** Dulu bercabang di **enam tempat** yang harus selalu sepakat — dan tidak ada galat apa pun bila salah satu terlupa. Kini keputusannya hanya di satu tempat: `SalesLineInvoiceRule::profitFromRevenue()`, dipilih lewat `SalesLineRuleRegistry`. Mengubah aturan satu jenis berarti menyunting satu berkas rule.
+>
+> **Diperbarui 31 Agu 2026.** `hotel` (`HotelPerPaxRule` & `HotelPerRoomNightRule`) kini `profitFromRevenue() === true`, sama seperti `tour` — hotel dijual gelondongan (harga/pax × pax atau Σ baris kamar), Rincian Profit invoice hanya mencatat modal. Sebelumnya profit hotel selalu Rp 0 karena `Σ(sell − cost)` per baris sementara tak ada yang mengisi `sell` per baris hotel.
 
 | Tempat | Berkas | Sekarang |
 |---|---|---|
@@ -65,14 +67,14 @@ Prop `salesLine` dibentuk `SalesLineRuleRegistry::payloadFor()` — satu tempat,
 
 Aturannya sendiri tidak berubah:
 
-### Tipe `tour` (inbound & outbound) — `profitFromRevenue() === true`
+### Tipe `tour` (inbound & outbound) dan `hotel` — `profitFromRevenue() === true`
 
 ```
 profit = tagihan customer dalam IDR − Σ line_cost
 margin = profit ÷ tagihan IDR
 ```
 
-Kolom `sell` per item **diabaikan sepenuhnya**. Alasannya komersial: pada tour paket, yang dijual adalah satu harga per pax, bukan penjumlahan komponen. Harga jual per komponen tidak punya arti di sana.
+Kolom `sell` per item **diabaikan sepenuhnya**. Alasannya komersial: yang dijual adalah satu harga gelondongan (per pax pada tour paket; harga/pax × pax atau Σ baris kamar pada hotel), bukan penjumlahan komponen. Harga jual per komponen tidak punya arti di sana.
 
 ### Semua tipe lain — `profitFromRevenue() === false`
 
@@ -85,13 +87,15 @@ Di sini tiap komponen dijual terpisah, sehingga margin dihitung per baris.
 
 ### Kondisi kurs
 
+Berlaku untuk tipe ber-`profitFromRevenue()` (`tour` & `hotel`):
+
 | # | Kondisi | Hasil |
 |---|---|---|
-| K-114 | Tipe `tour`, sudah disetujui | pakai `total_idr` yang tersimpan |
-| K-115 | Tipe `tour`, belum disetujui, mata uang IDR | pakai total proforma |
-| K-116 | Tipe `tour`, belum disetujui, non-IDR, kurs terisi | total × kurs |
-| K-117 | Tipe `tour`, belum disetujui, non-IDR, kurs kosong | **`null`** → UI menampilkan "kurs belum diisi" |
-| K-118 | Tipe non-`tour` | tidak pernah `null`; dihitung dalam mata uang invoice |
+| K-114 | Sudah disetujui | pakai `total_idr` yang tersimpan |
+| K-115 | Belum disetujui, mata uang IDR | pakai total proforma |
+| K-116 | Belum disetujui, non-IDR, kurs terisi | total × kurs |
+| K-117 | Belum disetujui, non-IDR, kurs kosong | **`null`** → UI menampilkan "kurs belum diisi" |
+| K-118 | Tipe `profitFromRevenue() === false` | tidak pernah `null`; dihitung dalam mata uang invoice |
 
 K-117 disengaja: menebak angka profit tanpa kurs lebih berbahaya daripada menampilkan ketidaktahuan.
 
