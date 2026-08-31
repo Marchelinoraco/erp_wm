@@ -21,6 +21,16 @@ final class HotelPerPaxRule extends BaseSalesLineRule
         return [new Multiplier('pax', 'Peserta', $this->paxOf($invoice))];
     }
 
+    /**
+     * Hotel ditagih gelondongan (harga/pax × pax); Rincian Profit invoice hanya
+     * mencatat modalnya. Jadi profit = tagihan customer − Σ modal item, sama
+     * seperti tipe `tour` — bukan Σ(jual − modal) per item yang selalu Rp 0.
+     */
+    public function profitFromRevenue(): bool
+    {
+        return true;
+    }
+
     /** Menginap berjalan dari tanggal check-in sampai check-out, sama seperti mode kamar. */
     public function chargeLinesUseDateRange(): bool
     {
