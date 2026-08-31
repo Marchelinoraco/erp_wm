@@ -90,9 +90,10 @@ class RentalCostingFromInvoiceTest extends TestCase
 
     public function test_jenis_lain_tetap_membaca_tour_items(): void
     {
-        // Hanya rental yang pindah sumber. Lima jenis lain masih menyusun
-        // paketnya di tour_items, dan itu tidak boleh ikut berubah.
-        foreach (['hotel', 'guide', 'mice', 'document', 'ticketing'] as $type) {
+        // Rental & hotel pindah sumber ke invoice (lihat HotelProfitFromRevenueTest
+        // untuk hotel). Empat jenis lain masih menyusun paketnya di tour_items,
+        // dan itu tidak boleh ikut berubah.
+        foreach (['guide', 'mice', 'document', 'ticketing'] as $type) {
             $tour = $this->invoiceRentalDisetujui($type);
 
             TourItem::create([

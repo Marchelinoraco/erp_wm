@@ -30,6 +30,15 @@ final class HotelPerRoomNightRule extends BaseSalesLineRule
         return 'line_items';
     }
 
+    /**
+     * Sama seperti mode pax (dan tipe `tour`): tagihan customer = Σ baris kamar,
+     * modal ada di Rincian Profit invoice. Profit = tagihan − Σ modal item.
+     */
+    public function profitFromRevenue(): bool
+    {
+        return true;
+    }
+
     /** Dokumen acuan hotel: pasangan "Hotel / Room" dan "Price". */
     public function chargeLineLayout(): string
     {

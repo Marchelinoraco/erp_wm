@@ -31,7 +31,10 @@ class TourController extends Controller
         }
 
         $query = Tour::visibleTo($request->user())
-            ->with('customer')
+            // items + invoices.items memuat justru yang dibutuhkan accessor
+            // total_sell/total_cost (rule-aware, menimpa withSum di bawah) —
+            // hotel/tour membaca invoice, jenis lain membaca tour_items.
+            ->with(['customer', 'items', 'invoices.items'])
             ->withSum('items as total_sell', 'line_sell')
             ->withSum('items as total_cost', 'line_cost')
             ->withCount('invoices')
