@@ -12,6 +12,7 @@ import {
 } from '@/Components/ui/table'
 import { DropdownMenuItem, DropdownMenuSeparator } from '@/Components/ui/dropdown-menu'
 import RowActions from '@/Components/RowActions.vue'
+import SortableHead from '@/Components/SortableHead.vue'
 import { confirm } from '@/lib/confirm'
 
 const props = defineProps({
@@ -21,6 +22,8 @@ const props = defineProps({
 
 const search = ref(props.filters?.search ?? '')
 const type   = ref(props.filters?.type   ?? 'all')
+const sort   = ref(props.filters?.sort   ?? null)
+const dir    = ref(props.filters?.dir    ?? null)
 
 let searchTimer = null
 watch(search, () => {
@@ -33,7 +36,17 @@ function applyFilter() {
     router.get(route('suppliers.index'), {
         search: search.value || undefined,
         type:   type.value === 'all' ? undefined : type.value,
+        sort:   sort.value || undefined,
+        dir:    sort.value ? dir.value : undefined,
     }, { preserveState: true, replace: true })
+}
+
+// Ganti sortir selalu balik ke halaman 1 — kalau tidak, user bisa tersangkut
+// di halaman 5 yang isinya sudah berbeda setelah urutannya berubah.
+function applySort(next) {
+    sort.value = next.sort
+    dir.value  = next.dir
+    applyFilter()
 }
 
 const TYPE_LABELS = {
@@ -102,11 +115,11 @@ async function confirmDelete(id) {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Nama</TableHead>
-                                <TableHead>Tipe</TableHead>
-                                <TableHead>Kontak</TableHead>
-                                <TableHead>Telepon</TableHead>
-                                <TableHead>Produk</TableHead>
+                                <SortableHead column="name" :sort="sort" :dir="dir" @sort="applySort">Nama</SortableHead>
+                                <SortableHead column="type" :sort="sort" :dir="dir" @sort="applySort">Tipe</SortableHead>
+                                <SortableHead column="contact_person" :sort="sort" :dir="dir" @sort="applySort">Kontak</SortableHead>
+                                <SortableHead column="phone" :sort="sort" :dir="dir" @sort="applySort">Telepon</SortableHead>
+                                <SortableHead column="products_count" :sort="sort" :dir="dir" @sort="applySort">Produk</SortableHead>
                                 <TableHead class="w-32"></TableHead>
                             </TableRow>
                         </TableHeader>
