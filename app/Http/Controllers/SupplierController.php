@@ -11,9 +11,16 @@ use Inertia\Inertia;
 
 class SupplierController extends Controller
 {
+    /**
+     * Kolom yang boleh dipakai untuk sortir dari klik header tabel.
+     * Wajib whitelist: nilainya masuk ke ORDER BY, jadi input mentah dari
+     * URL tidak boleh dipercaya.
+     */
+    private const SORTABLE = ['name', 'type', 'contact_person', 'phone', 'products_count'];
+
     public function index(Request $request)
     {
-        $query = Supplier::withCount('products')->with('user:id,name,email,supplier_id')->latest();
+        $query = Supplier::withCount('products')->with('user:id,name,email,supplier_id');
 
         if ($request->filled('search')) {
             $query->where('name', 'like', '%' . $request->search . '%');
@@ -23,11 +30,31 @@ class SupplierController extends Controller
             $query->where('type', $request->type);
         }
 
+        $sort = in_array($request->get('sort'), self::SORTABLE, true) ? $request->get('sort') : null;
+        $dir  = $request->get('dir') === 'desc' ? 'desc' : 'asc';
+
+        if ($sort === null) {
+            $query->latest();
+        } else {
+            // Baris kosong ("—") selalu di bawah, baik A-Z maupun Z-A, supaya
+            // Z-A tidak memenuhi halaman pertama dengan baris tanpa isi.
+            if ($sort !== 'products_count') {
+                $query->orderByRaw("($sort IS NULL OR $sort = '') asc");
+            }
+
+            $query->orderBy($sort, $dir);
+        }
+
         $suppliers = $query->paginate(20)->withQueryString();
 
         return Inertia::render('Suppliers/Index', [
             'suppliers' => $suppliers,
-            'filters'   => $request->only('search', 'type'),
+            'filters'   => [
+                'search' => $request->search,
+                'type'   => $request->type,
+                'sort'   => $sort,
+                'dir'    => $sort === null ? null : $dir,
+            ],
         ]);
     }
 
