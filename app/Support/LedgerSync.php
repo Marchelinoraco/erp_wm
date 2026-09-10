@@ -36,8 +36,18 @@ class LedgerSync
             ? CashAccount::find($payment->cash_account_id)
             : self::accountForMethod($payment->method ?? null);
 
+        // Dulu di sini `return;` polos dengan alasan "fondasi keuangan belum
+        // di-seed". Diam-diam itu justru bahayanya: pembayaran tetap tersimpan,
+        // baris buku besarnya tidak pernah ada, dan tidak ada yang tahu. Pada
+        // 4 Sep 2026 tujuh pembayaran Rp 2.470.000 lolos lewat celah ini.
+        // Sekarang gagal terang-terangan supaya transaksi pemanggil ikut batal.
         if (! $category || ! $account) {
-            return; // fondasi keuangan belum di-seed
+            throw new \RuntimeException(sprintf(
+                'Buku besar tidak bisa mencatat pembayaran %s #%s: %s. Pembayaran dibatalkan.',
+                $source,
+                $payment->id,
+                $category ? 'akun kas tidak ditemukan' : "kategori sistem \"{$categoryName}\" tidak ditemukan"
+            ));
         }
 
         FinTransaction::updateOrCreate(
