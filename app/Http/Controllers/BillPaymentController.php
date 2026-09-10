@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Bill;
 use App\Models\BillPayment;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class BillPaymentController extends Controller
 {
@@ -18,12 +19,18 @@ class BillPaymentController extends Controller
             'notes'           => 'nullable|string',
         ]);
 
-        $bill->payments()->create($data);
+        // Pembayaran dan baris buku besarnya harus jadi bersama atau batal
+        // bersama. LedgerSync menulis lewat observer `saved`, jadi tanpa
+        // pembungkus ini kegagalan di sana meninggalkan pembayaran yatim yang
+        // tidak pernah muncul di laporan keuangan — persis kejadian 4 Sep 2026.
+        DB::transaction(function () use ($bill, $data) {
+            $bill->payments()->create($data);
 
-        $paid = $bill->payments()->sum('amount');
-        $bill->update([
-            'status' => $paid >= $bill->amount ? 'paid' : 'partial',
-        ]);
+            $paid = $bill->payments()->sum('amount');
+            $bill->update([
+                'status' => $paid >= $bill->amount ? 'paid' : 'partial',
+            ]);
+        });
 
         return redirect()->back();
     }

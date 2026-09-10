@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Invoice;
 use App\Models\InvoicePayment;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class InvoicePaymentController extends Controller
 {
@@ -20,12 +21,16 @@ class InvoicePaymentController extends Controller
             'notes'           => 'nullable|string',
         ]);
 
-        $invoice->payments()->create($data);
+        // Lihat BillPaymentController::store() — sisi piutang punya syarat yang
+        // sama: pembayaran dan baris buku besarnya jadi bersama atau batal bersama.
+        DB::transaction(function () use ($invoice, $data) {
+            $invoice->payments()->create($data);
 
-        $paid = $invoice->payments()->sum('amount');
-        $invoice->update([
-            'status' => $paid >= $invoice->total ? 'paid' : 'partial',
-        ]);
+            $paid = $invoice->payments()->sum('amount');
+            $invoice->update([
+                'status' => $paid >= $invoice->total ? 'paid' : 'partial',
+            ]);
+        });
 
         return redirect()->back();
     }
