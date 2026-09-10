@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
-import { Head, router } from '@inertiajs/vue3'
+import { Head, Link, router } from '@inertiajs/vue3'
 import { ref, computed } from 'vue'
 import { fmtRp } from '@/lib/fmt'
 
@@ -75,16 +75,21 @@ const monthName = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', '
         </template>
 
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
-            <!-- Laba Akuntansi -->
+            <!-- Laba (Rugi) Basis Kas — bukan laba usaha; lihat subjudul -->
             <div class="bg-white rounded-xl border shadow-sm p-5">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 items-center">
                     <div>
-                        <h2 class="text-sm font-semibold text-gray-800 mb-3">Laba (Rugi) Akuntansi</h2>
+                        <h2 class="text-sm font-semibold text-gray-800">Laba (Rugi) Basis Kas</h2>
+                        <p class="text-xs text-gray-500 mt-1 mb-3 leading-relaxed">
+                            Dihitung dari pembayaran yang tercatat, bukan dari invoice terbit.
+                            Untuk laba usaha, lihat halaman
+                            <Link :href="route('finance.income-statement')" class="text-blue-600 hover:underline">Laba Rugi</Link>.
+                        </p>
                         <div class="space-y-2">
                             <div class="flex justify-between text-sm"><span class="text-gray-500">Total Pendapatan</span><span class="font-mono font-semibold text-green-600">{{ fmtRp(profit.income) }}</span></div>
                             <div class="flex justify-between text-sm"><span class="text-gray-500">Total Beban</span><span class="font-mono font-semibold text-red-600">− {{ fmtRp(profit.expense) }}</span></div>
                             <div class="flex justify-between border-t pt-2 mt-1">
-                                <span class="font-semibold text-gray-800">{{ profit.net >= 0 ? 'Laba Bersih' : 'Rugi Bersih' }}</span>
+                                <span class="font-semibold text-gray-800">{{ profit.net >= 0 ? 'Laba Bersih (Kas)' : 'Rugi Bersih (Kas)' }}</span>
                                 <span class="font-mono font-bold text-lg" :class="profit.net >= 0 ? 'text-green-700' : 'text-red-700'">{{ fmtRp(profit.net) }}</span>
                             </div>
                         </div>

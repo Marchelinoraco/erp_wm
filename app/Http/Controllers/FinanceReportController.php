@@ -60,12 +60,14 @@ class FinanceReportController extends Controller
             ->map(fn ($g) => ['name' => $g->first()->category?->name ?? '-', 'total' => (float) $g->sum('amount')])
             ->sortByDesc('total')->values();
 
-        // Saldo terkini per akun kas
-        $accounts = CashAccount::orderBy('sort_order')->orderBy('id')->get()->map(function ($a) {
-            $in  = (float) $a->transactions()->where('direction', 'in')->sum('amount');
-            $out = (float) $a->transactions()->where('direction', 'out')->sum('amount');
-            return ['name' => $a->name, 'type' => $a->type, 'balance' => (float) $a->opening_balance + $in - $out];
-        });
+        // Saldo terkini per akun kas — lewat saldoTiapAkunKas() yang dipakai
+        // Buku Besar juga, supaya kedua halaman mustahil berselisih.
+        $saldoKas = $this->saldoTiapAkunKas();
+        $accounts = CashAccount::orderBy('sort_order')->orderBy('id')->get()->map(fn ($a) => [
+            'name'    => $a->name,
+            'type'    => $a->type,
+            'balance' => $saldoKas['cash-' . $a->id] ?? 0.0,
+        ]);
 
         return [
             'year'          => $year,
@@ -207,10 +209,25 @@ class FinanceReportController extends Controller
             }
         }
 
-        $accounts = collect($acc)->map(function ($a) {
+        // Akun kas ditampilkan di bawah judul "KAS & BANK (ASET)" dan dibaca
+        // orang sebagai SALDO. Maka saldonya harus dihitung seperti saldo:
+        // saldo awal + seluruh mutasi sepanjang waktu — bukan `debit − kredit`
+        // tahun terpilih, yang itu mutasi periode. Rumusnya sengaja identik
+        // dengan cashFlowData() supaya Arus Kas dan Buku Besar tidak pernah
+        // berselisih untuk akun yang sama.
+        //
+        // Sebelum perbaikan ini, Bank BCA di produksi tampil −Rp 63.674.431 —
+        // yang sebenarnya mutasi 2026, bukan saldo. Kebetulan tidak ketahuan
+        // karena seluruh opening_balance masih 0 dan semua transaksi ada di
+        // tahun yang sama; dua kesalahan yang saling menutupi sampai ada
+        // transaksi tahun berikutnya.
+        $saldoKas = $this->saldoTiapAkunKas();
+
+        $accounts = collect($acc)->map(function ($a, $key) use ($saldoKas) {
             $normalDebit  = in_array($a['group'], ['aset', 'beban']);
             $a['balance'] = $normalDebit ? $a['debit'] - $a['credit'] : $a['credit'] - $a['debit'];
-            return $a;
+
+            return array_replace($a, isset($saldoKas[$key]) ? ['balance' => $saldoKas[$key]] : []);
         })->sortBy([['group', 'asc'], ['name', 'asc']])->values();
 
         $pendapatan = (float) $accounts->where('group', 'pendapatan')->sum('balance');
@@ -602,6 +619,23 @@ class FinanceReportController extends Controller
             'netProfit'         => $netProfit,
             'netMargin'         => $totalRev > 0 ? round($netProfit / $totalRev * 100, 1) : null,
         ];
+    }
+
+    /**
+     * Saldo tiap akun kas, dikunci per 'cash-<id>' agar cocok dengan key yang
+     * dipakai ledgerData(). SATU rumus untuk seluruh laporan — dulu Arus Kas
+     * dan Buku Besar punya rumus sendiri-sendiri dan diam-diam berselisih.
+     *
+     * @return array<string, float>
+     */
+    private function saldoTiapAkunKas(): array
+    {
+        return CashAccount::all()->mapWithKeys(function ($a) {
+            $in  = (float) $a->transactions()->where('direction', 'in')->sum('amount');
+            $out = (float) $a->transactions()->where('direction', 'out')->sum('amount');
+
+            return ['cash-' . $a->id => (float) $a->opening_balance + $in - $out];
+        })->all();
     }
 
     private function balanceBefore(Carbon $date): float

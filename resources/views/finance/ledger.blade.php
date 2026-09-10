@@ -8,12 +8,16 @@
 @endphp
 
 <table class="rpt" style="width:60%;">
-    <thead><tr><th colspan="2">Laba (Rugi) Akuntansi</th></tr></thead>
+    <thead><tr><th colspan="2">Laba (Rugi) Basis Kas</th></tr></thead>
     <tbody>
+        <tr><td colspan="2" style="font-size:10px;color:#666;padding-bottom:4px;">
+            Dihitung dari pembayaran yang tercatat, bukan dari invoice terbit.
+            Untuk laba usaha, lihat laporan Laba Rugi.
+        </td></tr>
         <tr><td>Total Pendapatan</td><td class="r">{{ $rp($profit['income']) }}</td></tr>
         <tr><td>Total Beban</td><td class="r">− {{ $rp($profit['expense']) }}</td></tr>
     </tbody>
-    <tfoot><tr><td>{{ $profit['net'] >= 0 ? 'LABA BERSIH' : 'RUGI BERSIH' }}</td><td class="r">{{ $rp($profit['net']) }}</td></tr></tfoot>
+    <tfoot><tr><td>{{ $profit['net'] >= 0 ? 'LABA BERSIH (KAS)' : 'RUGI BERSIH (KAS)' }}</td><td class="r">{{ $rp($profit['net']) }}</td></tr></tfoot>
 </table>
 
 <table class="rpt">
