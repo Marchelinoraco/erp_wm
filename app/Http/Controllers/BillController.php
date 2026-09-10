@@ -50,7 +50,14 @@ class BillController extends Controller
         // Ikut hapus payments-nya — kalau tidak, BillPayment::sum('amount') di
         // FinanceController tetap menghitung pembayaran bill yang sudah tidak ada,
         // membuat Hutang (AP) jadi salah/minus.
-        $bill->payments()->delete();
+        //
+        // WAJIB per model, BUKAN `$bill->payments()->delete()`. Sejak BillPayment
+        // pakai SoftDeletes (0ce85d2, 18 Jul 2026), penghapusan massal lewat query
+        // builder berubah jadi bulk UPDATE deleted_at yang TIDAK menyalakan event
+        // `deleted` per baris — BillPaymentObserver tidak jalan, LedgerSync::remove()
+        // tidak pernah dipanggil, dan baris fin_transactions tertinggal jadi hantu.
+        // Per 10 Sep 2026 ada 12 hantu senilai Rp 16.272.000 di produksi.
+        $bill->payments->each->delete();
         $bill->delete();
 
         return redirect()->back();
