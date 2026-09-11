@@ -14,6 +14,8 @@ const props = defineProps({
     ar_received:          Number,
     ap_total:             Number,
     ap_paid:              Number,
+    ar_aging:             { type: Array, default: () => [] },
+    ap_aging:             { type: Array, default: () => [] },
     invoices:             Array,
     unpaid_bills:         Array,
     confirmed_tours:      { type: Array, default: () => [] },
@@ -45,8 +47,29 @@ const search       = ref('')
 const statusFilter = ref(null) // salah satu key INV_STATUS, atau null = semua
 const typeFilter   = ref('all') // salah satu key INQUIRY_TYPES, atau 'all'
 
+// Kelompok umur yang sedang dipilih di sidebar. Backend sudah menandai tiap
+// baris dengan aging_key-nya, jadi penyaringan di sini tidak menghitung ulang
+// umur — satu aturan, tidak bisa menyimpang dari ringkasan di sebelahnya.
+const agingAr = ref(null)
+const agingAp = ref(null)
+
+// Warna menanjak sesuai keparahan — makin tua umurnya makin mendesak ditagih.
+// Bentuk ikut memberi tahu, bukan cuma angkanya.
+const AGING_DOT = {
+    '0-30':  'bg-emerald-400',
+    '31-60': 'bg-amber-400',
+    '61-90': 'bg-orange-500',
+    '90+':   'bg-red-500',
+}
+
 function toggleStatus(status) {
     statusFilter.value = statusFilter.value === status ? null : status
+}
+function toggleAgingAr(key) {
+    agingAr.value = agingAr.value === key ? null : key
+}
+function toggleAgingAp(key) {
+    agingAp.value = agingAp.value === key ? null : key
 }
 
 const filteredInvoices = computed(() => {
@@ -58,14 +81,20 @@ const filteredInvoices = computed(() => {
             || (inv.tour?.customer?.name ?? '').toLowerCase().includes(q)
         const matchesStatus = !statusFilter.value || inv.status === statusFilter.value
         const matchesType   = typeFilter.value === 'all' || inv.tour?.type === typeFilter.value
-        return matchesSearch && matchesStatus && matchesType
+        const matchesAging  = !agingAr.value || inv.aging_key === agingAr.value
+        return matchesSearch && matchesStatus && matchesType && matchesAging
     })
 })
+
+const filteredBills = computed(() =>
+    !agingAp.value ? props.unpaid_bills : props.unpaid_bills.filter(b => b.aging_key === agingAp.value)
+)
 
 function clearFilters() {
     search.value = ''
     statusFilter.value = null
     typeFilter.value = 'all'
+    agingAr.value = null
 }
 </script>
 
@@ -77,31 +106,97 @@ function clearFilters() {
             <h1 class="text-base font-semibold text-gray-800">Keuangan</h1>
         </template>
 
-        <div class="max-w-5xl mx-auto px-4 py-6 space-y-6">
+        <div class="max-w-7xl mx-auto px-4 py-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
-            <!-- Stats -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <!-- Sidebar ringkasan. Di DOM ditaruh lebih dulu supaya di layar sempit
+             angka pentingnya terbaca tanpa menggulir melewati tabel panjang;
+             di layar lebar `lg:order-2` memindahkannya ke kanan. -->
+        <aside class="lg:order-2 space-y-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
+
+            <div class="grid grid-cols-2 lg:grid-cols-1 gap-4">
                 <div class="bg-white rounded-xl border shadow-sm p-4">
                     <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Total Invoice</p>
-                    <p class="text-xl font-bold text-gray-900 mt-1">{{ fmtRp(ar_total) }}</p>
+                    <p class="text-lg font-bold text-gray-900 mt-1 font-mono">{{ fmtRp(ar_total) }}</p>
                 </div>
                 <div class="bg-white rounded-xl border shadow-sm p-4">
                     <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Piutang (AR)</p>
-                    <p class="text-xl font-bold mt-1" :class="arOutstanding > 0 ? 'text-orange-600' : 'text-gray-900'">
+                    <p class="text-lg font-bold mt-1 font-mono" :class="arOutstanding > 0 ? 'text-orange-600' : 'text-gray-900'">
                         {{ fmtRp(arOutstanding) }}
                     </p>
                 </div>
                 <div class="bg-white rounded-xl border shadow-sm p-4">
                     <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Total Bill</p>
-                    <p class="text-xl font-bold text-gray-900 mt-1">{{ fmtRp(ap_total) }}</p>
+                    <p class="text-lg font-bold text-gray-900 mt-1 font-mono">{{ fmtRp(ap_total) }}</p>
                 </div>
                 <div class="bg-white rounded-xl border shadow-sm p-4">
                     <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Hutang (AP)</p>
-                    <p class="text-xl font-bold mt-1" :class="apOutstanding > 0 ? 'text-red-600' : 'text-gray-900'">
+                    <p class="text-lg font-bold mt-1 font-mono" :class="apOutstanding > 0 ? 'text-red-600' : 'text-gray-900'">
                         {{ fmtRp(apOutstanding) }}
                     </p>
                 </div>
             </div>
+
+            <!-- Umur Piutang — klik menyaring tabel invoice di kolom utama -->
+            <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+                <div class="px-4 py-3 border-b flex items-center justify-between">
+                    <h2 class="text-xs font-semibold text-gray-700 uppercase tracking-wide">Umur Piutang</h2>
+                    <button v-if="agingAr" @click="agingAr = null" class="text-[11px] text-blue-600 hover:underline">Hapus</button>
+                </div>
+                <div class="divide-y divide-gray-100">
+                    <button
+                        v-for="b in ar_aging" :key="b.key"
+                        type="button"
+                        :disabled="!b.count"
+                        @click="toggleAgingAr(b.key)"
+                        class="w-full px-4 py-2.5 flex items-center justify-between gap-2 text-left transition-colors disabled:cursor-default"
+                        :class="agingAr === b.key ? 'bg-orange-50' : (b.count ? 'hover:bg-gray-50' : 'opacity-40')"
+                    >
+                        <span class="flex items-center gap-2 min-w-0">
+                            <span class="h-1.5 w-1.5 rounded-full shrink-0" :class="AGING_DOT[b.key]"></span>
+                            <span class="text-xs text-gray-700 truncate">{{ b.label }}</span>
+                            <span class="text-[11px] text-gray-400 shrink-0">{{ b.count }}</span>
+                        </span>
+                        <span class="text-xs font-mono font-semibold shrink-0" :class="b.total > 0 ? 'text-orange-600' : 'text-gray-300'">
+                            {{ fmtRp(b.total) }}
+                        </span>
+                    </button>
+                </div>
+                <p class="px-4 py-2 text-[11px] text-gray-400 bg-gray-50/60 border-t">Klik untuk menyaring daftar invoice.</p>
+            </div>
+
+            <!-- Umur Hutang — klik menyaring daftar bill -->
+            <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+                <div class="px-4 py-3 border-b flex items-center justify-between">
+                    <h2 class="text-xs font-semibold text-gray-700 uppercase tracking-wide">Umur Hutang</h2>
+                    <button v-if="agingAp" @click="agingAp = null" class="text-[11px] text-blue-600 hover:underline">Hapus</button>
+                </div>
+                <div class="divide-y divide-gray-100">
+                    <button
+                        v-for="b in ap_aging" :key="b.key"
+                        type="button"
+                        :disabled="!b.count"
+                        @click="toggleAgingAp(b.key)"
+                        class="w-full px-4 py-2.5 flex items-center justify-between gap-2 text-left transition-colors disabled:cursor-default"
+                        :class="agingAp === b.key ? 'bg-red-50' : (b.count ? 'hover:bg-gray-50' : 'opacity-40')"
+                    >
+                        <span class="flex items-center gap-2 min-w-0">
+                            <span class="h-1.5 w-1.5 rounded-full shrink-0" :class="AGING_DOT[b.key]"></span>
+                            <span class="text-xs text-gray-700 truncate">{{ b.label }}</span>
+                            <span class="text-[11px] text-gray-400 shrink-0">{{ b.count }}</span>
+                        </span>
+                        <span class="text-xs font-mono font-semibold shrink-0" :class="b.total > 0 ? 'text-red-600' : 'text-gray-300'">
+                            {{ fmtRp(b.total) }}
+                        </span>
+                    </button>
+                </div>
+                <p class="px-4 py-2 text-[11px] text-gray-400 bg-gray-50/60 border-t">Klik untuk menyaring daftar bill.</p>
+            </div>
+
+        </aside>
+
+        <!-- Kolom utama -->
+        <div class="lg:order-1 lg:col-span-2 space-y-6">
 
             <!-- Tour Confirmed — pintu masuk pencatatan keuangan -->
             <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
@@ -303,10 +398,17 @@ function clearFilters() {
             <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
                 <div class="px-5 py-4 border-b flex items-center justify-between">
                     <h2 class="text-sm font-semibold text-gray-800">Bill Belum Dibayar</h2>
-                    <span class="text-xs text-gray-400">{{ unpaid_bills.length }} bill</span>
+                    <span class="text-xs text-gray-400">
+                        <template v-if="agingAp">{{ filteredBills.length }} dari {{ unpaid_bills.length }} bill</template>
+                        <template v-else>{{ unpaid_bills.length }} bill</template>
+                    </span>
                 </div>
-                <div v-if="!unpaid_bills.length" class="px-5 py-8 text-center text-sm text-gray-400">
-                    Tidak ada bill outstanding.
+                <div v-if="!filteredBills.length" class="px-5 py-8 text-center text-sm text-gray-400">
+                    <template v-if="agingAp">
+                        Tidak ada bill pada kelompok umur ini.
+                        <button @click="agingAp = null" class="ml-1 text-blue-600 hover:underline">Tampilkan semua</button>
+                    </template>
+                    <template v-else>Tidak ada bill outstanding.</template>
                 </div>
                 <div v-else class="overflow-x-auto">
                     <table class="w-full text-sm">
@@ -323,7 +425,7 @@ function clearFilters() {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
-                            <tr v-for="bill in unpaid_bills" :key="bill.id" class="hover:bg-gray-50">
+                            <tr v-for="bill in filteredBills" :key="bill.id" class="hover:bg-gray-50">
                                 <td class="px-4 py-3 text-gray-800 max-w-xs truncate">{{ bill.description }}</td>
                                 <td class="px-4 py-3 font-mono text-xs text-gray-600">{{ bill.tour?.code ?? '—' }}</td>
                                 <td class="px-4 py-3 text-gray-500 text-xs">{{ bill.supplier?.name ?? '—' }}</td>
@@ -351,6 +453,8 @@ function clearFilters() {
                 </div>
             </div>
 
-        </div>
+        </div><!-- /kolom utama -->
+        </div><!-- /grid -->
+        </div><!-- /pembungkus halaman -->
     </AuthenticatedLayout>
 </template>
