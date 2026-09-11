@@ -60,15 +60,80 @@ class FinanceController extends Controller
                 'bills_count'    => $t->bills_count,
             ]);
 
+        // Umur piutang & hutang. Setiap baris ditandai kelompok umurnya di sini
+        // juga — supaya ringkasan di sidebar dan penyaringan tabel memakai SATU
+        // aturan, bukan aturan backend yang ditiru ulang di Vue lalu diam-diam
+        // menyimpang.
+        $invoices->each(function ($inv) {
+            $sisa = (float) $inv->total_idr - (float) $inv->payments->sum('amount_idr');
+            $inv->setAttribute('outstanding_idr', $sisa);
+            // Draft belum jadi piutang (lihat Invoice::approved() yang dipakai
+            // kartu AR & Neraca), dan yang lunas tidak punya umur.
+            $inv->setAttribute('aging_key', $inv->approved_at && $sisa > 0.009 ? $this->agingKey($inv->date) : null);
+        });
+
+        // $unpaidBills sudah tersaring ke status belum lunas / sebagian, jadi
+        // yang lunas tidak pernah sampai ke sini.
+        $unpaidBills->each(function ($bill) {
+            $sisa = (float) $bill->amount - (float) $bill->payments->sum('amount');
+            $bill->setAttribute('outstanding', $sisa);
+            $bill->setAttribute('aging_key', $sisa > 0.009 ? $this->agingKey($bill->date) : null);
+        });
+
         return Inertia::render('Finance/Index', [
             'ar_total'             => (float) $arTotal,
             'ar_received'          => (float) $arReceived,
             'ap_total'             => (float) $apTotal,
             'ap_paid'              => (float) $apPaid,
+            'ar_aging'             => $this->ringkasUmur($invoices, 'outstanding_idr'),
+            'ap_aging'             => $this->ringkasUmur($unpaidBills, 'outstanding'),
             'invoices'             => $invoices,
             'unpaid_bills'         => $unpaidBills,
             'confirmed_tours'      => $confirmedTours,
         ]);
+    }
+
+    /** Kelompok umur, dihitung dari TANGGAL DOKUMEN — bukan jatuh tempo. */
+    private const AGING_BUCKETS = [
+        ['key' => '0-30',  'label' => '0–30 hari',  'max' => 30],
+        ['key' => '31-60', 'label' => '31–60 hari', 'max' => 60],
+        ['key' => '61-90', 'label' => '61–90 hari', 'max' => 90],
+        ['key' => '90+',   'label' => '> 90 hari',  'max' => null],
+    ];
+
+    private function agingKey($date): string
+    {
+        $hariIni = now()->startOfDay();
+        $tanggal = $date->copy()->startOfDay();
+        // Dokumen bertanggal masa depan umurnya nol, bukan negatif.
+        $umur = $tanggal->lessThan($hariIni) ? (int) $tanggal->diffInDays($hariIni) : 0;
+
+        foreach (self::AGING_BUCKETS as $b) {
+            if ($b['max'] === null || $umur <= $b['max']) {
+                return $b['key'];
+            }
+        }
+
+        return '90+';
+    }
+
+    /** Keempat kelompok selalu muncul, termasuk yang kosong — supaya tata letak sidebar tidak melompat-lompat. */
+    private function ringkasUmur($items, string $field): array
+    {
+        $ringkas = [];
+        foreach (self::AGING_BUCKETS as $b) {
+            $ringkas[$b['key']] = ['key' => $b['key'], 'label' => $b['label'], 'count' => 0, 'total' => 0.0];
+        }
+
+        foreach ($items as $item) {
+            if (! $item->aging_key) {
+                continue;
+            }
+            $ringkas[$item->aging_key]['count']++;
+            $ringkas[$item->aging_key]['total'] += (float) $item->{$field};
+        }
+
+        return array_values($ringkas);
     }
 
     public function tour(Tour $tour)
